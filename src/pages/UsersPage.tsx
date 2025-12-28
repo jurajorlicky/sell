@@ -784,111 +784,111 @@ export default function UsersPage() {
                   <>
                     {/* User Info Tab */}
                     {activeTab === 'info' && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 text-gray-700">
-                        <div className="space-y-4">
-                          <div className="flex items-center">
-                            <FaUser className="text-gray-600 mr-2 sm:mr-3 flex-shrink-0" />
-                            <div>
-                              <p className="text-xs text-gray-600 uppercase tracking-wider">Meno</p>
-                              <p className="text-sm sm:text-base font-semibold">{selectedUser.first_name || 'N/A'}</p>
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 lg:gap-6 text-gray-700">
+                        <div className="space-y-3 sm:space-y-4">
+                          <div className="flex items-start sm:items-center">
+                            <FaUser className="text-gray-600 mr-2 sm:mr-3 flex-shrink-0 mt-0.5 sm:mt-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-gray-600 uppercase tracking-wider mb-0.5">Meno</p>
+                              <p className="text-sm sm:text-base font-semibold break-words">{selectedUser.first_name || 'N/A'}</p>
                             </div>
                           </div>
-                          <div className="flex items-center">
-                            <FaUser className="text-gray-600 mr-2 sm:mr-3 flex-shrink-0" />
-                            <div>
-                              <p className="text-xs text-gray-600 uppercase tracking-wider">Priezvisko</p>
-                              <p className="text-sm sm:text-base font-semibold">{selectedUser.last_name || 'N/A'}</p>
+                          <div className="flex items-start sm:items-center">
+                            <FaUser className="text-gray-600 mr-2 sm:mr-3 flex-shrink-0 mt-0.5 sm:mt-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-gray-600 uppercase tracking-wider mb-0.5">Priezvisko</p>
+                              <p className="text-sm sm:text-base font-semibold break-words">{selectedUser.last_name || 'N/A'}</p>
                             </div>
                           </div>
-                          <div className="flex items-center">
-                            <FaEnvelope className="text-gray-600 mr-2 sm:mr-3 flex-shrink-0" />
-                            <div>
-                              <p className="text-xs text-gray-600 uppercase tracking-wider">Email</p>
+                          <div className="flex items-start sm:items-center">
+                            <FaEnvelope className="text-gray-600 mr-2 sm:mr-3 flex-shrink-0 mt-0.5 sm:mt-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-gray-600 uppercase tracking-wider mb-0.5">Email</p>
                               <p className="text-sm sm:text-base font-semibold break-all">{selectedUser.email}</p>
                             </div>
                           </div>
-                          <div className="flex items-center">
-                            <FaPhone className="text-gray-600 mr-2 sm:mr-3 flex-shrink-0" />
-                            <div>
-                              <p className="text-xs text-gray-600 uppercase tracking-wider">Telefón</p>
-                              <p className="text-sm sm:text-base font-semibold">{selectedUser.telephone || 'N/A'}</p>
+                          <div className="flex items-start sm:items-center">
+                            <FaPhone className="text-gray-600 mr-2 sm:mr-3 flex-shrink-0 mt-0.5 sm:mt-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-gray-600 uppercase tracking-wider mb-0.5">Telefón</p>
+                              <p className="text-sm sm:text-base font-semibold break-words">{selectedUser.telephone || 'N/A'}</p>
                             </div>
                           </div>
-                          <div className="flex items-center">
-                            <FaBuilding className="text-gray-600 mr-2 sm:mr-3 flex-shrink-0" />
-                            <div>
-                              <p className="text-xs text-gray-600 uppercase tracking-wider">Typ profilu</p>
-                              <p className="text-sm sm:text-base font-semibold">{selectedUser.profile_type || 'N/A'}</p>
+                          <div className="flex items-start sm:items-center">
+                            <FaBuilding className="text-gray-600 mr-2 sm:mr-3 flex-shrink-0 mt-0.5 sm:mt-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-gray-600 uppercase tracking-wider mb-0.5">Typ profilu</p>
+                              <p className="text-sm sm:text-base font-semibold break-words">{selectedUser.profile_type || 'N/A'}</p>
                             </div>
                           </div>
                           {selectedUser.profile_type === 'Obchodný' && (
                             <>
-                              <div className="flex items-center">
-                                <FaBuilding className="text-gray-600 mr-2 sm:mr-3 flex-shrink-0" />
-                                <div>
-                                  <p className="text-xs text-gray-600 uppercase tracking-wider">Spoločnosť</p>
-                                  <p className="text-sm sm:text-base font-semibold">{selectedUser.company_name || 'N/A'}</p>
+                              <div className="flex items-start sm:items-center">
+                                <FaBuilding className="text-gray-600 mr-2 sm:mr-3 flex-shrink-0 mt-0.5 sm:mt-0" />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs text-gray-600 uppercase tracking-wider mb-0.5">Spoločnosť</p>
+                                  <p className="text-sm sm:text-base font-semibold break-words">{selectedUser.company_name || 'N/A'}</p>
                                 </div>
                               </div>
-                              <div className="flex items-center">
-                                <FaBuilding className="text-gray-600 mr-2 sm:mr-3 flex-shrink-0" />
-                                <div>
-                                  <p className="text-xs text-gray-600 uppercase tracking-wider">IČO</p>
-                                  <p className="text-sm sm:text-base font-semibold">{selectedUser.ico || 'N/A'}</p>
+                              <div className="flex items-start sm:items-center">
+                                <FaBuilding className="text-gray-600 mr-2 sm:mr-3 flex-shrink-0 mt-0.5 sm:mt-0" />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs text-gray-600 uppercase tracking-wider mb-0.5">IČO</p>
+                                  <p className="text-sm sm:text-base font-semibold break-words">{selectedUser.ico || 'N/A'}</p>
                                 </div>
                               </div>
                             </>
                           )}
                         </div>
-                        <div className="space-y-4">
-                          <div className="flex items-center">
-                            <FaMapMarkerAlt className="text-gray-600 mr-2 sm:mr-3 flex-shrink-0" />
-                            <div>
-                              <p className="text-xs text-gray-600 uppercase tracking-wider">Adresa</p>
-                              <p className="text-sm sm:text-base font-semibold">
+                        <div className="space-y-3 sm:space-y-4">
+                          <div className="flex items-start sm:items-center">
+                            <FaMapMarkerAlt className="text-gray-600 mr-2 sm:mr-3 flex-shrink-0 mt-0.5 sm:mt-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-gray-600 uppercase tracking-wider mb-0.5">Adresa</p>
+                              <p className="text-sm sm:text-base font-semibold break-words">
                                 {selectedUser.address || selectedUser.popisne_cislo ? 
                                   `${selectedUser.address || ''} ${selectedUser.popisne_cislo || ''}`.trim() : 'N/A'}
                               </p>
                             </div>
                           </div>
-                          <div className="flex items-center">
-                            <FaMapMarkerAlt className="text-gray-600 mr-2 sm:mr-3 flex-shrink-0" />
-                            <div>
-                              <p className="text-xs text-gray-600 uppercase tracking-wider">Mesto</p>
-                              <p className="text-sm sm:text-base font-semibold">{selectedUser.mesto || 'N/A'}</p>
+                          <div className="flex items-start sm:items-center">
+                            <FaMapMarkerAlt className="text-gray-600 mr-2 sm:mr-3 flex-shrink-0 mt-0.5 sm:mt-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-gray-600 uppercase tracking-wider mb-0.5">Mesto</p>
+                              <p className="text-sm sm:text-base font-semibold break-words">{selectedUser.mesto || 'N/A'}</p>
                             </div>
                           </div>
-                          <div className="flex items-center">
-                            <FaMapMarkerAlt className="text-gray-600 mr-2 sm:mr-3 flex-shrink-0" />
-                            <div>
-                              <p className="text-xs text-gray-600 uppercase tracking-wider">PSČ</p>
-                              <p className="text-sm sm:text-base font-semibold">{selectedUser.psc || 'N/A'}</p>
+                          <div className="flex items-start sm:items-center">
+                            <FaMapMarkerAlt className="text-gray-600 mr-2 sm:mr-3 flex-shrink-0 mt-0.5 sm:mt-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-gray-600 uppercase tracking-wider mb-0.5">PSČ</p>
+                              <p className="text-sm sm:text-base font-semibold break-words">{selectedUser.psc || 'N/A'}</p>
                             </div>
                           </div>
-                          <div className="flex items-center">
-                            <FaMapMarkerAlt className="text-gray-600 mr-2 sm:mr-3 flex-shrink-0" />
-                            <div>
-                              <p className="text-xs text-gray-600 uppercase tracking-wider">Krajina</p>
-                              <p className="text-sm sm:text-base font-semibold">{selectedUser.krajina || 'N/A'}</p>
+                          <div className="flex items-start sm:items-center">
+                            <FaMapMarkerAlt className="text-gray-600 mr-2 sm:mr-3 flex-shrink-0 mt-0.5 sm:mt-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-gray-600 uppercase tracking-wider mb-0.5">Krajina</p>
+                              <p className="text-sm sm:text-base font-semibold break-words">{selectedUser.krajina || 'N/A'}</p>
                             </div>
                           </div>
-                          <div className="flex items-center">
-                            <FaCreditCard className="text-gray-600 mr-2 sm:mr-3 flex-shrink-0" />
-                            <div>
-                              <p className="text-xs text-gray-600 uppercase tracking-wider">IBAN</p>
+                          <div className="flex items-start sm:items-center">
+                            <FaCreditCard className="text-gray-600 mr-2 sm:mr-3 flex-shrink-0 mt-0.5 sm:mt-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-gray-600 uppercase tracking-wider mb-0.5">IBAN</p>
                               <p className="text-sm font-semibold font-mono break-all">{selectedUser.iban || 'N/A'}</p>
                             </div>
                           </div>
-                          <div className="flex items-start">
-                            <FaSignature className="text-gray-600 mr-2 sm:mr-3 flex-shrink-0 mt-1" />
-                            <div className="flex-1">
-                              <p className="text-xs text-gray-600 uppercase tracking-wider mb-2">Podpis</p>
+                          <div className="flex items-start sm:items-center">
+                            <FaSignature className="text-gray-600 mr-2 sm:mr-3 flex-shrink-0 mt-0.5 sm:mt-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-gray-600 uppercase tracking-wider mb-1.5 sm:mb-2">Podpis</p>
                               {selectedUser.signature_url ? (
-                                <div className="border border-gray-300 rounded-xl p-3 bg-white">
+                                <div className="border border-gray-300 rounded-xl p-2 sm:p-3 bg-white">
                                   <img 
                                     src={selectedUser.signature_url} 
                                     alt="Podpis" 
-                                    className="max-w-full h-24 object-contain"
+                                    className="max-w-full h-20 sm:h-24 object-contain"
                                   />
                                 </div>
                               ) : (
@@ -903,20 +903,20 @@ export default function UsersPage() {
                     {/* Sales Tab */}
                     {activeTab === 'sales' && (
                       <div>
-                        <h4 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Predaje ({userSales.length})</h4>
+                        <h4 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Predaje ({userSales.length})</h4>
                         {userSales.length > 0 ? (
-                          <div className="space-y-4">
+                          <div className="space-y-3 sm:space-y-4">
                             {userSales.map((sale) => (
                               <div 
                                 key={sale.id} 
                                 onClick={() => setSelectedSaleForStatus(sale)}
-                                className="bg-white rounded-xl p-4 border border-gray-200 hover:bg-gray-50 transition-colors shadow-sm cursor-pointer"
+                                className="bg-white rounded-xl p-3 sm:p-4 border border-gray-200 hover:bg-gray-50 transition-colors shadow-sm cursor-pointer"
                               >
                                 <div className="flex items-center justify-between">
-                                  <div className="flex items-center space-x-3 sm:space-x-4">
-                                    <div className="h-12 w-12 sm:h-16 sm:w-16 flex-shrink-0 overflow-hidden rounded-xl border border-gray-300 bg-white">
+                                  <div className="flex items-center space-x-2 sm:space-x-3 lg:space-x-4 flex-1 min-w-0">
+                                    <div className="h-12 w-12 sm:h-14 sm:w-14 lg:h-16 lg:w-16 flex-shrink-0 overflow-hidden rounded-xl border border-gray-300 bg-white">
                                       <img
-                                        className="h-full w-full object-contain p-2"
+                                        className="h-full w-full object-contain p-1.5 sm:p-2"
                                         src={sale.image_url || '/default-image.png'}
                                         alt={sale.name}
                                         onError={(e) => {
@@ -925,23 +925,23 @@ export default function UsersPage() {
                                         }}
                                       />
                                     </div>
-                                    <div>
-                                      <h5 className="text-sm sm:text-base font-semibold text-gray-900">{sale.name}</h5>
-                                      <p className="text-xs sm:text-sm text-gray-600">Veľkosť: {sale.size}</p>
-                                      <p className="text-xs sm:text-sm text-gray-600">SKU: {sale.sku || 'N/A'}</p>
-                                      <p className="text-xs sm:text-sm text-gray-600">Externé ID: {sale.external_id || 'N/A'}</p>
+                                    <div className="flex-1 min-w-0">
+                                      <h5 className="text-xs sm:text-sm lg:text-base font-semibold text-gray-900 truncate">{sale.name}</h5>
+                                      <p className="text-xs text-gray-600">Veľkosť: {sale.size}</p>
+                                      <p className="text-xs text-gray-600">SKU: {sale.sku || 'N/A'}</p>
+                                      <p className="text-xs text-gray-600 truncate">ID: {sale.external_id || 'N/A'}</p>
                                     </div>
                                   </div>
-                                  <div className="text-right">
-                                    <div className="flex items-center space-x-1 mb-2">
+                                  <div className="text-right flex-shrink-0 ml-2">
+                                    <div className="flex items-center justify-end space-x-1 mb-1.5 sm:mb-2">
                                       <SalesStatusBadge status={sale.status} />
                                       {sale.is_manual && (
-                                        <span className="inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold bg-blue-500 text-white" title="Manuálna sale">
+                                        <span className="inline-flex items-center justify-center w-4 h-4 sm:w-5 sm:h-5 rounded-full text-[10px] sm:text-xs font-bold bg-blue-500 text-white" title="Manuálna sale">
                                           M
                                         </span>
                                       )}
                                     </div>
-                                    <p className="text-base sm:text-lg font-bold text-gray-900">{formatCurrency(sale.price)}</p>
+                                    <p className="text-sm sm:text-base lg:text-lg font-bold text-gray-900">{formatCurrency(sale.price)}</p>
                                     <p className="text-xs sm:text-sm text-green-600">Payout: {formatCurrency(sale.payout)}</p>
                                     <p className="text-xs text-gray-600">{formatDate(sale.created_at)}</p>
                                   </div>
@@ -961,16 +961,16 @@ export default function UsersPage() {
                     {/* Products Tab */}
                     {activeTab === 'products' && (
                       <div>
-                        <h4 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Produkty ({userProducts.length})</h4>
+                        <h4 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Produkty ({userProducts.length})</h4>
                         {userProducts.length > 0 ? (
-                          <div className="space-y-4">
+                          <div className="space-y-3 sm:space-y-4">
                             {userProducts.map((product) => (
-                              <div key={product.id} className="bg-white rounded-xl p-4 border border-gray-200 hover:bg-gray-50 transition-colors shadow-sm">
+                              <div key={product.id} className="bg-white rounded-xl p-3 sm:p-4 border border-gray-200 hover:bg-gray-50 transition-colors shadow-sm">
                                 <div className="flex items-center justify-between">
-                                  <div className="flex items-center space-x-3 sm:space-x-4">
-                                    <div className="h-12 w-12 sm:h-16 sm:w-16 flex-shrink-0 overflow-hidden rounded-xl border border-gray-300 bg-white">
+                                  <div className="flex items-center space-x-2 sm:space-x-3 lg:space-x-4 flex-1 min-w-0">
+                                    <div className="h-12 w-12 sm:h-14 sm:w-14 lg:h-16 lg:w-16 flex-shrink-0 overflow-hidden rounded-xl border border-gray-300 bg-white">
                                       <img
-                                        className="h-full w-full object-contain p-2"
+                                        className="h-full w-full object-contain p-1.5 sm:p-2"
                                         src={product.image_url || '/default-image.png'}
                                         alt={product.name}
                                         onError={(e) => {
@@ -979,14 +979,14 @@ export default function UsersPage() {
                                         }}
                                       />
                                     </div>
-                                    <div>
-                                      <h5 className="text-sm sm:text-base font-semibold text-gray-900">{product.name}</h5>
-                                      <p className="text-xs sm:text-sm text-gray-600">Veľkosť: {product.size}</p>
-                                      <p className="text-xs sm:text-sm text-gray-600">SKU: {product.sku || 'N/A'}</p>
+                                    <div className="flex-1 min-w-0">
+                                      <h5 className="text-xs sm:text-sm lg:text-base font-semibold text-gray-900 truncate">{product.name}</h5>
+                                      <p className="text-xs text-gray-600">Veľkosť: {product.size}</p>
+                                      <p className="text-xs text-gray-600">SKU: {product.sku || 'N/A'}</p>
                                     </div>
                                   </div>
-                                  <div className="text-right">
-                                    <p className="text-base sm:text-lg font-bold text-gray-900">{formatCurrency(product.price)}</p>
+                                  <div className="text-right flex-shrink-0 ml-2">
+                                    <p className="text-sm sm:text-base lg:text-lg font-bold text-gray-900">{formatCurrency(product.price)}</p>
                                     <p className="text-xs sm:text-sm text-green-600">Payout: {formatCurrency(product.payout)}</p>
                                     <p className="text-xs text-gray-600">{formatDate(product.created_at)}</p>
                                   </div>

@@ -308,10 +308,10 @@ export default function SettingsPage() {
               </label>
               {buyerSignatureUrl ? (
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
-                    <div className="flex items-center space-x-3">
-                      <img src={buyerSignatureUrl} alt="Buyer Signature" className="h-16 w-auto object-contain" />
-                      <div>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 bg-gray-50 rounded-lg border border-gray-200 gap-3">
+                    <div className="flex items-center space-x-3 flex-1 min-w-0">
+                      <img src={buyerSignatureUrl} alt="Buyer Signature" className="h-14 sm:h-16 w-auto object-contain flex-shrink-0" />
+                      <div className="min-w-0">
                         <p className="text-sm font-medium text-gray-900">Podpis je nahraný</p>
                         <p className="text-xs text-gray-500">Tento podpis sa použije vo všetkých PDF zmluvách</p>
                       </div>
@@ -320,7 +320,7 @@ export default function SettingsPage() {
                       onClick={() => {
                         setBuyerSignatureUrl(null);
                       }}
-                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      className="p-2 sm:p-2.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
                     >
                       <FaTrash className="text-sm" />
                     </button>
@@ -328,10 +328,10 @@ export default function SettingsPage() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-gray-300 border-dashed rounded-xl cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
-                    <div className="flex flex-col items-center justify-center pt-3 pb-4">
-                      <FaUpload className="text-gray-400 text-xl mb-2" />
-                      <p className="text-xs text-gray-600 font-medium">Kliknite pre nahranie obrázka podpisu</p>
+                  <label className="flex flex-col items-center justify-center w-full h-20 sm:h-24 border-2 border-gray-300 border-dashed rounded-xl cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
+                    <div className="flex flex-col items-center justify-center pt-2 sm:pt-3 pb-3 sm:pb-4">
+                      <FaUpload className="text-gray-400 text-lg sm:text-xl mb-1.5 sm:mb-2" />
+                      <p className="text-xs text-gray-600 font-medium text-center px-2">Kliknite pre nahranie obrázka podpisu</p>
                       <p className="text-xs text-gray-500 mt-1">PNG, JPG (max 2MB)</p>
                     </div>
                     <input
