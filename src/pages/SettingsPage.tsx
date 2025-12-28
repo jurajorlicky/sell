@@ -245,8 +245,8 @@ export default function SettingsPage() {
             <p className="text-gray-600 text-xs sm:text-sm mt-1">Konfigurácia poplatkov a systémových parametrov</p>
           </div>
 
-          <div className="p-4 sm:p-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+          <div className="p-3 sm:p-4 lg:p-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 lg:gap-6">
               <div>
                 <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-3">
                   <FaPercent className="inline mr-2" />
@@ -256,7 +256,7 @@ export default function SettingsPage() {
                   type="number"
                   value={feePercent}
                   onChange={(e) => setFeePercent(e.target.value)}
-                  className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-gray-100 border border-gray-300 rounded-xl text-gray-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-gray-500/50 focus:border-transparent transition-all duration-200 text-sm sm:text-base"
+                  className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-100 border border-gray-300 rounded-xl text-gray-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-gray-500/50 focus:border-transparent transition-all duration-200 text-base"
                   step="0.1"
                   min="0"
                   max="100"
@@ -274,7 +274,7 @@ export default function SettingsPage() {
                   type="number"
                   value={feeFixed}
                   onChange={(e) => setFeeFixed(e.target.value)}
-                  className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-gray-100 border border-gray-300 rounded-xl text-gray-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-gray-500/50 focus:border-transparent transition-all duration-200 text-sm sm:text-base"
+                  className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-100 border border-gray-300 rounded-xl text-gray-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-gray-500/50 focus:border-transparent transition-all duration-200 text-base"
                   step="0.01"
                   min="0"
                   placeholder="5.00"
@@ -290,7 +290,7 @@ export default function SettingsPage() {
                 <select
                   value={offerExpirationDays}
                   onChange={(e) => setOfferExpirationDays(parseInt(e.target.value))}
-                  className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-gray-100 border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-500/50 focus:border-transparent transition-all duration-200 text-sm sm:text-base"
+                  className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-100 border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-500/50 focus:border-transparent transition-all duration-200 text-base"
                 >
                   <option value={7}>7 dní</option>
                   <option value={14}>14 dní</option>
@@ -301,7 +301,7 @@ export default function SettingsPage() {
             </div>
 
             {/* Buyer Signature Upload */}
-            <div className="mt-6 pt-6 border-t border-gray-200">
+            <div className="mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-gray-200">
               <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-3">
                 <FaSignature className="inline mr-2" />
                 Podpis kupujúceho (Buyer Signature)

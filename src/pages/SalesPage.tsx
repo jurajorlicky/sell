@@ -519,16 +519,16 @@ export default function SalesPage() {
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
                 {filteredSales.map((sale) => (
                   <div
                     key={sale.id}
-                    className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 hover:shadow-lg transition-all duration-200 cursor-pointer"
+                    className="bg-white border border-gray-200 rounded-xl p-3 sm:p-4 lg:p-5 hover:shadow-lg transition-all duration-200 cursor-pointer"
                     onClick={() => setSelectedSaleForStatus(sale)}
                   >
                     {/* Product Image & Basic Info */}
-                    <div className="flex items-start space-x-4 mb-4">
-                      <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-white">
+                    <div className="flex items-start space-x-3 sm:space-x-4 mb-3 sm:mb-4">
+                      <div className="h-16 w-16 sm:h-20 sm:w-20 flex-shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-white">
                           <img
                             className="h-full w-full object-contain p-2"
                             src={sale.image_url || '/default-image.png'}
@@ -562,7 +562,7 @@ export default function SalesPage() {
                     </div>
 
                     {/* Financial Info */}
-                    <div className="grid grid-cols-2 gap-3 mb-4 pb-4 border-b border-gray-200">
+                    <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-3 sm:mb-4 pb-3 sm:pb-4 border-b border-gray-200">
                       <div>
                         <p className="text-xs text-gray-600 mb-1">Cena</p>
                         <p className="text-sm font-semibold text-gray-900">{sale.price.toFixed(2)} €</p>
@@ -574,7 +574,7 @@ export default function SalesPage() {
                           </div>
 
                     {/* Tracking & Label Info */}
-                    <div className="mb-4 pb-4 border-b border-gray-200 space-y-2">
+                    <div className="mb-3 sm:mb-4 pb-3 sm:pb-4 border-b border-gray-200 space-y-1.5 sm:space-y-2">
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-gray-600 flex items-center">
                           <FaTruck className="mr-1" />
@@ -661,7 +661,7 @@ export default function SalesPage() {
                     )}
 
                     {/* User & Date */}
-                    <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center justify-between mb-3 sm:mb-4">
                       <div className="text-xs text-gray-600">
                         <p className="truncate">{sale.user_email}</p>
                         <p className="mt-1">{formatDate(sale.created_at)}</p>
@@ -669,16 +669,16 @@ export default function SalesPage() {
                     </div>
 
                     {/* Action Button */}
-                      <button
+                    <button
                       onClick={(e) => {
                         e.stopPropagation();
                         setSelectedSaleForStatus(sale);
                       }}
-                      className="w-full inline-flex items-center justify-center px-4 py-2 bg-black text-white text-sm font-semibold rounded-xl hover:bg-gray-800 transition-all duration-200"
+                      className="w-full inline-flex items-center justify-center px-3 sm:px-4 py-2 sm:py-2.5 bg-black text-white text-xs sm:text-sm font-semibold rounded-xl hover:bg-gray-800 transition-all duration-200"
                     >
-                      <FaUserShield className="mr-2" />
+                      <FaUserShield className="mr-1.5 sm:mr-2 text-xs sm:text-sm" />
                       Upraviť
-                      </button>
+                    </button>
                   </div>
                 ))}
               </div>

@@ -536,14 +536,48 @@ export default function UsersPage() {
             </div>
           </div>
 
-          <div className="overflow-x-auto -mx-3 sm:mx-0">
+          {/* Mobile Cards View */}
+          <div className="md:hidden space-y-3">
+            {filteredUsers.map((user) => (
+              <div
+                key={user.id}
+                className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-all"
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-sm font-semibold text-gray-900 truncate mb-1">{user.email}</h4>
+                    {user.first_name || user.last_name ? (
+                      <p className="text-xs text-gray-600 mb-2">
+                        {`${user.first_name || ''} ${user.last_name || ''}`.trim()}
+                      </p>
+                    ) : null}
+                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                      user.profile_type === 'Obchodný' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
+                    }`}>
+                      {user.profile_type || 'N/A'}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleUserSelect(user)}
+                  className="w-full inline-flex items-center justify-center px-4 py-2.5 bg-black text-white text-sm font-semibold rounded-xl hover:bg-gray-800 transition-all duration-200"
+                >
+                  <FaInfoCircle className="mr-2" />
+                  Detail
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop Table View */}
+          <div className="hidden md:block overflow-x-auto -mx-3 sm:mx-0">
             <table className="min-w-full divide-y divide-gray-200/50">
               <thead className="bg-white">
                 <tr>
                   <th className="px-3 sm:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider hidden lg:table-cell">ID</th>
                   <th className="px-3 sm:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Email</th>
-                  <th className="px-3 sm:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider hidden sm:table-cell">Meno</th>
-                  <th className="px-3 sm:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider hidden md:table-cell">Typ</th>
+                  <th className="px-3 sm:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Meno</th>
+                  <th className="px-3 sm:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Typ</th>
                   <th className="px-3 sm:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Akcie</th>
                 </tr>
               </thead>
@@ -553,27 +587,14 @@ export default function UsersPage() {
                     <td className="px-3 sm:px-6 py-4 text-sm text-gray-700 font-mono hidden lg:table-cell">{user.id.slice(0, 8)}...</td>
                     <td className="px-3 sm:px-6 py-4">
                       <div className="text-sm text-gray-900 break-all">{user.email}</div>
-                      <div className="sm:hidden text-xs text-gray-700 mt-1">
-                        {user.first_name || user.last_name ? 
-                          `${user.first_name || ''} ${user.last_name || ''}`.trim() : 
-                          'N/A'
-                        }
-                      </div>
-                      <div className="md:hidden text-xs text-gray-600 mt-1">
-                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                          user.profile_type === 'Obchodný' ? 'bg-gray-100 text-blue-800' : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {user.profile_type || 'N/A'}
-                        </span>
-                      </div>
                     </td>
-                    <td className="px-3 sm:px-6 py-4 text-sm text-gray-700 hidden sm:table-cell">
+                    <td className="px-3 sm:px-6 py-4 text-sm text-gray-700">
                       {user.first_name || user.last_name ? 
                         `${user.first_name || ''} ${user.last_name || ''}`.trim() : 
                         'N/A'
                       }
                     </td>
-                    <td className="px-3 sm:px-6 py-4 text-sm text-gray-700 hidden md:table-cell">
+                    <td className="px-3 sm:px-6 py-4 text-sm text-gray-700">
                       <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                         user.profile_type === 'Obchodný' ? 'bg-gray-100 text-blue-800' : 'bg-gray-100 text-gray-800'
                       }`}>
@@ -583,10 +604,10 @@ export default function UsersPage() {
                     <td className="px-3 sm:px-6 py-4">
                       <button
                         onClick={() => handleUserSelect(user)}
-                        className="inline-flex items-center px-2 sm:px-3 py-1 sm:py-2 bg-black text-white text-xs sm:text-sm font-semibold rounded-xl hover:bg-gray-800 transition-all duration-200 shadow-sm"
+                        className="inline-flex items-center px-3 py-2 bg-black text-white text-sm font-semibold rounded-xl hover:bg-gray-800 transition-all duration-200 shadow-sm"
                       >
-                        <FaInfoCircle className="text-xs sm:mr-2" />
-                        <span className="hidden sm:inline">Detail</span>
+                        <FaInfoCircle className="mr-2" />
+                        Detail
                       </button>
                     </td>
                   </tr>
@@ -676,53 +697,53 @@ export default function UsersPage() {
 
               {/* Stats Cards */}
               {userStats && (
-                <div className="p-4 sm:p-6 border-b border-gray-200 bg-gray-50">
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 sm:gap-4">
-                    <div className="bg-white rounded-xl p-4 text-center border border-gray-200 shadow-sm">
-                      <div className="w-6 h-6 sm:w-8 sm:h-8 bg-blue-500/20 rounded-lg flex items-center justify-center mx-auto mb-2">
-                        <FaShoppingCart className="text-blue-400 text-sm" />
+                <div className="p-3 sm:p-4 lg:p-6 border-b border-gray-200 bg-gray-50">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 lg:gap-4">
+                    <div className="bg-white rounded-xl p-2 sm:p-3 lg:p-4 text-center border border-gray-200 shadow-sm">
+                      <div className="w-5 h-5 sm:w-6 sm:h-6 lg:w-8 lg:h-8 bg-blue-500/20 rounded-lg flex items-center justify-center mx-auto mb-1 sm:mb-2">
+                        <FaShoppingCart className="text-blue-400 text-xs sm:text-sm" />
                       </div>
-                      <p className="text-lg sm:text-2xl font-bold text-gray-900">{userStats.totalSales}</p>
-                      <p className="text-xs text-gray-600">Predaje</p>
+                      <p className="text-base sm:text-lg lg:text-2xl font-bold text-gray-900">{userStats.totalSales}</p>
+                      <p className="text-[10px] sm:text-xs text-gray-600">Predaje</p>
                     </div>
-                    <div className="bg-slate-700/30 rounded-xl p-4 text-center">
-                      <div className="w-6 h-6 sm:w-8 sm:h-8 bg-green-500/20 rounded-lg flex items-center justify-center mx-auto mb-2">
-                        <FaEuroSign className="text-green-600 text-sm" />
+                    <div className="bg-slate-700/30 rounded-xl p-2 sm:p-3 lg:p-4 text-center">
+                      <div className="w-5 h-5 sm:w-6 sm:h-6 lg:w-8 lg:h-8 bg-green-500/20 rounded-lg flex items-center justify-center mx-auto mb-1 sm:mb-2">
+                        <FaEuroSign className="text-green-600 text-xs sm:text-sm" />
                       </div>
-                      <p className="text-lg sm:text-2xl font-bold text-gray-900">{formatCurrency(userStats.totalRevenue)}</p>
-                      <p className="text-xs text-gray-600">Tržby</p>
+                      <p className="text-base sm:text-lg lg:text-2xl font-bold text-gray-900 truncate">{formatCurrency(userStats.totalRevenue)}</p>
+                      <p className="text-[10px] sm:text-xs text-gray-600">Tržby</p>
                     </div>
-                    <div className="bg-slate-700/30 rounded-xl p-4 text-center">
-                      <div className="w-6 h-6 sm:w-8 sm:h-8 bg-purple-500/20 rounded-lg flex items-center justify-center mx-auto mb-2">
-                        <FaChartLine className="text-purple-400 text-sm" />
+                    <div className="bg-slate-700/30 rounded-xl p-2 sm:p-3 lg:p-4 text-center">
+                      <div className="w-5 h-5 sm:w-6 sm:h-6 lg:w-8 lg:h-8 bg-purple-500/20 rounded-lg flex items-center justify-center mx-auto mb-1 sm:mb-2">
+                        <FaChartLine className="text-purple-400 text-xs sm:text-sm" />
                       </div>
-                      <p className="text-lg sm:text-2xl font-bold text-gray-900">{formatCurrency(userStats.totalPayout)}</p>
-                      <p className="text-xs text-gray-600">Payout</p>
+                      <p className="text-base sm:text-lg lg:text-2xl font-bold text-gray-900 truncate">{formatCurrency(userStats.totalPayout)}</p>
+                      <p className="text-[10px] sm:text-xs text-gray-600">Payout</p>
                     </div>
-                    <div className="bg-slate-700/30 rounded-xl p-4 text-center">
-                      <div className="w-6 h-6 sm:w-8 sm:h-8 bg-orange-500/20 rounded-lg flex items-center justify-center mx-auto mb-2">
-                        <FaBox className="text-orange-400 text-sm" />
+                    <div className="bg-slate-700/30 rounded-xl p-2 sm:p-3 lg:p-4 text-center">
+                      <div className="w-5 h-5 sm:w-6 sm:h-6 lg:w-8 lg:h-8 bg-orange-500/20 rounded-lg flex items-center justify-center mx-auto mb-1 sm:mb-2">
+                        <FaBox className="text-orange-400 text-xs sm:text-sm" />
                       </div>
-                      <p className="text-lg sm:text-2xl font-bold text-gray-900">{userStats.totalProducts}</p>
-                      <p className="text-xs text-gray-600">Produkty</p>
+                      <p className="text-base sm:text-lg lg:text-2xl font-bold text-gray-900">{userStats.totalProducts}</p>
+                      <p className="text-[10px] sm:text-xs text-gray-600">Produkty</p>
                     </div>
-                    <div className="bg-slate-700/30 rounded-xl p-4 text-center">
-                      <div className="w-6 h-6 sm:w-8 sm:h-8 bg-green-500/20 rounded-lg flex items-center justify-center mx-auto mb-2">
-                        <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="bg-slate-700/30 rounded-xl p-2 sm:p-3 lg:p-4 text-center">
+                      <div className="w-5 h-5 sm:w-6 sm:h-6 lg:w-8 lg:h-8 bg-green-500/20 rounded-lg flex items-center justify-center mx-auto mb-1 sm:mb-2">
+                        <svg className="w-3 h-3 sm:w-4 sm:h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                       </div>
-                      <p className="text-lg sm:text-2xl font-bold text-gray-900">{userStats.completedSales}</p>
-                      <p className="text-xs text-gray-600">Dokončené</p>
+                      <p className="text-base sm:text-lg lg:text-2xl font-bold text-gray-900">{userStats.completedSales}</p>
+                      <p className="text-[10px] sm:text-xs text-gray-600">Dokončené</p>
                     </div>
-                    <div className="bg-slate-700/30 rounded-xl p-4 text-center">
-                      <div className="w-6 h-6 sm:w-8 sm:h-8 bg-yellow-500/20 rounded-lg flex items-center justify-center mx-auto mb-2">
-                        <svg className="w-4 h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="bg-slate-700/30 rounded-xl p-2 sm:p-3 lg:p-4 text-center">
+                      <div className="w-5 h-5 sm:w-6 sm:h-6 lg:w-8 lg:h-8 bg-yellow-500/20 rounded-lg flex items-center justify-center mx-auto mb-1 sm:mb-2">
+                        <svg className="w-3 h-3 sm:w-4 sm:h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                       </div>
-                      <p className="text-lg sm:text-2xl font-bold text-gray-900">{userStats.pendingSales}</p>
-                      <p className="text-xs text-gray-600">Čakajúce</p>
+                      <p className="text-base sm:text-lg lg:text-2xl font-bold text-gray-900">{userStats.pendingSales}</p>
+                      <p className="text-[10px] sm:text-xs text-gray-600">Čakajúce</p>
                     </div>
                   </div>
                 </div>
@@ -739,20 +760,21 @@ export default function UsersPage() {
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id as any)}
-                    className={`flex items-center px-4 sm:px-6 py-3 sm:py-4 font-semibold transition-all duration-200 whitespace-nowrap ${
+                    className={`flex items-center px-3 sm:px-4 lg:px-6 py-2.5 sm:py-3 lg:py-4 font-semibold transition-all duration-200 whitespace-nowrap text-xs sm:text-sm ${
                       activeTab === tab.id
                         ? 'text-gray-900 border-b-2 border-indigo-500 bg-white'
                         : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                     }`}
                   >
-                    <tab.icon className="text-sm sm:mr-2" />
-                    <span>{tab.label}</span>
+                    <tab.icon className="text-xs sm:text-sm sm:mr-1.5 lg:mr-2" />
+                    <span className="hidden sm:inline">{tab.label}</span>
+                    <span className="sm:hidden">{tab.label.split(' ')[0]}</span>
                   </button>
                 ))}
               </div>
 
               {/* Tab Content */}
-              <div className="p-4 sm:p-6 overflow-y-auto max-h-[50vh] sm:max-h-[60vh]">
+              <div className="p-3 sm:p-4 lg:p-6 overflow-y-auto max-h-[50vh] sm:max-h-[60vh]">
                 {loadingUserData ? (
                   <div className="flex items-center justify-center py-12">
                     <div className="w-8 h-8 border-4 border-gray-300 border-t-indigo-500 rounded-full animate-spin"></div>

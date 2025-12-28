@@ -181,14 +181,44 @@ export default function ProductsPage() {
             </div>
           </div>
 
-          <div className="overflow-x-auto -mx-3 sm:mx-0">
+          {/* Mobile Cards View */}
+          <div className="md:hidden space-y-3">
+            {filteredProducts.map((product) => (
+              <div
+                key={product.id}
+                className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-all"
+              >
+                <div className="flex items-start space-x-4">
+                  <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-white p-2 shadow-sm">
+                    <img
+                      className="h-full w-full object-contain"
+                      src={product.image_url || '/default-image.png'}
+                      alt={product.name}
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.src = '/default-image.png';
+                      }}
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-sm font-semibold text-gray-900 mb-1">{product.name}</h4>
+                    <p className="text-xs text-gray-600 font-mono mb-1">SKU: {product.sku}</p>
+                    <p className="text-xs text-gray-500 font-mono">ID: {product.id.slice(0, 8)}...</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop Table View */}
+          <div className="hidden md:block overflow-x-auto -mx-3 sm:mx-0">
             <table className="min-w-full divide-y divide-gray-200/50">
               <thead className="bg-white">
                 <tr>
                   <th className="px-3 sm:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider hidden lg:table-cell">ID</th>
                   <th className="px-3 sm:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">IMAGE</th>
                   <th className="px-3 sm:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Názov</th>
-                  <th className="px-3 sm:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider hidden md:table-cell">SKU</th>
+                  <th className="px-3 sm:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">SKU</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200/30">
@@ -210,10 +240,8 @@ export default function ProductsPage() {
                     </td>
                     <td className="px-3 sm:px-6 py-4">
                       <div className="text-sm font-semibold text-gray-900">{product.name}</div>
-                      <div className="md:hidden text-xs text-gray-700 font-mono mt-1">SKU: {product.sku}</div>
-                      <div className="lg:hidden text-xs text-gray-600 font-mono mt-1">ID: {product.id}</div>
                     </td>
-                    <td className="px-3 sm:px-6 py-4 text-sm text-gray-700 font-mono hidden md:table-cell">{product.sku}</td>
+                    <td className="px-3 sm:px-6 py-4 text-sm text-gray-700 font-mono">{product.sku}</td>
                   </tr>
                 ))}
               </tbody>
