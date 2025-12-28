@@ -8,6 +8,7 @@ export default function AuthForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSignUp, setIsSignUp] = useState(false);
+  const [showEmailVerification, setShowEmailVerification] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -25,7 +26,17 @@ export default function AuthForm() {
         if (signUpError) {
           throw new Error(`Signup: ${signUpError.message} - ${JSON.stringify(signUpError)}`);
         }
-        navigate('/dashboard');
+        
+        // Check if email confirmation is required
+        if (data.user && !data.session) {
+          // Email confirmation required
+          setShowEmailVerification(true);
+          setEmail('');
+          setPassword('');
+        } else {
+          // Auto-confirmed, navigate to dashboard
+          navigate('/dashboard');
+        }
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({
           email,
@@ -43,6 +54,62 @@ export default function AuthForm() {
       setLoading(false);
     }
   };
+
+  // Show email verification message
+  if (showEmailVerification) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center p-3 sm:p-4">
+        <div className="w-full max-w-md">
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-6 sm:p-8">
+            {/* Logo */}
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 bg-black rounded-2xl mb-4">
+                <img 
+                  src="https://cdn.myshoptet.com/usr/www.airkicks.eu/user/logos/logo_final-1.png" 
+                  alt="Seller Hub Logo" 
+                  className="h-6 w-6 sm:h-10 sm:w-10 object-contain filter brightness-0 invert"
+                />
+              </div>
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">AirKicks Consign</h1>
+            </div>
+
+            {/* Email Verification Message */}
+            <div className="text-center">
+              <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 bg-green-100 rounded-full mb-6">
+                <svg className="w-8 h-8 sm:w-10 sm:h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+              </div>
+              
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4">Skontrolujte svoj email</h2>
+              
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 sm:p-6 mb-6">
+                <p className="text-sm sm:text-base text-gray-700 mb-4 leading-relaxed">
+                  Úspešne ste sa zaregistrovali! Poslali sme vám overovací email na vašu emailovú adresu.
+                </p>
+                <p className="text-sm sm:text-base text-gray-700 mb-4 leading-relaxed">
+                  <strong>Prosím skontrolujte svoju emailovú schránku</strong> a kliknite na odkaz v emaili, aby ste overili svoj účet.
+                </p>
+                <p className="text-xs sm:text-sm text-gray-600">
+                  Ak email nevidíte, skontrolujte aj priečinok so spam správami.
+                </p>
+              </div>
+
+              <button
+                onClick={() => {
+                  setShowEmailVerification(false);
+                  setIsSignUp(false);
+                }}
+                className="w-full bg-black text-white font-semibold py-2 sm:py-3 px-4 rounded-xl hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2 transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] text-sm sm:text-base"
+              >
+                Rozumiem, prihlásiť sa
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white flex items-center justify-center p-3 sm:p-4">
