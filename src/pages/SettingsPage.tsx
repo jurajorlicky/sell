@@ -186,7 +186,7 @@ export default function SettingsPage() {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
+      <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-3 sm:py-6 lg:py-8">
         {error && (
           <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4 backdrop-blur-sm">
             <div className="flex items-center justify-between">
@@ -240,7 +240,7 @@ export default function SettingsPage() {
 
         {/* Settings Form */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-2xl overflow-hidden">
-          <div className="px-4 sm:px-6 py-4 border-b border-gray-200 bg-white">
+          <div className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 border-b border-gray-200 bg-white">
             <h3 className="text-lg sm:text-xl font-bold text-gray-900">Systémové nastavenia</h3>
             <p className="text-gray-600 text-xs sm:text-sm mt-1">Konfigurácia poplatkov a systémových parametrov</p>
           </div>

@@ -482,7 +482,7 @@ export default function UsersPage() {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
+      <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-3 sm:py-6 lg:py-8">
         {error && (
           <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4 backdrop-blur-sm">
             <div className="flex items-center justify-between">
@@ -515,7 +515,7 @@ export default function UsersPage() {
 
         {/* Users Table */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-2xl overflow-hidden">
-          <div className="px-4 sm:px-6 py-4 border-b border-gray-200 bg-white">
+          <div className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 border-b border-gray-200 bg-white">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
               <div>
                 <h3 className="text-lg sm:text-xl font-bold text-gray-900">Užívatelia ({filteredUsers.length})</h3>
@@ -631,16 +631,16 @@ export default function UsersPage() {
 
         {/* Enhanced Modal for User Details */}
         {selectedUser && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-[60] p-0 sm:p-4">
-            <div className="bg-white rounded-t-3xl sm:rounded-2xl w-full max-w-6xl border-t sm:border border-gray-200 max-h-[95vh] overflow-hidden shadow-2xl">
-              {/* Modal Header */}
-              <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 bg-white">
-                <div className="flex items-center space-x-3 sm:space-x-4">
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gray-100 rounded-xl flex items-center justify-center border border-gray-200">
-                    <FaUser className="text-gray-900 text-xl" />
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-[60]">
+            <div className="bg-white rounded-t-3xl sm:rounded-2xl w-full max-w-6xl border-t sm:border border-gray-200 max-h-[95vh] overflow-hidden shadow-2xl flex flex-col">
+              {/* Sticky Modal Header */}
+              <div className="flex items-center justify-between p-3 sm:p-4 lg:p-6 border-b border-gray-200 bg-white flex-shrink-0">
+                <div className="flex items-center space-x-2 sm:space-x-3 lg:space-x-4 flex-1 min-w-0 pr-2">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 bg-gray-100 rounded-xl flex items-center justify-center border border-gray-200 flex-shrink-0">
+                    <FaUser className="text-gray-900 text-sm sm:text-base lg:text-xl" />
                   </div>
-                  <div>
-                    <h3 className="text-lg sm:text-xl font-bold text-gray-900">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-sm sm:text-base lg:text-xl font-bold text-gray-900 truncate">
                       {selectedUser.first_name || selectedUser.last_name ? 
                         `${selectedUser.first_name || ''} ${selectedUser.last_name || ''}`.trim() : 
                         'Užívateľ'
@@ -649,35 +649,38 @@ export default function UsersPage() {
                     <p className="text-gray-600 text-xs sm:text-sm break-all">{selectedUser.email}</p>
                   </div>
                 </div>
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
                   <button
                     onClick={handleDeleteUser}
                     disabled={deletingUser}
-                    className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center text-red-600 hover:text-red-700 hover:bg-red-50 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Odstrániť používateľa"
                   >
                     {deletingUser ? (
-                      <svg className="animate-spin text-xl" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <svg className="animate-spin w-4 h-4 sm:w-5 sm:h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
                     ) : (
-                      <FaTrash className="text-xl" />
+                      <FaTrash className="w-4 h-4 sm:w-5 sm:h-5" />
                     )}
                   </button>
                   <button
                     onClick={closeModal}
                     disabled={deletingUser}
-                    className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    aria-label="Zatvoriť"
                   >
-                    <FaTimes className="text-xl" />
+                    <FaTimes className="w-5 h-5 sm:w-6 sm:h-6" />
                   </button>
                 </div>
               </div>
 
+              {/* Scrollable Content */}
+              <div className="flex-1 overflow-y-auto">
               {/* Error Message */}
               {error && (
-                <div className="mx-4 sm:mx-6 mt-4 bg-red-50 border border-red-200 rounded-xl p-4">
+                <div className="mx-3 sm:mx-4 lg:mx-6 mt-3 sm:mt-4 bg-red-50 border border-red-200 rounded-xl p-3 sm:p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center">
                       <FaExclamationTriangle className="h-5 w-5 text-red-600" />
@@ -697,8 +700,8 @@ export default function UsersPage() {
 
               {/* Stats Cards */}
               {userStats && (
-                <div className="p-3 sm:p-4 lg:p-6 border-b border-gray-200 bg-gray-50">
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 lg:gap-4">
+                <div className="p-2 sm:p-3 lg:p-6 border-b border-gray-200 bg-gray-50">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1.5 sm:gap-2 lg:gap-4">
                     <div className="bg-white rounded-xl p-2 sm:p-3 lg:p-4 text-center border border-gray-200 shadow-sm">
                       <div className="w-5 h-5 sm:w-6 sm:h-6 lg:w-8 lg:h-8 bg-blue-500/20 rounded-lg flex items-center justify-center mx-auto mb-1 sm:mb-2">
                         <FaShoppingCart className="text-blue-400 text-xs sm:text-sm" />
@@ -750,7 +753,7 @@ export default function UsersPage() {
               )}
 
               {/* Tab Navigation */}
-              <div className="flex border-b border-gray-200 bg-gray-50 overflow-x-auto">
+              <div className="flex border-b border-gray-200 bg-gray-50 overflow-x-auto flex-shrink-0">
                 {[
                   { id: 'info', label: 'Informácie', icon: FaUser },
                   { id: 'sales', label: 'Predaje', icon: FaShoppingCart },
@@ -760,13 +763,13 @@ export default function UsersPage() {
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id as any)}
-                    className={`flex items-center px-3 sm:px-4 lg:px-6 py-2.5 sm:py-3 lg:py-4 font-semibold transition-all duration-200 whitespace-nowrap text-xs sm:text-sm ${
+                    className={`flex items-center px-2 sm:px-3 lg:px-6 py-2 sm:py-2.5 lg:py-4 font-semibold transition-all duration-200 whitespace-nowrap text-xs sm:text-sm ${
                       activeTab === tab.id
                         ? 'text-gray-900 border-b-2 border-indigo-500 bg-white'
                         : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                     }`}
                   >
-                    <tab.icon className="text-xs sm:text-sm sm:mr-1.5 lg:mr-2" />
+                    <tab.icon className="text-xs sm:text-sm sm:mr-1 lg:mr-2" />
                     <span className="hidden sm:inline">{tab.label}</span>
                     <span className="sm:hidden">{tab.label.split(' ')[0]}</span>
                   </button>
@@ -774,7 +777,7 @@ export default function UsersPage() {
               </div>
 
               {/* Tab Content */}
-              <div className="p-3 sm:p-4 lg:p-6 overflow-y-auto max-h-[50vh] sm:max-h-[60vh]">
+              <div className="p-2 sm:p-3 lg:p-6 overflow-y-auto">
                 {loadingUserData ? (
                   <div className="flex items-center justify-center py-12">
                     <div className="w-8 h-8 border-4 border-gray-300 border-t-indigo-500 rounded-full animate-spin"></div>
@@ -784,8 +787,8 @@ export default function UsersPage() {
                   <>
                     {/* User Info Tab */}
                     {activeTab === 'info' && (
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 lg:gap-6 text-gray-700">
-                        <div className="space-y-3 sm:space-y-4">
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-3 lg:gap-6 text-gray-700">
+                        <div className="space-y-2 sm:space-y-3 lg:space-y-4">
                           <div className="flex items-start sm:items-center">
                             <FaUser className="text-gray-600 mr-2 sm:mr-3 flex-shrink-0 mt-0.5 sm:mt-0" />
                             <div className="flex-1 min-w-0">
@@ -903,14 +906,14 @@ export default function UsersPage() {
                     {/* Sales Tab */}
                     {activeTab === 'sales' && (
                       <div>
-                        <h4 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Predaje ({userSales.length})</h4>
+                        <h4 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900 mb-2 sm:mb-3 lg:mb-4">Predaje ({userSales.length})</h4>
                         {userSales.length > 0 ? (
-                          <div className="space-y-3 sm:space-y-4">
+                          <div className="space-y-2 sm:space-y-3 lg:space-y-4">
                             {userSales.map((sale) => (
                               <div 
                                 key={sale.id} 
                                 onClick={() => setSelectedSaleForStatus(sale)}
-                                className="bg-white rounded-xl p-3 sm:p-4 border border-gray-200 hover:bg-gray-50 transition-colors shadow-sm cursor-pointer"
+                                className="bg-white rounded-xl p-2 sm:p-3 lg:p-4 border border-gray-200 hover:bg-gray-50 transition-colors shadow-sm cursor-pointer"
                               >
                                 <div className="flex items-center justify-between">
                                   <div className="flex items-center space-x-2 sm:space-x-3 lg:space-x-4 flex-1 min-w-0">
@@ -961,11 +964,11 @@ export default function UsersPage() {
                     {/* Products Tab */}
                     {activeTab === 'products' && (
                       <div>
-                        <h4 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Produkty ({userProducts.length})</h4>
+                        <h4 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900 mb-2 sm:mb-3 lg:mb-4">Produkty ({userProducts.length})</h4>
                         {userProducts.length > 0 ? (
-                          <div className="space-y-3 sm:space-y-4">
+                          <div className="space-y-2 sm:space-y-3 lg:space-y-4">
                             {userProducts.map((product) => (
-                              <div key={product.id} className="bg-white rounded-xl p-3 sm:p-4 border border-gray-200 hover:bg-gray-50 transition-colors shadow-sm">
+                              <div key={product.id} className="bg-white rounded-xl p-2 sm:p-3 lg:p-4 border border-gray-200 hover:bg-gray-50 transition-colors shadow-sm">
                                 <div className="flex items-center justify-between">
                                   <div className="flex items-center space-x-2 sm:space-x-3 lg:space-x-4 flex-1 min-w-0">
                                     <div className="h-12 w-12 sm:h-14 sm:w-14 lg:h-16 lg:w-16 flex-shrink-0 overflow-hidden rounded-xl border border-gray-300 bg-white">
@@ -1063,21 +1066,22 @@ export default function UsersPage() {
 
               {/* Sale Status Manager Modal */}
               {selectedSaleForStatus && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-[70] p-0 sm:p-4">
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-[70]">
                   <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col">
-                    <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
-                      <div>
-                        <h3 className="text-xl font-bold text-gray-900">Správa predaja</h3>
-                        <p className="text-sm text-gray-600 mt-1">{selectedSaleForStatus.name}</p>
+                    <div className="flex items-center justify-between p-3 sm:p-4 lg:p-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white flex-shrink-0">
+                      <div className="flex-1 min-w-0 pr-2">
+                        <h3 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900 truncate">Správa predaja</h3>
+                        <p className="text-xs sm:text-sm text-gray-600 mt-0.5 truncate">{selectedSaleForStatus.name}</p>
                       </div>
                       <button
                         onClick={() => setSelectedSaleForStatus(null)}
-                        className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-colors"
+                        className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-colors flex-shrink-0"
+                        aria-label="Zatvoriť"
                       >
-                        <FaTimes className="text-xl" />
+                        <FaTimes className="w-5 h-5 sm:w-6 sm:h-6" />
                       </button>
                     </div>
-                    <div className="flex-1 overflow-y-auto p-6">
+                    <div className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6">
                       <AdminSalesStatusManager
                         saleId={selectedSaleForStatus.id}
                         currentStatus={selectedSaleForStatus.status}
@@ -1130,6 +1134,7 @@ export default function UsersPage() {
                   </div>
                 </div>
               )}
+              </div>
             </div>
           </div>
         )}

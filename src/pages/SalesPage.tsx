@@ -266,7 +266,7 @@ export default function SalesPage() {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
+      <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-3 sm:py-6 lg:py-8">
         {error && (
           <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4 backdrop-blur-sm">
             <div className="flex items-center justify-between">
@@ -298,7 +298,7 @@ export default function SalesPage() {
         <AdminNavigation />
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-6 mb-3 sm:mb-4 lg:mb-8">
           <div className="bg-white rounded-2xl p-6 border border-gray-200">
             <div className="flex items-center">
               <div className="flex-shrink-0">
@@ -368,7 +368,7 @@ export default function SalesPage() {
 
         {/* Sales Cards */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-2xl overflow-hidden">
-          <div className="px-4 sm:px-6 py-4 border-b border-gray-200 bg-white">
+          <div className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 border-b border-gray-200 bg-white">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
               <div>
                 <h3 className="text-lg sm:text-xl font-bold text-gray-900">Predaje ({filteredSales.length})</h3>
@@ -411,8 +411,8 @@ export default function SalesPage() {
           </div>
 
           {/* Quick Filters */}
-          <div className="px-4 sm:px-6 py-3 border-b border-gray-200 bg-gray-50">
-            <div className="flex flex-wrap items-center gap-2">
+          <div className="px-3 sm:px-4 lg:px-6 py-2 sm:py-3 border-b border-gray-200 bg-gray-50">
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
               <span className="text-xs font-medium text-gray-600 mr-2">Rýchle filtre:</span>
               <button
                 onClick={() => setQuickFilter(quickFilter === 'today' ? '' : 'today')}
@@ -449,8 +449,8 @@ export default function SalesPage() {
 
           {/* Filters Panel */}
           {showFilters && (
-            <div className="px-4 sm:px-6 py-4 bg-gray-50 border-b border-gray-200">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 bg-gray-50 border-b border-gray-200">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
                 {/* Status Filter */}
                 <div>
                   <label className="block text-xs font-semibold text-gray-700 mb-2">Status</label>
@@ -507,7 +507,7 @@ export default function SalesPage() {
             </div>
           )}
 
-          <div className="p-4 sm:p-6">
+          <div className="p-3 sm:p-4 lg:p-6">
             {filteredSales.length === 0 ? (
               <div className="text-center py-12">
                 <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
@@ -688,22 +688,26 @@ export default function SalesPage() {
 
         {/* Sales Status Management Modal */}
         {selectedSaleForStatus && (
-          <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black bg-opacity-50 p-0 sm:p-4">
-            <div className="bg-white p-4 sm:p-6 rounded-t-3xl sm:rounded-2xl shadow-2xl max-w-2xl w-full border-t sm:border border-gray-200 max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between mb-4 sm:mb-6">
-                <h2 className="text-lg sm:text-xl text-gray-900 font-semibold">Správa statusu predaja</h2>
+          <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black bg-opacity-50">
+            <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl max-w-2xl w-full border-t sm:border border-gray-200 max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col">
+              {/* Sticky Header */}
+              <div className="flex items-center justify-between p-3 sm:p-4 lg:p-6 border-b border-gray-200 bg-white flex-shrink-0">
+                <h2 className="text-base sm:text-lg lg:text-xl text-gray-900 font-semibold flex-1 pr-2">Správa statusu predaja</h2>
                 <button
                   onClick={() => setSelectedSaleForStatus(null)}
-                  className="text-gray-600 hover:text-gray-900"
+                  className="flex-shrink-0 w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
+                  aria-label="Zatvoriť"
                 >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 sm:w-6 sm:h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>
               
+              {/* Scrollable Content */}
+              <div className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6">
               {/* Sale Info */}
-              <div className="bg-gray-50 rounded-xl p-3 sm:p-4 mb-4 sm:mb-6 border border-gray-200">
+              <div className="bg-gray-50 rounded-xl p-3 sm:p-4 mb-3 sm:mb-4 lg:mb-6 border border-gray-200">
                 <div className="flex items-center space-x-3 sm:space-x-4">
                   <img 
                     src={selectedSaleForStatus.image_url || '/default-image.png'} 
@@ -752,6 +756,7 @@ export default function SalesPage() {
                   await loadSales();
                 }}
               />
+              </div>
             </div>
           </div>
         )}

@@ -98,7 +98,7 @@ export default function AdminNavigation() {
       </div>
 
       {/* Spacer for mobile bottom nav */}
-      <div className="md:hidden h-16"></div>
+      <div className="md:hidden h-20 pb-safe"></div>
     </>
   );
 }
