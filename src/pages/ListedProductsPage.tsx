@@ -4,7 +4,7 @@ import { sendNewSaleEmail } from '../lib/email';
 import AdminNavigation from '../components/AdminNavigation';
 import {
   FaSearch, FaSignOutAlt, FaSync, FaCheck,
-  FaFilter, FaTimes
+  FaFilter, FaTimes, FaList
 } from 'react-icons/fa';
 
 interface UserProduct {

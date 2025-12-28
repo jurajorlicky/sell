@@ -10,7 +10,8 @@ import {
   FaExclamationTriangle,
   FaSignature,
   FaUpload,
-  FaTrash
+  FaTrash,
+  FaCog
 } from 'react-icons/fa';
 
 interface AdminSettings {

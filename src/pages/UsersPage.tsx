@@ -23,7 +23,8 @@ import {
   FaChartLine,
   FaBox,
   FaSignature,
-  FaTrash
+  FaTrash,
+  FaChartBar
 } from 'react-icons/fa';
 
 interface UserProfile {
