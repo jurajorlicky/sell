@@ -537,31 +537,31 @@ export default function UsersPage() {
           </div>
 
           {/* Mobile Cards View */}
-          <div className="md:hidden space-y-2.5">
+          <div className="md:hidden p-2 sm:p-3 space-y-2">
             {filteredUsers.map((user) => (
               <div
                 key={user.id}
-                className="bg-white border border-gray-200 rounded-xl p-3 hover:shadow-lg transition-all cursor-pointer"
+                className="bg-white border border-gray-200 rounded-lg p-2.5 hover:shadow-md transition-all cursor-pointer"
                 onClick={() => handleUserSelect(user)}
               >
-                <div className="flex items-center space-x-3 mb-3">
-                  <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm">
-                    <FaUser className="text-white text-lg" />
+                <div className="flex items-center space-x-2.5">
+                  <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-lg flex items-center justify-center flex-shrink-0 shadow-sm">
+                    <FaUser className="text-white text-sm" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h4 className="text-sm font-semibold text-gray-900 truncate mb-0.5">{user.email}</h4>
+                    <h4 className="text-xs font-semibold text-gray-900 truncate mb-0.5">{user.email}</h4>
                     {user.first_name || user.last_name ? (
-                      <p className="text-xs text-gray-600 mb-1.5">
+                      <p className="text-[10px] text-gray-600 mb-1">
                         {`${user.first_name || ''} ${user.last_name || ''}`.trim()}
                       </p>
                     ) : null}
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-medium ${
                       user.profile_type === 'Obchodný' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
                     }`}>
                       {user.profile_type || 'N/A'}
                     </span>
                   </div>
-                  <FaInfoCircle className="text-gray-400 text-lg flex-shrink-0" />
+                  <FaInfoCircle className="text-gray-400 text-sm flex-shrink-0" />
                 </div>
               </div>
             ))}

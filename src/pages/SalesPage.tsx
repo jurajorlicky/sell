@@ -450,9 +450,9 @@ export default function SalesPage() {
           {/* Filters Panel */}
           {showFilters && (
             <div className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 lg:py-4 bg-gray-50 border-b border-gray-200">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
                 {/* Status Filter */}
-                <div>
+                <div className="col-span-2 sm:col-span-1">
                   <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1 sm:mb-2">Status</label>
                   <select
                     value={statusFilter}
@@ -493,7 +493,7 @@ export default function SalesPage() {
                 </div>
 
                 {/* User Email Filter */}
-                <div>
+                <div className="col-span-2 sm:col-span-1">
                   <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1 sm:mb-2">Email používateľa</label>
                   <input
                     type="text"
