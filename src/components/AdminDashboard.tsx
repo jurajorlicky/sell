@@ -166,7 +166,7 @@ export default function AdminDashboard() {
           activities.push({
             id: `user-${user.id}`,
             type: 'user_registered',
-            action: 'Nový používateľ sa zaregistroval',
+            action: 'New user registered',
             created_at: user.created_at,
             icon: FaUsers,
             userEmail: user.email
@@ -180,7 +180,7 @@ export default function AdminDashboard() {
           activities.push({
             id: `product-${product.id}`,
             type: 'product_added',
-            action: 'Nový produkt v katalógu',
+            action: 'New product in catalog',
             created_at: product.created_at,
             icon: FaShoppingBag,
             productName: product.name
@@ -194,7 +194,7 @@ export default function AdminDashboard() {
           activities.push({
             id: `listing-${listing.id}`,
             type: 'listing_added',
-            action: 'Produkt bol pridaný do ponuky',
+            action: 'Product added to offer',
             created_at: listing.created_at,
             icon: FaPlus,
             productName: listing.name,
@@ -211,7 +211,7 @@ export default function AdminDashboard() {
             activities.push({
               id: `sale-completed-${sale.id}`,
               type: 'sale_completed',
-              action: 'Predaj bol dokončený',
+              action: 'Sale completed',
               created_at: sale.created_at,
               icon: FaChartLine,
               productName: sale.name,
@@ -223,7 +223,7 @@ export default function AdminDashboard() {
             activities.push({
               id: `sale-${sale.id}`,
               type: 'sale_created',
-              action: 'Nový predaj bol vytvorený',
+              action: 'New sale created',
               created_at: sale.created_at,
               icon: FaShoppingCart,
               productName: sale.name,
@@ -286,7 +286,7 @@ export default function AdminDashboard() {
                 <h1 className="text-lg sm:text-2xl font-bold text-gray-900">
                   Admin Dashboard
                 </h1>
-                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">Správa systému a analýza dát</p>
+                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">System management and data analysis</p>
               </div>
             </div>
             
@@ -296,7 +296,7 @@ export default function AdminDashboard() {
                 className="inline-flex items-center px-2 py-2 sm:px-4 bg-black text-white font-semibold rounded-xl hover:bg-gray-800 transition-all duration-200 shadow-lg transform hover:scale-105"
               >
                 <FaSignOutAlt className="text-sm sm:mr-2" />
-                <span className="hidden sm:inline">Odhlásiť</span>
+                <span className="hidden sm:inline">Sign Out</span>
               </button>
             </div>
           </div>
@@ -313,25 +313,25 @@ export default function AdminDashboard() {
           <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-6">
             {[
               { 
-                title: 'Používatelia', 
+                title: 'Users', 
                 value: stats.totalUsers, 
                 icon: FaUsers, 
                 color: 'from-green-500 to-emerald-500'
               },
               { 
-                title: 'Produkty', 
+                title: 'Products', 
                 value: stats.totalProducts, 
                 icon: FaShoppingBag, 
                 color: 'from-purple-500 to-violet-500'
               },
               { 
-                title: 'Aktívne ponuky', 
+                title: 'Active Offers', 
                 value: stats.totalListings, 
                 icon: FaEye, 
                 color: 'from-orange-500 to-amber-500'
               },
               { 
-                title: 'Predaje', 
+                title: 'Sales', 
                 value: stats.totalSales, 
                 icon: FaChartLine, 
                 color: 'from-blue-500 to-cyan-500'
@@ -357,7 +357,7 @@ export default function AdminDashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 lg:gap-6">
             <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-6 border border-gray-200">
               <div className="flex items-center justify-between mb-2 sm:mb-3 lg:mb-4">
-                <h3 className="text-sm sm:text-base lg:text-xl font-bold text-gray-900">Celkové tržby</h3>
+                <h3 className="text-sm sm:text-base lg:text-xl font-bold text-gray-900">Total Revenue</h3>
                 <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 rounded-lg sm:rounded-xl bg-black flex items-center justify-center flex-shrink-0">
                   <FaEuroSign className="text-white text-sm sm:text-base lg:text-lg" />
                 </div>
@@ -365,12 +365,12 @@ export default function AdminDashboard() {
               <p className="text-lg sm:text-2xl lg:text-4xl font-bold text-gray-900 truncate">
                 {formatCurrency(stats.totalRevenue)}
               </p>
-              <p className="text-gray-600 text-[10px] sm:text-xs lg:text-sm mt-1 sm:mt-2">Celkové tržby zo všetkých predajov</p>
+              <p className="text-gray-600 text-[10px] sm:text-xs lg:text-sm mt-1 sm:mt-2">Total revenue from all sales</p>
             </div>
 
             <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-6 border border-gray-200">
               <div className="flex items-center justify-between mb-2 sm:mb-3 lg:mb-4">
-                <h3 className="text-sm sm:text-base lg:text-xl font-bold text-gray-900">Celkové výplaty</h3>
+                <h3 className="text-sm sm:text-base lg:text-xl font-bold text-gray-900">Total Payouts</h3>
                 <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 rounded-lg sm:rounded-xl bg-black flex items-center justify-center flex-shrink-0">
                   <FaChartLine className="text-white text-sm sm:text-base lg:text-lg" />
                 </div>
@@ -378,7 +378,7 @@ export default function AdminDashboard() {
               <p className="text-lg sm:text-2xl lg:text-4xl font-bold text-gray-900 truncate">
                 {formatCurrency(stats.totalPayout)}
               </p>
-              <p className="text-gray-600 text-[10px] sm:text-xs lg:text-sm mt-1 sm:mt-2">Celkové výplaty pre predajcov</p>
+              <p className="text-gray-600 text-[10px] sm:text-xs lg:text-sm mt-1 sm:mt-2">Total payouts for sellers</p>
             </div>
           </div>
 
@@ -386,7 +386,7 @@ export default function AdminDashboard() {
           <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
             <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg sm:text-xl font-bold text-gray-900">Nedávna aktivita</h3>
+                <h3 className="text-lg sm:text-xl font-bold text-gray-900">Recent Activity</h3>
                 <div className="flex items-center space-x-2">
                   <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
                   <span className="text-xs sm:text-sm text-gray-600">Live</span>
@@ -413,7 +413,7 @@ export default function AdminDashboard() {
                               <p className="text-gray-600 text-[10px] sm:text-xs mt-0.5">{formatCurrency(activity.price)}</p>
                             )}
                             {activity.userEmail && (
-                              <p className="text-gray-500 text-[10px] sm:text-xs mt-0.5 truncate">Od: {activity.userEmail}</p>
+                              <p className="text-gray-500 text-[10px] sm:text-xs mt-0.5 truncate">From: {activity.userEmail}</p>
                             )}
                             <p className="text-gray-500 text-[10px] sm:text-xs mt-0.5">{formatTimeAgo(activity.created_at)}</p>
                           </div>
@@ -427,7 +427,7 @@ export default function AdminDashboard() {
                         onClick={() => setShowAllActivities(!showAllActivities)}
                         className="w-full flex items-center justify-center space-x-2 px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-xl transition-colors"
                       >
-                        <span>{showAllActivities ? 'Skryť' : recentActivities.length < allActivities.length ? `Zobraziť všetko (${allActivities.length})` : `Zobraziť históriu (${allActivities.length})`}</span>
+                        <span>{showAllActivities ? 'Hide' : recentActivities.length < allActivities.length ? `Show all (${allActivities.length})` : `Show history (${allActivities.length})`}</span>
                         {showAllActivities ? (
                           <FaChevronUp className="text-xs" />
                         ) : (
@@ -439,8 +439,8 @@ export default function AdminDashboard() {
                 </>
               ) : (
                 <div className="text-center py-8">
-                  <p className="text-gray-600 text-sm">Žiadna nedávna aktivita</p>
-                  <p className="text-gray-500 text-xs mt-2">Aktivity za posledných 24 hodín sa zobrazia tu</p>
+                  <p className="text-gray-600 text-sm">No recent activity</p>
+                  <p className="text-gray-500 text-xs mt-2">Activities from the last 24 hours will be displayed here</p>
                 </div>
               )}
             </div>
