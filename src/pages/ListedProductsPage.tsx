@@ -1,10 +1,9 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Link, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { sendNewSaleEmail } from '../lib/email';
+import AdminNavigation from '../components/AdminNavigation';
 import {
-  FaSearch, FaSignOutAlt, FaSync, FaList, FaShoppingBag,
-  FaUsers, FaCog, FaChartBar, FaShoppingCart, FaCheck,
+  FaSearch, FaSignOutAlt, FaSync, FaCheck,
   FaFilter, FaTimes
 } from 'react-icons/fa';
 
@@ -25,7 +24,6 @@ interface UserProduct {
 }
 
 export default function ListedProductsPage() {
-  const location = useLocation();
   const [products, setProducts] = useState<UserProduct[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFrom, setDateFrom] = useState<string>('');
@@ -192,37 +190,9 @@ export default function ListedProductsPage() {
         </div>
       </header>
 
-      {/* Tabs */}
+      {/* Navigation */}
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-4">
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-2xl mb-6 overflow-hidden">
-          <div className="flex overflow-x-auto">
-            {[
-              { label: 'Prehľad', icon: FaChartBar, path: '/admin' },
-              { label: 'Produkty', icon: FaShoppingBag, path: '/admin/products' },
-              { label: 'Ponuky', icon: FaList, path: '/admin/listed-products' },
-              { label: 'Predaje', icon: FaShoppingCart, path: '/admin/sales' },
-              { label: 'Užívatelia', icon: FaUsers, path: '/admin/users' },
-              { label: 'Nastavenia', icon: FaCog, path: '/admin/settings' },
-            ].map((tab) => {
-              const isActive = location.pathname === tab.path;
-              return (
-                <Link
-                  key={tab.path}
-                  to={tab.path}
-                  className={`relative flex items-center px-4 sm:px-6 py-3 sm:py-4 font-semibold transition-all duration-300 min-w-max ${
-                    isActive ? 'text-gray-900' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
-                >
-                  <tab.icon className={`text-sm sm:mr-2 ${isActive ? 'text-gray-900' : 'text-gray-600'}`} />
-                  <span className={`hidden sm:inline ml-2 sm:ml-0 ${isActive ? 'text-gray-900 font-bold' : 'text-gray-600'}`}>{tab.label}</span>
-                  {isActive && (
-                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-orange-500 to-amber-500 rounded-full" />
-                  )}
-                </Link>
-              );
-            })}
-          </div>
-        </div>
+        <AdminNavigation />
       </div>
 
       {/* Table */}

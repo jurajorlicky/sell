@@ -28,3 +28,4 @@ git push -u origin main
 5. Zadajte URL vášho repozitára
 6. Pushnite zmeny
 
+

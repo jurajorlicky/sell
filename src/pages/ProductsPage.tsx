@@ -1,16 +1,11 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Link, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import AdminNavigation from '../components/AdminNavigation';
 import { 
   FaSearch, 
   FaSignOutAlt, 
   FaSync,
   FaShoppingBag,
-  FaList,
-  FaUsers,
-  FaCog,
-  FaChartBar,
-  FaShoppingCart,
   FaExclamationTriangle
 } from 'react-icons/fa';
 
@@ -22,7 +17,6 @@ interface Product {
 }
 
 export default function ProductsPage() {
-  const location = useLocation();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -161,41 +155,8 @@ export default function ProductsPage() {
           </div>
         )}
 
-        {/* Navigation Tabs */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-2xl mb-8 overflow-hidden">
-          <div className="flex overflow-x-auto">
-            {[
-              { id: 'overview', label: 'Prehľad', icon: FaChartBar, color: 'from-blue-500 to-cyan-500', path: '/admin' },
-              { id: 'products', label: 'Produkty', icon: FaShoppingBag, color: 'from-purple-500 to-violet-500', path: '/admin/products' },
-              { id: 'listed-products', label: 'Ponuky', icon: FaList, color: 'from-orange-500 to-amber-500', path: '/admin/listed-products' },
-              { id: 'sales', label: 'Predaje', icon: FaShoppingCart, color: 'from-green-500 to-emerald-500', path: '/admin/sales' },
-              { id: 'users', label: 'Užívatelia', icon: FaUsers, color: 'from-indigo-500 to-blue-500', path: '/admin/users' },
-              { id: 'settings', label: 'Nastavenia', icon: FaCog, color: 'from-gray-500 to-slate-500', path: '/admin/settings' },
-            ].map((tab) => {
-              const isActive = location.pathname === tab.path;
-              return (
-                <Link
-                  key={tab.id}
-                  to={tab.path}
-                  className={`relative flex items-center px-6 py-4 font-semibold transition-all duration-300 min-w-max ${
-                    isActive ? 'text-gray-900' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
-                >
-                  {isActive && (
-                    <div className={`absolute inset-0 bg-gradient-to-r ${tab.color} opacity-20 rounded-lg`}></div>
-                  )}
-                  <tab.icon className={`mr-2 text-sm ${isActive ? `text-transparent bg-gradient-to-r ${tab.color} bg-clip-text` : 'text-gray-600'}`} />
-                  <span className={isActive ? `bg-gradient-to-r ${tab.color} bg-clip-text text-transparent font-bold` : 'text-gray-600'}>
-                    {tab.label}
-                  </span>
-                  {isActive && (
-                    <div className={`absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r ${tab.color} rounded-full`}></div>
-                  )}
-                </Link>
-              );
-            })}
-          </div>
-        </div>
+        {/* Navigation */}
+        <AdminNavigation />
 
         {/* Products Table */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-2xl overflow-hidden">

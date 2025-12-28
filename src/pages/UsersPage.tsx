@@ -1,18 +1,14 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Link, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import SalesStatusBadge from '../components/SalesStatusBadge';
 import AdminSalesStatusManager from '../components/AdminSalesStatusManager';
+import AdminNavigation from '../components/AdminNavigation';
 import { 
   FaSignOutAlt, 
   FaSearch, 
   FaInfoCircle, 
   FaSync, 
-  FaList, 
-  FaShoppingBag, 
   FaUsers, 
-  FaCog, 
-  FaChartBar, 
   FaShoppingCart, 
   FaExclamationTriangle,
   FaUser,
@@ -92,7 +88,6 @@ interface UserStats {
 }
 
 export default function UsersPage() {
-  const location = useLocation();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -514,41 +509,8 @@ export default function UsersPage() {
           </div>
         )}
 
-        {/* Navigation Tabs */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-2xl mb-8 overflow-hidden">
-          <div className="flex overflow-x-auto">
-            {[
-              { id: 'overview', label: 'Prehľad', icon: FaChartBar, color: 'from-blue-500 to-cyan-500', path: '/admin' },
-              { id: 'products', label: 'Produkty', icon: FaShoppingBag, color: 'from-purple-500 to-violet-500', path: '/admin/products' },
-              { id: 'listed-products', label: 'Ponuky', icon: FaList, color: 'from-orange-500 to-amber-500', path: '/admin/listed-products' },
-              { id: 'sales', label: 'Predaje', icon: FaShoppingCart, color: 'from-green-500 to-emerald-500', path: '/admin/sales' },
-              { id: 'users', label: 'Užívatelia', icon: FaUsers, color: 'from-indigo-500 to-blue-500', path: '/admin/users' },
-              { id: 'settings', label: 'Nastavenia', icon: FaCog, color: 'from-gray-500 to-slate-500', path: '/admin/settings' },
-            ].map((tab) => {
-              const isActive = location.pathname === tab.path;
-              return (
-                <Link
-                  key={tab.id}
-                  to={tab.path}
-                  className={`relative flex items-center px-6 py-4 font-semibold transition-all duration-300 min-w-max ${
-                    isActive ? 'text-gray-900' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
-                >
-                  {isActive && (
-                    <div className={`absolute inset-0 bg-gradient-to-r ${tab.color} opacity-20 rounded-lg`}></div>
-                  )}
-                  <tab.icon className={`mr-2 text-sm ${isActive ? `text-transparent bg-gradient-to-r ${tab.color} bg-clip-text` : 'text-gray-600'}`} />
-                  <span className={isActive ? `bg-gradient-to-r ${tab.color} bg-clip-text text-transparent font-bold` : 'text-gray-600'}>
-                    {tab.label}
-                  </span>
-                  {isActive && (
-                    <div className={`absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r ${tab.color} rounded-full`}></div>
-                  )}
-                </Link>
-              );
-            })}
-          </div>
-        </div>
+        {/* Navigation */}
+        <AdminNavigation />
 
         {/* Users Table */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-2xl overflow-hidden">
@@ -647,8 +609,8 @@ export default function UsersPage() {
 
         {/* Enhanced Modal for User Details */}
         {selectedUser && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
-            <div className="bg-white rounded-2xl w-full max-w-6xl border border-gray-200 max-h-[95vh] overflow-hidden shadow-2xl">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-[60] p-0 sm:p-4">
+            <div className="bg-white rounded-t-3xl sm:rounded-2xl w-full max-w-6xl border-t sm:border border-gray-200 max-h-[95vh] overflow-hidden shadow-2xl">
               {/* Modal Header */}
               <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 bg-white">
                 <div className="flex items-center space-x-3 sm:space-x-4">
@@ -1078,8 +1040,8 @@ export default function UsersPage() {
 
               {/* Sale Status Manager Modal */}
               {selectedSaleForStatus && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}>
-                  <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-[70] p-0 sm:p-4">
+                  <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col">
                     <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
                       <div>
                         <h3 className="text-xl font-bold text-gray-900">Správa predaja</h3>

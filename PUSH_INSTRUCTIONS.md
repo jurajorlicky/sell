@@ -52,3 +52,4 @@ git push -u origin main
 
 **Odporúčanie**: Použite Spôsob 1 (Cursor Git UI) - je najjednoduchší a najbezpečnejší.
 
+

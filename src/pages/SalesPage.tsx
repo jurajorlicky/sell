@@ -1,21 +1,15 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Link, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import SalesStatusBadge from '../components/SalesStatusBadge';
 import AdminSalesStatusManager from '../components/AdminSalesStatusManager';
 import CreateSaleModal from '../components/CreateSaleModal';
+import AdminNavigation from '../components/AdminNavigation';
 import {
   FaSearch,
   FaSignOutAlt,
   FaSync,
-  FaList,
-  FaShoppingBag,
-  FaUsers,
-  FaCog,
-  FaChartBar,
   FaShoppingCart,
   FaExclamationTriangle,
-  FaSave,
   FaUserShield,
   FaFilePdf,
   FaLink,
@@ -53,7 +47,6 @@ interface Sale {
 }
 
 export default function SalesPage() {
-  const location = useLocation();
   const [sales, setSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -301,41 +294,8 @@ export default function SalesPage() {
           </div>
         )}
 
-        {/* Navigation Tabs */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-2xl mb-8 overflow-hidden">
-          <div className="flex overflow-x-auto">
-            {[
-              { id: 'overview', label: 'Prehľad', icon: FaChartBar, color: 'from-blue-500 to-cyan-500', path: '/admin' },
-              { id: 'products', label: 'Produkty', icon: FaShoppingBag, color: 'from-purple-500 to-violet-500', path: '/admin/products' },
-              { id: 'listed-products', label: 'Ponuky', icon: FaList, color: 'from-orange-500 to-amber-500', path: '/admin/listed-products' },
-              { id: 'sales', label: 'Predaje', icon: FaShoppingCart, color: 'from-green-500 to-emerald-500', path: '/admin/sales' },
-              { id: 'users', label: 'Užívatelia', icon: FaUsers, color: 'from-indigo-500 to-blue-500', path: '/admin/users' },
-              { id: 'settings', label: 'Nastavenia', icon: FaCog, color: 'from-gray-500 to-slate-500', path: '/admin/settings' },
-            ].map((tab) => {
-              const isActive = location.pathname === tab.path;
-              return (
-                <Link
-                  key={tab.id}
-                  to={tab.path}
-                  className={`relative flex items-center px-6 py-4 font-semibold transition-all duration-300 min-w-max ${
-                    isActive ? 'text-gray-900' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
-                >
-                  {isActive && (
-                    <div className={`absolute inset-0 bg-gradient-to-r ${tab.color} opacity-20 rounded-lg`}></div>
-                  )}
-                  <tab.icon className={`mr-2 text-sm ${isActive ? `text-transparent bg-gradient-to-r ${tab.color} bg-clip-text` : 'text-gray-600'}`} />
-                  <span className={isActive ? `bg-gradient-to-r ${tab.color} bg-clip-text text-transparent font-bold` : 'text-gray-600'}>
-                    {tab.label}
-                  </span>
-                  {isActive && (
-                    <div className={`absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r ${tab.color} rounded-full`}></div>
-                  )}
-                </Link>
-              );
-            })}
-          </div>
-        </div>
+        {/* Navigation */}
+        <AdminNavigation />
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
@@ -709,7 +669,7 @@ export default function SalesPage() {
                     </div>
 
                     {/* Action Button */}
-                    <button
+                      <button
                       onClick={(e) => {
                         e.stopPropagation();
                         setSelectedSaleForStatus(sale);
@@ -718,7 +678,7 @@ export default function SalesPage() {
                     >
                       <FaUserShield className="mr-2" />
                       Upraviť
-                    </button>
+                      </button>
                   </div>
                 ))}
               </div>
@@ -728,8 +688,8 @@ export default function SalesPage() {
 
         {/* Sales Status Management Modal */}
         {selectedSaleForStatus && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-2 sm:p-4">
-            <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-2xl max-w-2xl w-full border border-gray-200 max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+          <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black bg-opacity-50 p-0 sm:p-4">
+            <div className="bg-white p-4 sm:p-6 rounded-t-3xl sm:rounded-2xl shadow-2xl max-w-2xl w-full border-t sm:border border-gray-200 max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-4 sm:mb-6">
                 <h2 className="text-lg sm:text-xl text-gray-900 font-semibold">Správa statusu predaja</h2>
                 <button

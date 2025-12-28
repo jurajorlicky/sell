@@ -1,19 +1,15 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Link, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import AdminNavigation from './AdminNavigation';
 import { 
-  FaChartBar, 
   FaUsers, 
   FaShoppingBag, 
   FaEye, 
   FaChartLine, 
-  FaCog, 
-  FaSignOutAlt, 
-  FaArrowLeft,
+  FaSignOutAlt,
   FaUserShield,
   FaPlus,
   FaEuroSign,
-  FaList,
   FaShoppingCart,
   FaChevronDown,
   FaChevronUp
@@ -42,7 +38,6 @@ interface RecentActivity {
 }
 
 export default function AdminDashboard() {
-  const location = useLocation();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<DashboardStats>({
     totalUsers: 0,
@@ -309,38 +304,8 @@ export default function AdminDashboard() {
       </header>
 
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
-        {/* Navigation Tabs */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm mb-8 overflow-hidden">
-          <div className="flex overflow-x-auto">
-            {[
-              { id: 'overview', label: 'Prehľad', icon: FaChartBar, path: '/admin' },
-              { id: 'products', label: 'Produkty', icon: FaShoppingBag, path: '/admin/products' },
-              { id: 'listed-products', label: 'Ponuky', icon: FaList, path: '/admin/listed-products' },
-              { id: 'sales', label: 'Predaje', icon: FaShoppingCart, path: '/admin/sales' },
-              { id: 'users', label: 'Užívatelia', icon: FaUsers, path: '/admin/users' },
-              { id: 'settings', label: 'Nastavenia', icon: FaCog, path: '/admin/settings' },
-            ].map((tab) => {
-              const isActive = location.pathname === tab.path;
-              return (
-                <Link
-                  key={tab.id}
-                  to={tab.path}
-                  className={`relative flex items-center px-4 sm:px-6 py-3 sm:py-4 font-semibold transition-all duration-300 min-w-max ${
-                    isActive ? 'text-black' : 'text-gray-600 hover:text-black hover:bg-gray-50'
-                  }`}
-                >
-                  <tab.icon className={`text-base sm:text-sm mr-2 ${isActive ? 'text-black' : 'text-gray-600'}`} />
-                  <span className={`text-sm sm:text-base ${isActive ? 'text-black font-bold' : 'text-gray-600'}`}>
-                    {tab.label}
-                  </span>
-                  {isActive && (
-                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-black rounded-full"></div>
-                  )}
-                </Link>
-              );
-            })}
-          </div>
-        </div>
+        {/* Navigation */}
+        <AdminNavigation />
 
         {/* Overview Dashboard */}
         <div className="space-y-8">
