@@ -9,6 +9,7 @@ export default function AuthForm() {
   const [error, setError] = useState<string | null>(null);
   const [isSignUp, setIsSignUp] = useState(false);
   const [showEmailVerification, setShowEmailVerification] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState<string>('');
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -27,14 +28,41 @@ export default function AuthForm() {
           throw new Error(`Signup: ${signUpError.message} - ${JSON.stringify(signUpError)}`);
         }
         
-        // Check if email confirmation is required
-        if (data.user && !data.session) {
-          // Email confirmation required
-          setShowEmailVerification(true);
-          setEmail('');
-          setPassword('');
+        console.log('SignUp response:', { 
+          hasUser: !!data.user, 
+          hasSession: !!data.session, 
+          emailConfirmed: data?.user?.email_confirmed_at,
+          userEmail: data?.user?.email
+        });
+        
+        // Show email verification message if user was created
+        // Most common case: no session means email confirmation is required
+        if (data.user) {
+          if (!data.session) {
+            // No session = email confirmation required
+            console.log('No session after signup - email confirmation required');
+            setRegisteredEmail(email);
+            setShowEmailVerification(true);
+            setEmail('');
+            setPassword('');
+          } else {
+            // Has session - might be auto-confirmed, but check email_confirmed_at
+            const emailConfirmed = data.user.email_confirmed_at !== null;
+            if (!emailConfirmed) {
+              console.log('Session exists but email not confirmed - showing verification message');
+              setRegisteredEmail(email);
+              setShowEmailVerification(true);
+              setEmail('');
+              setPassword('');
+            } else {
+              // Email confirmed and has session - navigate to dashboard
+              console.log('Email confirmed and session exists - navigating to dashboard');
+              navigate('/dashboard');
+            }
+          }
         } else {
-          // Auto-confirmed, navigate to dashboard
+          // Fallback - shouldn't happen
+          console.log('No user in response, navigating to dashboard');
           navigate('/dashboard');
         }
       } else {
@@ -87,6 +115,11 @@ export default function AuthForm() {
                 <p className="text-sm sm:text-base text-gray-700 mb-4 leading-relaxed">
                   Úspešne ste sa zaregistrovali! Poslali sme vám overovací email na vašu emailovú adresu.
                 </p>
+                {registeredEmail && (
+                  <p className="text-sm sm:text-base text-gray-900 mb-4 leading-relaxed font-semibold text-center">
+                    📧 {registeredEmail}
+                  </p>
+                )}
                 <p className="text-sm sm:text-base text-gray-700 mb-4 leading-relaxed">
                   <strong>Prosím skontrolujte svoju emailovú schránku</strong> a kliknite na odkaz v emaili, aby ste overili svoj účet.
                 </p>
@@ -99,6 +132,7 @@ export default function AuthForm() {
                 onClick={() => {
                   setShowEmailVerification(false);
                   setIsSignUp(false);
+                  setRegisteredEmail('');
                 }}
                 className="w-full bg-black text-white font-semibold py-2 sm:py-3 px-4 rounded-xl hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2 transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] text-sm sm:text-base"
               >
