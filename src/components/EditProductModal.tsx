@@ -58,6 +58,7 @@ export default function EditProductModal({
   const fetchCurrentMarketPrice = async (product: Product) => {
     try {
       // First, try to find lowest price from consignor (not eshop)
+      // Exclude current user's product from comparison
       const { data: consignorPrice, error: consignorError } = await supabase
         .from('product_price_view') 
         .select('final_price, owner')
@@ -65,6 +66,7 @@ export default function EditProductModal({
         .eq('size', product.size)
         .in('final_status', ['Skladom', 'Skladom Expres'])
         .not('owner', 'is', null)
+        .neq('owner', product.user_id) // Exclude current user's product
         .order('final_price', { ascending: true })
         .limit(1)
         .maybeSingle();
@@ -139,18 +141,35 @@ export default function EditProductModal({
   }, [product, recommendedPrice]);
 
   const updatePriceStatus = (price: number, recommended: number) => {
-    // Compare with lowest price overall (eshop or consignor)
-    // If there's a consignor price, compare with the lower of consignor price or eshop price
-    // If no consignor price, compare with eshop price
+    // Calculate the lowest price to compare against (excluding current user's product)
+    // lowestConsignorPrice already excludes current user's product
     let comparisonPrice = recommended;
     if (lowestConsignorPrice !== null && currentMarketPrice !== null) {
-      // Compare with the lowest of both (eshop or consignor)
+      // Compare with the lowest of both (eshop or other consignor)
       comparisonPrice = Math.min(lowestConsignorPrice, currentMarketPrice);
     } else if (lowestConsignorPrice !== null) {
       comparisonPrice = lowestConsignorPrice;
+    } else if (currentMarketPrice !== null) {
+      comparisonPrice = currentMarketPrice;
     }
 
-    if (price > comparisonPrice) {
+    // Determine if user has the lowest price
+    // If lowestConsignorPrice is null, no other consignor has a price
+    const hasLowestConsignorPrice = lowestConsignorPrice === null || price < lowestConsignorPrice;
+    const hasLowerThanEshop = currentMarketPrice === null || price < currentMarketPrice;
+    const isLowest = hasLowestConsignorPrice && hasLowerThanEshop;
+
+    if (isLowest) {
+      // User has the lowest price
+      setPriceColor('text-green-600');
+      setPriceMessage(`Najnižšia nová cena bude ${price} €`);
+      setPriceBadge(
+        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 ml-2">
+          Najnižšia
+        </span>
+      );
+    } else if (price > comparisonPrice) {
+      // User's price is higher than the lowest market price
       setPriceColor('text-red-600');
       setPriceMessage('Tvoja cena je vyššia ako najnižšia trhová cena!');
       setPriceBadge(
@@ -159,6 +178,7 @@ export default function EditProductModal({
         </span>
       );
     } else if (price < comparisonPrice) {
+      // User's price is lower (shouldn't happen if comparisonPrice is correct, but handle it)
       setPriceColor('text-green-600');
       setPriceMessage(`Najnižšia nová cena bude ${price} €`);
       setPriceBadge(
@@ -167,9 +187,22 @@ export default function EditProductModal({
         </span>
       );
     } else {
-      setPriceColor('text-slate-700');
-      setPriceMessage('Niekto má rovnakú cenu.');
-      setPriceBadge(null);
+      // Price equals comparison price
+      // If it equals lowestConsignorPrice, someone else has the same price
+      if (lowestConsignorPrice !== null && price === lowestConsignorPrice) {
+        setPriceColor('text-slate-700');
+        setPriceMessage('Niekto má rovnakú cenu.');
+        setPriceBadge(null);
+      } else {
+        // Equal to eshop price or no other consignor price exists
+        setPriceColor('text-green-600');
+        setPriceMessage(`Najnižšia nová cena bude ${price} €`);
+        setPriceBadge(
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 ml-2">
+            Najnižšia
+          </span>
+        );
+      }
     }
   };
 
