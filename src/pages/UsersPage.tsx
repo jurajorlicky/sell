@@ -537,34 +537,32 @@ export default function UsersPage() {
           </div>
 
           {/* Mobile Cards View */}
-          <div className="md:hidden space-y-2">
+          <div className="md:hidden space-y-2.5">
             {filteredUsers.map((user) => (
               <div
                 key={user.id}
-                className="bg-white border border-gray-200 rounded-xl p-2.5 sm:p-3 hover:shadow-md transition-all"
+                className="bg-white border border-gray-200 rounded-xl p-3 hover:shadow-lg transition-all cursor-pointer"
+                onClick={() => handleUserSelect(user)}
               >
-                <div className="flex items-start justify-between mb-2">
+                <div className="flex items-center space-x-3 mb-3">
+                  <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm">
+                    <FaUser className="text-white text-lg" />
+                  </div>
                   <div className="flex-1 min-w-0">
-                    <h4 className="text-xs sm:text-sm font-semibold text-gray-900 truncate mb-0.5 sm:mb-1">{user.email}</h4>
+                    <h4 className="text-sm font-semibold text-gray-900 truncate mb-0.5">{user.email}</h4>
                     {user.first_name || user.last_name ? (
-                      <p className="text-xs text-gray-600 mb-2">
+                      <p className="text-xs text-gray-600 mb-1.5">
                         {`${user.first_name || ''} ${user.last_name || ''}`.trim()}
                       </p>
                     ) : null}
-                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${
                       user.profile_type === 'Obchodný' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
                     }`}>
                       {user.profile_type || 'N/A'}
                     </span>
                   </div>
+                  <FaInfoCircle className="text-gray-400 text-lg flex-shrink-0" />
                 </div>
-                <button
-                  onClick={() => handleUserSelect(user)}
-                  className="w-full inline-flex items-center justify-center px-4 py-2.5 bg-black text-white text-sm font-semibold rounded-xl hover:bg-gray-800 transition-all duration-200"
-                >
-                  <FaInfoCircle className="mr-2" />
-                  Detail
-                </button>
               </div>
             ))}
           </div>
@@ -700,53 +698,53 @@ export default function UsersPage() {
 
               {/* Stats Cards */}
               {userStats && (
-                <div className="p-2 sm:p-3 lg:p-6 border-b border-gray-200 bg-gray-50">
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1.5 sm:gap-2 lg:gap-4">
-                    <div className="bg-white rounded-xl p-2 sm:p-3 lg:p-4 text-center border border-gray-200 shadow-sm">
-                      <div className="w-5 h-5 sm:w-6 sm:h-6 lg:w-8 lg:h-8 bg-blue-500/20 rounded-lg flex items-center justify-center mx-auto mb-1 sm:mb-2">
-                        <FaShoppingCart className="text-blue-400 text-xs sm:text-sm" />
+                <div className="p-3 sm:p-4 lg:p-6 border-b border-gray-200 bg-gradient-to-br from-gray-50 to-white">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 lg:gap-4">
+                    <div className="bg-white rounded-xl p-3 sm:p-4 text-center border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-500/10 rounded-xl flex items-center justify-center mx-auto mb-2">
+                        <FaShoppingCart className="text-blue-600 text-base sm:text-lg" />
                       </div>
-                      <p className="text-base sm:text-lg lg:text-2xl font-bold text-gray-900">{userStats.totalSales}</p>
-                      <p className="text-[10px] sm:text-xs text-gray-600">Predaje</p>
+                      <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">{userStats.totalSales}</p>
+                      <p className="text-[10px] sm:text-xs text-gray-600 mt-1">Predaje</p>
                     </div>
-                    <div className="bg-slate-700/30 rounded-xl p-2 sm:p-3 lg:p-4 text-center">
-                      <div className="w-5 h-5 sm:w-6 sm:h-6 lg:w-8 lg:h-8 bg-green-500/20 rounded-lg flex items-center justify-center mx-auto mb-1 sm:mb-2">
-                        <FaEuroSign className="text-green-600 text-xs sm:text-sm" />
+                    <div className="bg-white rounded-xl p-3 sm:p-4 text-center border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-500/10 rounded-xl flex items-center justify-center mx-auto mb-2">
+                        <FaEuroSign className="text-green-600 text-base sm:text-lg" />
                       </div>
-                      <p className="text-base sm:text-lg lg:text-2xl font-bold text-gray-900 truncate">{formatCurrency(userStats.totalRevenue)}</p>
-                      <p className="text-[10px] sm:text-xs text-gray-600">Tržby</p>
+                      <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 truncate">{formatCurrency(userStats.totalRevenue)}</p>
+                      <p className="text-[10px] sm:text-xs text-gray-600 mt-1">Tržby</p>
                     </div>
-                    <div className="bg-slate-700/30 rounded-xl p-2 sm:p-3 lg:p-4 text-center">
-                      <div className="w-5 h-5 sm:w-6 sm:h-6 lg:w-8 lg:h-8 bg-purple-500/20 rounded-lg flex items-center justify-center mx-auto mb-1 sm:mb-2">
-                        <FaChartLine className="text-purple-400 text-xs sm:text-sm" />
+                    <div className="bg-white rounded-xl p-3 sm:p-4 text-center border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 bg-purple-500/10 rounded-xl flex items-center justify-center mx-auto mb-2">
+                        <FaChartLine className="text-purple-600 text-base sm:text-lg" />
                       </div>
-                      <p className="text-base sm:text-lg lg:text-2xl font-bold text-gray-900 truncate">{formatCurrency(userStats.totalPayout)}</p>
-                      <p className="text-[10px] sm:text-xs text-gray-600">Payout</p>
+                      <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 truncate">{formatCurrency(userStats.totalPayout)}</p>
+                      <p className="text-[10px] sm:text-xs text-gray-600 mt-1">Payout</p>
                     </div>
-                    <div className="bg-slate-700/30 rounded-xl p-2 sm:p-3 lg:p-4 text-center">
-                      <div className="w-5 h-5 sm:w-6 sm:h-6 lg:w-8 lg:h-8 bg-orange-500/20 rounded-lg flex items-center justify-center mx-auto mb-1 sm:mb-2">
-                        <FaBox className="text-orange-400 text-xs sm:text-sm" />
+                    <div className="bg-white rounded-xl p-3 sm:p-4 text-center border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 bg-orange-500/10 rounded-xl flex items-center justify-center mx-auto mb-2">
+                        <FaBox className="text-orange-600 text-base sm:text-lg" />
                       </div>
-                      <p className="text-base sm:text-lg lg:text-2xl font-bold text-gray-900">{userStats.totalProducts}</p>
-                      <p className="text-[10px] sm:text-xs text-gray-600">Produkty</p>
+                      <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">{userStats.totalProducts}</p>
+                      <p className="text-[10px] sm:text-xs text-gray-600 mt-1">Produkty</p>
                     </div>
-                    <div className="bg-slate-700/30 rounded-xl p-2 sm:p-3 lg:p-4 text-center">
-                      <div className="w-5 h-5 sm:w-6 sm:h-6 lg:w-8 lg:h-8 bg-green-500/20 rounded-lg flex items-center justify-center mx-auto mb-1 sm:mb-2">
-                        <svg className="w-3 h-3 sm:w-4 sm:h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="bg-white rounded-xl p-3 sm:p-4 text-center border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-500/10 rounded-xl flex items-center justify-center mx-auto mb-2">
+                        <svg className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                       </div>
-                      <p className="text-base sm:text-lg lg:text-2xl font-bold text-gray-900">{userStats.completedSales}</p>
-                      <p className="text-[10px] sm:text-xs text-gray-600">Dokončené</p>
+                      <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">{userStats.completedSales}</p>
+                      <p className="text-[10px] sm:text-xs text-gray-600 mt-1">Dokončené</p>
                     </div>
-                    <div className="bg-slate-700/30 rounded-xl p-2 sm:p-3 lg:p-4 text-center">
-                      <div className="w-5 h-5 sm:w-6 sm:h-6 lg:w-8 lg:h-8 bg-yellow-500/20 rounded-lg flex items-center justify-center mx-auto mb-1 sm:mb-2">
-                        <svg className="w-3 h-3 sm:w-4 sm:h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="bg-white rounded-xl p-3 sm:p-4 text-center border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 bg-yellow-500/10 rounded-xl flex items-center justify-center mx-auto mb-2">
+                        <svg className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                       </div>
-                      <p className="text-base sm:text-lg lg:text-2xl font-bold text-gray-900">{userStats.pendingSales}</p>
-                      <p className="text-[10px] sm:text-xs text-gray-600">Čakajúce</p>
+                      <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">{userStats.pendingSales}</p>
+                      <p className="text-[10px] sm:text-xs text-gray-600 mt-1">Čakajúce</p>
                     </div>
                   </div>
                 </div>
@@ -906,56 +904,70 @@ export default function UsersPage() {
                     {/* Sales Tab */}
                     {activeTab === 'sales' && (
                       <div>
-                        <h4 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900 mb-2 sm:mb-3 lg:mb-4">Predaje ({userSales.length})</h4>
+                        <h4 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Predaje ({userSales.length})</h4>
                         {userSales.length > 0 ? (
-                          <div className="space-y-2 sm:space-y-3 lg:space-y-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                             {userSales.map((sale) => (
                               <div 
                                 key={sale.id} 
                                 onClick={() => setSelectedSaleForStatus(sale)}
-                                className="bg-white rounded-xl p-2 sm:p-3 lg:p-4 border border-gray-200 hover:bg-gray-50 transition-colors shadow-sm cursor-pointer"
+                                className="bg-white rounded-xl p-3 sm:p-4 border border-gray-200 hover:border-indigo-300 hover:shadow-lg transition-all shadow-sm cursor-pointer"
                               >
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center space-x-2 sm:space-x-3 lg:space-x-4 flex-1 min-w-0">
-                                    <div className="h-12 w-12 sm:h-14 sm:w-14 lg:h-16 lg:w-16 flex-shrink-0 overflow-hidden rounded-xl border border-gray-300 bg-white">
-                                      <img
-                                        className="h-full w-full object-contain p-1.5 sm:p-2"
-                                        src={sale.image_url || '/default-image.png'}
-                                        alt={sale.name}
-                                        onError={(e) => {
-                                          const target = e.target as HTMLImageElement;
-                                          target.src = '/default-image.png';
-                                        }}
-                                      />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                      <h5 className="text-xs sm:text-sm lg:text-base font-semibold text-gray-900 truncate">{sale.name}</h5>
-                                      <p className="text-xs text-gray-600">Veľkosť: {sale.size}</p>
-                                      <p className="text-xs text-gray-600">SKU: {sale.sku || 'N/A'}</p>
-                                      <p className="text-xs text-gray-600 truncate">ID: {sale.external_id || 'N/A'}</p>
-                                    </div>
+                                <div className="flex items-start space-x-3 mb-3">
+                                  <div className="h-16 w-16 sm:h-20 sm:w-20 flex-shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-white p-1.5">
+                                    <img
+                                      className="h-full w-full object-contain"
+                                      src={sale.image_url || '/default-image.png'}
+                                      alt={sale.name}
+                                      onError={(e) => {
+                                        const target = e.target as HTMLImageElement;
+                                        target.src = '/default-image.png';
+                                      }}
+                                    />
                                   </div>
-                                  <div className="text-right flex-shrink-0 ml-2">
-                                    <div className="flex items-center justify-end space-x-1 mb-1.5 sm:mb-2">
+                                  <div className="flex-1 min-w-0">
+                                    <h5 className="text-sm sm:text-base font-semibold text-gray-900 truncate mb-1">{sale.name}</h5>
+                                    <div className="flex items-center space-x-1.5 mb-1.5">
                                       <SalesStatusBadge status={sale.status} />
                                       {sale.is_manual && (
-                                        <span className="inline-flex items-center justify-center w-4 h-4 sm:w-5 sm:h-5 rounded-full text-[10px] sm:text-xs font-bold bg-blue-500 text-white" title="Manuálna sale">
+                                        <span className="inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold bg-blue-500 text-white" title="Manuálna sale">
                                           M
                                         </span>
                                       )}
                                     </div>
-                                    <p className="text-sm sm:text-base lg:text-lg font-bold text-gray-900">{formatCurrency(sale.price)}</p>
-                                    <p className="text-xs sm:text-sm text-green-600">Payout: {formatCurrency(sale.payout)}</p>
-                                    <p className="text-xs text-gray-600">{formatDate(sale.created_at)}</p>
+                                    <p className="text-xs text-gray-600">Veľkosť: {sale.size}</p>
+                                    <p className="text-xs text-gray-500 font-mono truncate">SKU: {sale.sku || 'N/A'}</p>
                                   </div>
+                                </div>
+                                <div className="border-t border-gray-200 pt-3 space-y-1">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-gray-600">Cena:</span>
+                                    <span className="text-sm sm:text-base font-bold text-gray-900">{formatCurrency(sale.price)}</span>
+                                  </div>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-gray-600">Payout:</span>
+                                    <span className="text-sm font-semibold text-green-600">{formatCurrency(sale.payout)}</span>
+                                  </div>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-gray-500">Dátum:</span>
+                                    <span className="text-xs text-gray-600">{formatDate(sale.created_at)}</span>
+                                  </div>
+                                  {sale.external_id && (
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-xs text-gray-500">Externé ID:</span>
+                                      <span className="text-xs text-gray-700 font-mono truncate max-w-[120px]">{sale.external_id}</span>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             ))}
                           </div>
                         ) : (
-                          <div className="text-center py-8">
-                            <FaShoppingCart className="text-gray-600 text-2xl sm:text-4xl mx-auto mb-4" />
-                            <p className="text-sm sm:text-base text-gray-600">Žiadne predaje</p>
+                          <div className="text-center py-12">
+                            <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                              <FaShoppingCart className="text-gray-400 text-2xl" />
+                            </div>
+                            <p className="text-sm sm:text-base text-gray-600 font-medium">Žiadne predaje</p>
                           </div>
                         )}
                       </div>
@@ -964,43 +976,52 @@ export default function UsersPage() {
                     {/* Products Tab */}
                     {activeTab === 'products' && (
                       <div>
-                        <h4 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900 mb-2 sm:mb-3 lg:mb-4">Produkty ({userProducts.length})</h4>
+                        <h4 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Produkty ({userProducts.length})</h4>
                         {userProducts.length > 0 ? (
-                          <div className="space-y-2 sm:space-y-3 lg:space-y-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                             {userProducts.map((product) => (
-                              <div key={product.id} className="bg-white rounded-xl p-2 sm:p-3 lg:p-4 border border-gray-200 hover:bg-gray-50 transition-colors shadow-sm">
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center space-x-2 sm:space-x-3 lg:space-x-4 flex-1 min-w-0">
-                                    <div className="h-12 w-12 sm:h-14 sm:w-14 lg:h-16 lg:w-16 flex-shrink-0 overflow-hidden rounded-xl border border-gray-300 bg-white">
-                                      <img
-                                        className="h-full w-full object-contain p-1.5 sm:p-2"
-                                        src={product.image_url || '/default-image.png'}
-                                        alt={product.name}
-                                        onError={(e) => {
-                                          const target = e.target as HTMLImageElement;
-                                          target.src = '/default-image.png';
-                                        }}
-                                      />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                      <h5 className="text-xs sm:text-sm lg:text-base font-semibold text-gray-900 truncate">{product.name}</h5>
-                                      <p className="text-xs text-gray-600">Veľkosť: {product.size}</p>
-                                      <p className="text-xs text-gray-600">SKU: {product.sku || 'N/A'}</p>
-                                    </div>
+                              <div key={product.id} className="bg-white rounded-xl p-3 sm:p-4 border border-gray-200 hover:border-indigo-300 hover:shadow-lg transition-all shadow-sm">
+                                <div className="flex items-start space-x-3 mb-3">
+                                  <div className="h-16 w-16 sm:h-20 sm:w-20 flex-shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-white p-1.5">
+                                    <img
+                                      className="h-full w-full object-contain"
+                                      src={product.image_url || '/default-image.png'}
+                                      alt={product.name}
+                                      onError={(e) => {
+                                        const target = e.target as HTMLImageElement;
+                                        target.src = '/default-image.png';
+                                      }}
+                                    />
                                   </div>
-                                  <div className="text-right flex-shrink-0 ml-2">
-                                    <p className="text-sm sm:text-base lg:text-lg font-bold text-gray-900">{formatCurrency(product.price)}</p>
-                                    <p className="text-xs sm:text-sm text-green-600">Payout: {formatCurrency(product.payout)}</p>
-                                    <p className="text-xs text-gray-600">{formatDate(product.created_at)}</p>
+                                  <div className="flex-1 min-w-0">
+                                    <h5 className="text-sm sm:text-base font-semibold text-gray-900 truncate mb-1">{product.name}</h5>
+                                    <p className="text-xs text-gray-600">Veľkosť: {product.size}</p>
+                                    <p className="text-xs text-gray-500 font-mono truncate">SKU: {product.sku || 'N/A'}</p>
+                                  </div>
+                                </div>
+                                <div className="border-t border-gray-200 pt-3 space-y-1">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-gray-600">Cena:</span>
+                                    <span className="text-sm sm:text-base font-bold text-gray-900">{formatCurrency(product.price)}</span>
+                                  </div>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-gray-600">Payout:</span>
+                                    <span className="text-sm font-semibold text-green-600">{formatCurrency(product.payout)}</span>
+                                  </div>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-gray-500">Dátum:</span>
+                                    <span className="text-xs text-gray-600">{formatDate(product.created_at)}</span>
                                   </div>
                                 </div>
                               </div>
                             ))}
                           </div>
                         ) : (
-                          <div className="text-center py-8">
-                            <FaBox className="text-gray-600 text-2xl sm:text-4xl mx-auto mb-4" />
-                            <p className="text-sm sm:text-base text-gray-600">Žiadne produkty</p>
+                          <div className="text-center py-12">
+                            <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                              <FaBox className="text-gray-400 text-2xl" />
+                            </div>
+                            <p className="text-sm sm:text-base text-gray-600 font-medium">Žiadne produkty</p>
                           </div>
                         )}
                       </div>
@@ -1009,53 +1030,41 @@ export default function UsersPage() {
                     {/* Operations Tab */}
                     {activeTab === 'operations' && (
                       <div>
-                        <h4 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">História operácií ({userOperations.length})</h4>
+                        <h4 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">História operácií ({userOperations.length})</h4>
                         {loadingOperations ? (
                           <div className="flex items-center justify-center py-12">
                             <div className="w-8 h-8 border-4 border-gray-300 border-t-indigo-500 rounded-full animate-spin"></div>
-                            <span className="ml-3 text-gray-700">Načítavajú sa operácie...</span>
+                            <span className="ml-3 text-gray-700 text-sm">Načítavajú sa operácie...</span>
                           </div>
                         ) : userOperations.length > 0 ? (
                           <div className="space-y-3">
-                            {userOperations.map((operation) => (
-                              <div key={operation.id} className="bg-white rounded-xl p-4 border border-gray-200 hover:bg-gray-50 transition-colors shadow-sm">
-                                <div className="flex items-start space-x-3">
-                                  <div className="flex-shrink-0 mt-1">
-                                    <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                                      <FaChartBar className="text-blue-600 text-sm" />
-                                    </div>
-                                  </div>
+                            {userOperations.map((op) => (
+                              <div key={op.id} className="bg-white rounded-xl p-3 sm:p-4 border border-gray-200 hover:shadow-md transition-shadow shadow-sm">
+                                <div className="flex items-start justify-between mb-2">
                                   <div className="flex-1 min-w-0">
-                                    <div className="flex items-center justify-between mb-2">
-                                      <h5 className="text-sm font-semibold text-gray-900">{operation.sale_name}</h5>
-                                      <span className="text-xs text-gray-500">{formatDate(operation.created_at)}</span>
+                                    <p className="text-sm sm:text-base font-semibold text-gray-900 truncate">{op.user_sales?.name || 'N/A'}</p>
+                                    <div className="flex items-center space-x-2 mt-1.5">
+                                      <SalesStatusBadge status={op.old_status} />
+                                      <span className="text-gray-400 text-xs">→</span>
+                                      <SalesStatusBadge status={op.new_status} />
                                     </div>
-                                    <div className="flex items-center space-x-2 flex-wrap gap-1">
-                                      <span className="text-xs text-gray-600">Zmena statusu:</span>
-                                      {operation.old_status ? (
-                                        <>
-                                          <SalesStatusBadge status={operation.old_status} />
-                                          <span className="text-gray-400 text-xs">→</span>
-                                        </>
-                                      ) : (
-                                        <span className="text-xs text-gray-500">Začiatok</span>
-                                      )}
-                                      <SalesStatusBadge status={operation.new_status} />
-                                    </div>
-                                    {operation.notes && (
-                                      <div className="mt-2 p-2 bg-gray-50 rounded border border-gray-100">
-                                        <p className="text-xs text-gray-700">{operation.notes}</p>
-                                      </div>
-                                    )}
                                   </div>
+                                  <p className="text-xs text-gray-500 ml-2 flex-shrink-0">{formatDate(op.created_at)}</p>
                                 </div>
+                                {op.notes && (
+                                  <div className="mt-2 pt-2 border-t border-gray-100">
+                                    <p className="text-xs text-gray-600 italic">Poznámka: {op.notes}</p>
+                                  </div>
+                                )}
                               </div>
                             ))}
                           </div>
                         ) : (
-                          <div className="text-center py-8">
-                            <FaChartBar className="text-gray-600 text-2xl sm:text-4xl mx-auto mb-4" />
-                            <p className="text-sm sm:text-base text-gray-600">Žiadne operácie</p>
+                          <div className="text-center py-12">
+                            <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                              <FaChartBar className="text-gray-400 text-2xl" />
+                            </div>
+                            <p className="text-sm sm:text-base text-gray-600 font-medium">Žiadne operácie</p>
                           </div>
                         )}
                       </div>
