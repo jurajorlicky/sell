@@ -1,27 +1,6 @@
 import { supabase } from './supabase';
 import { logger } from './logger';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://ddzmuxcavpgbzhirzlqt.supabase.co';
-const EDGE_FUNCTION_URL = `${SUPABASE_URL}/functions/v1/send-sale-email-ts`;
-
-/**
- * Gets the authentication token for the edge function
- * Returns the session access token if available, otherwise falls back to anon key
- */
-async function getAuthToken(): Promise<string> {
-  try {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session?.access_token) {
-      return session.access_token;
-    }
-  } catch (error) {
-    logger.warn('Failed to get session token', error);
-  }
-  
-  // Fallback to anon key
-  return import.meta.env.VITE_SUPABASE_ANON_KEY || '';
-}
-
 /**
  * Sends a new sale email notification
  */
@@ -36,44 +15,26 @@ export async function sendNewSaleEmail(data: {
   sku: string;
 }): Promise<void> {
   try {
-    const token = await getAuthToken();
+    logger.info('Sending new sale email', { email: data.email, type: 'new_sale' });
     
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-
-    const response = await fetch(EDGE_FUNCTION_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify({
+    const { data: result, error } = await supabase.functions.invoke('send-sale-email-ts', {
+      body: {
         type: 'new_sale',
         ...data
-      }),
-      signal: controller.signal
+      }
     });
 
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      const errorData = await response.text();
+    if (error) {
       logger.error('Email send failed', {
-        status: response.status,
-        statusText: response.statusText,
-        data: errorData,
-        type: 'new_sale'
+        error,
+        type: 'new_sale',
+        email: data.email
       });
-      throw new Error(`Email send failed: ${response.status} ${response.statusText}`);
+      throw new Error(`Email send failed: ${error.message || JSON.stringify(error)}`);
     }
 
-    const result = await response.json();
     logger.info('New sale email sent successfully', { result, email: data.email });
   } catch (error: any) {
-    if (error.name === 'AbortError') {
-      logger.error('Email send timeout after 10 seconds', { type: 'new_sale' });
-      throw new Error('Email send timeout');
-    }
     logger.error('Error sending new sale email', { error, email: data.email });
     throw error;
   }
@@ -91,44 +52,27 @@ export async function sendStatusChangeEmail(data: {
   notes?: string;
 }): Promise<void> {
   try {
-    const token = await getAuthToken();
+    logger.info('Sending status change email', { email: data.email, saleId: data.saleId, type: 'status_change' });
     
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-
-    const response = await fetch(EDGE_FUNCTION_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify({
+    const { data: result, error } = await supabase.functions.invoke('send-sale-email-ts', {
+      body: {
         type: 'status_change',
         ...data
-      }),
-      signal: controller.signal
+      }
     });
 
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      const errorData = await response.text();
+    if (error) {
       logger.error('Email send failed', {
-        status: response.status,
-        statusText: response.statusText,
-        data: errorData,
-        type: 'status_change'
+        error,
+        type: 'status_change',
+        email: data.email,
+        saleId: data.saleId
       });
-      throw new Error(`Email send failed: ${response.status} ${response.statusText}`);
+      throw new Error(`Email send failed: ${error.message || JSON.stringify(error)}`);
     }
 
-    const result = await response.json();
     logger.info('Status change email sent successfully', { result, email: data.email, saleId: data.saleId });
   } catch (error: any) {
-    if (error.name === 'AbortError') {
-      logger.error('Email send timeout after 10 seconds', { type: 'status_change' });
-      throw new Error('Email send timeout');
-    }
     logger.error('Error sending status change email', { error, email: data.email, saleId: data.saleId });
     throw error;
   }
@@ -148,44 +92,27 @@ export async function sendTrackingEmail(data: {
   notes?: string;
 }): Promise<void> {
   try {
-    const token = await getAuthToken();
+    logger.info('Sending tracking email', { email: data.email, saleId: data.saleId, type: 'tracking' });
     
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-
-    const response = await fetch(EDGE_FUNCTION_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify({
+    const { data: result, error } = await supabase.functions.invoke('send-sale-email-ts', {
+      body: {
         type: 'tracking',
         ...data
-      }),
-      signal: controller.signal
+      }
     });
 
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      const errorData = await response.text();
+    if (error) {
       logger.error('Email send failed', {
-        status: response.status,
-        statusText: response.statusText,
-        data: errorData,
-        type: 'tracking'
+        error,
+        type: 'tracking',
+        email: data.email,
+        saleId: data.saleId
       });
-      throw new Error(`Email send failed: ${response.status} ${response.statusText}`);
+      throw new Error(`Email send failed: ${error.message || JSON.stringify(error)}`);
     }
 
-    const result = await response.json();
     logger.info('Tracking email sent successfully', { result, email: data.email, saleId: data.saleId });
   } catch (error: any) {
-    if (error.name === 'AbortError') {
-      logger.error('Email send timeout after 10 seconds', { type: 'tracking' });
-      throw new Error('Email send timeout');
-    }
     logger.error('Error sending tracking email', { error, email: data.email, saleId: data.saleId });
     throw error;
   }
