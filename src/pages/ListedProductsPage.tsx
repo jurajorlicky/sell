@@ -190,15 +190,12 @@ export default function ListedProductsPage() {
         </div>
       </header>
 
-      {/* Navigation */}
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-4">
+      <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-3 sm:py-6 lg:py-8">
+        {/* Navigation */}
         <AdminNavigation />
-      </div>
 
-      {/* Table */}
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pb-8 sm:pb-16">
         <div className="bg-white rounded-2xl border border-gray-200 shadow-2xl overflow-hidden">
-          <div className="px-4 sm:px-6 py-4 border-b border-gray-200 bg-white flex flex-col sm:flex-row sm:justify-between sm:items-center space-y-3 sm:space-y-0">
+          <div className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 border-b border-gray-200 bg-white flex flex-col sm:flex-row sm:justify-between sm:items-center space-y-2 sm:space-y-0 gap-2 sm:gap-0">
             <h3 className="text-lg sm:text-xl font-bold text-gray-900">Ponuky ({filtered.length})</h3>
             <div className="flex items-center space-x-3">
               <div className="relative">
@@ -237,8 +234,8 @@ export default function ListedProductsPage() {
 
           {/* Filters Panel */}
           {showFilters && (
-            <div className="px-4 sm:px-6 py-4 bg-gray-50 border-b border-gray-200">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 bg-gray-50 border-b border-gray-200">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
                 {/* Date From */}
                 <div>
                   <label className="block text-xs font-semibold text-gray-700 mb-2">Dátum od</label>
@@ -288,7 +285,7 @@ export default function ListedProductsPage() {
             </div>
           )}
 
-          <div className="p-4 sm:p-6">
+          <div className="p-3 sm:p-4 lg:p-6">
             {filtered.length === 0 ? (
               <div className="text-center py-12">
                 <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
@@ -300,17 +297,17 @@ export default function ListedProductsPage() {
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
                 {filtered.map((product) => (
                   <div
                     key={product.id}
-                    className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 hover:shadow-lg transition-all duration-200"
+                    className="bg-white border border-gray-200 rounded-xl p-3 sm:p-4 lg:p-5 hover:shadow-lg transition-all duration-200"
                   >
                     {/* Product Image & Basic Info */}
-                    <div className="flex items-start space-x-4 mb-4">
-                      <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-white">
+                    <div className="flex items-start space-x-2 sm:space-x-3 lg:space-x-4 mb-3 sm:mb-4">
+                      <div className="h-16 w-16 sm:h-20 sm:w-20 flex-shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-white">
                         <img
-                          className="h-full w-full object-contain p-2"
+                          className="h-full w-full object-contain p-1.5 sm:p-2"
                           src={product.image_url || '/default-image.png'}
                           alt={product.name}
                           onError={(e) => {
@@ -321,30 +318,30 @@ export default function ListedProductsPage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <h4 className="text-sm font-semibold text-gray-900 truncate mb-1">{product.name}</h4>
-                        <div className="flex items-center space-x-2 mb-2">
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                        <div className="flex items-center space-x-1.5 sm:space-x-2 mb-1.5 sm:mb-2">
+                          <span className="inline-flex items-center px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
                             {product.size}
                           </span>
                         </div>
                         <p className="text-xs text-gray-600">SKU: {product.sku || 'N/A'}</p>
-                        <p className="text-xs text-gray-600 font-mono mt-1">ID: {product.id.slice(0, 8)}...</p>
+                        <p className="text-xs text-gray-500 font-mono mt-0.5">ID: {product.id.slice(0, 8)}...</p>
                       </div>
                     </div>
 
                     {/* Financial Info */}
-                    <div className="grid grid-cols-2 gap-3 mb-4 pb-4 border-b border-gray-200">
+                    <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-3 sm:mb-4 pb-3 sm:pb-4 border-b border-gray-200">
                       <div>
-                        <p className="text-xs text-gray-600 mb-1">Cena</p>
+                        <p className="text-xs text-gray-600 mb-0.5 sm:mb-1">Cena</p>
                         <p className="text-sm font-semibold text-gray-900">{product.price.toFixed(2)} €</p>
                       </div>
                       <div>
-                        <p className="text-xs text-gray-600 mb-1">Payout</p>
+                        <p className="text-xs text-gray-600 mb-0.5 sm:mb-1">Payout</p>
                         <p className="text-sm font-semibold text-green-600">{product.payout.toFixed(2)} €</p>
                       </div>
                     </div>
 
                     {/* User & Date */}
-                    <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center justify-between mb-3 sm:mb-4">
                       <div className="text-xs text-gray-600">
                         <p className="truncate">{product.user_email}</p>
                         <p className="mt-1">Vytvorené: {new Date(product.created_at).toLocaleDateString('sk-SK')}</p>
@@ -366,9 +363,9 @@ export default function ListedProductsPage() {
                         setExternalId('');
                         setShowModal(true);
                       }}
-                      className="w-full inline-flex items-center justify-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-xl transition-all duration-200"
+                      className="w-full inline-flex items-center justify-center px-3 sm:px-4 py-2 sm:py-2.5 bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm font-semibold rounded-xl transition-all duration-200"
                     >
-                      <FaCheck className="mr-2" />
+                      <FaCheck className="mr-1.5 sm:mr-2 text-xs sm:text-sm" />
                       Prijať
                     </button>
                   </div>
@@ -381,30 +378,49 @@ export default function ListedProductsPage() {
 
       {/* Modal */}
       {showModal && selectedProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-2 sm:p-4">
-          <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-2xl max-w-sm w-full border border-gray-200">
-            <h2 className="text-base sm:text-lg text-gray-900 font-semibold mb-4">Zadaj External ID</h2>
-            <input
-              type="text"
-              placeholder="napr. AIR-001"
-              value={externalId}
-              onChange={(e) => setExternalId(e.target.value)}
-              className="w-full p-2 sm:p-3 rounded-xl bg-white text-gray-900 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm sm:text-base"
-            />
-            <div className="mt-4 flex justify-end space-x-2 sm:space-x-3">
+        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl max-w-sm w-full border-t sm:border border-gray-200 flex flex-col">
+            <div className="flex items-center justify-between p-3 sm:p-4 lg:p-6 border-b border-gray-200 flex-shrink-0">
+              <h2 className="text-base sm:text-lg text-gray-900 font-semibold">Zadaj External ID</h2>
               <button
-                onClick={() => setShowModal(false)}
-                className="px-3 sm:px-4 py-2 bg-white text-gray-800 text-sm sm:text-base rounded-xl border border-gray-300 hover:bg-gray-50 transition-colors"
+                onClick={() => {
+                  setShowModal(false);
+                  setExternalId('');
+                  setSelectedProduct(null);
+                }}
+                className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-colors flex-shrink-0"
+                aria-label="Zatvoriť"
               >
-                Zrušiť
+                <FaTimes className="w-5 h-5 sm:w-6 sm:h-6" />
               </button>
-              <button
-                onClick={handleConfirmSale}
-                disabled={!externalId}
-                className="px-3 sm:px-4 py-2 bg-green-600 text-white text-sm sm:text-base rounded-xl hover:bg-green-700 disabled:opacity-50 transition-colors"
-              >
-                Potvrdiť
-              </button>
+            </div>
+            <div className="p-3 sm:p-4 lg:p-6 flex-1 overflow-y-auto">
+              <input
+                type="text"
+                placeholder="napr. AIR-001"
+                value={externalId}
+                onChange={(e) => setExternalId(e.target.value)}
+                className="w-full px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl bg-white text-gray-900 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-500 text-base mb-4"
+              />
+              <div className="flex justify-end space-x-2 sm:space-x-3">
+                <button
+                  onClick={() => {
+                    setShowModal(false);
+                    setExternalId('');
+                    setSelectedProduct(null);
+                  }}
+                  className="px-3 sm:px-4 py-2 sm:py-2.5 bg-white text-gray-800 text-sm sm:text-base rounded-xl border border-gray-300 hover:bg-gray-50 transition-colors"
+                >
+                  Zrušiť
+                </button>
+                <button
+                  onClick={handleConfirmSale}
+                  disabled={!externalId || refreshing}
+                  className="px-3 sm:px-4 py-2 sm:py-2.5 bg-green-600 text-white text-sm sm:text-base rounded-xl hover:bg-green-700 disabled:opacity-50 transition-colors"
+                >
+                  Potvrdiť
+                </button>
+              </div>
             </div>
           </div>
         </div>
