@@ -651,25 +651,25 @@ export default function UsersPage() {
                   <button
                     onClick={handleDeleteUser}
                     disabled={deletingUser}
-                    className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center text-red-600 hover:text-red-700 hover:bg-red-50 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
                     title="Odstrániť používateľa"
                   >
                     {deletingUser ? (
-                      <svg className="animate-spin w-4 h-4 sm:w-5 sm:h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <svg className="animate-spin w-5 h-5 sm:w-6 sm:h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
                     ) : (
-                      <FaTrash className="w-4 h-4 sm:w-5 sm:h-5" />
+                      <FaTrash className="w-5 h-5 sm:w-6 sm:h-6" />
                     )}
                   </button>
                   <button
                     onClick={closeModal}
                     disabled={deletingUser}
-                    className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center bg-gray-800 hover:bg-gray-900 text-white rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
                     aria-label="Zatvoriť"
                   >
-                    <FaTimes className="w-5 h-5 sm:w-6 sm:h-6" />
+                    <FaTimes className="w-6 h-6 sm:w-7 sm:h-7" />
                   </button>
                 </div>
               </div>
@@ -698,53 +698,53 @@ export default function UsersPage() {
 
               {/* Stats Cards */}
               {userStats && (
-                <div className="p-3 sm:p-4 lg:p-6 border-b border-gray-200 bg-gradient-to-br from-gray-50 to-white">
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 lg:gap-4">
-                    <div className="bg-white rounded-xl p-3 sm:p-4 text-center border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                      <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-500/10 rounded-xl flex items-center justify-center mx-auto mb-2">
-                        <FaShoppingCart className="text-blue-600 text-base sm:text-lg" />
+                <div className="p-2 sm:p-3 lg:p-4 border-b border-gray-200 bg-gradient-to-br from-gray-50 to-white">
+                  <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-6 gap-1.5 sm:gap-2 lg:gap-3">
+                    <div className="bg-white rounded-lg sm:rounded-xl p-2 sm:p-3 lg:p-4 text-center border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10 bg-blue-500/10 rounded-lg sm:rounded-xl flex items-center justify-center mx-auto mb-1 sm:mb-2">
+                        <FaShoppingCart className="text-blue-600 text-xs sm:text-sm lg:text-base" />
                       </div>
-                      <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">{userStats.totalSales}</p>
-                      <p className="text-[10px] sm:text-xs text-gray-600 mt-1">Predaje</p>
+                      <p className="text-sm sm:text-base lg:text-xl font-bold text-gray-900">{userStats.totalSales}</p>
+                      <p className="text-[9px] sm:text-[10px] lg:text-xs text-gray-600 mt-0.5 sm:mt-1">Predaje</p>
                     </div>
-                    <div className="bg-white rounded-xl p-3 sm:p-4 text-center border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                      <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-500/10 rounded-xl flex items-center justify-center mx-auto mb-2">
-                        <FaEuroSign className="text-green-600 text-base sm:text-lg" />
+                    <div className="bg-white rounded-lg sm:rounded-xl p-2 sm:p-3 lg:p-4 text-center border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10 bg-green-500/10 rounded-lg sm:rounded-xl flex items-center justify-center mx-auto mb-1 sm:mb-2">
+                        <FaEuroSign className="text-green-600 text-xs sm:text-sm lg:text-base" />
                       </div>
-                      <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 truncate">{formatCurrency(userStats.totalRevenue)}</p>
-                      <p className="text-[10px] sm:text-xs text-gray-600 mt-1">Tržby</p>
+                      <p className="text-xs sm:text-sm lg:text-xl font-bold text-gray-900 truncate">{formatCurrency(userStats.totalRevenue)}</p>
+                      <p className="text-[9px] sm:text-[10px] lg:text-xs text-gray-600 mt-0.5 sm:mt-1">Tržby</p>
                     </div>
-                    <div className="bg-white rounded-xl p-3 sm:p-4 text-center border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                      <div className="w-8 h-8 sm:w-10 sm:h-10 bg-purple-500/10 rounded-xl flex items-center justify-center mx-auto mb-2">
-                        <FaChartLine className="text-purple-600 text-base sm:text-lg" />
+                    <div className="bg-white rounded-lg sm:rounded-xl p-2 sm:p-3 lg:p-4 text-center border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10 bg-purple-500/10 rounded-lg sm:rounded-xl flex items-center justify-center mx-auto mb-1 sm:mb-2">
+                        <FaChartLine className="text-purple-600 text-xs sm:text-sm lg:text-base" />
                       </div>
-                      <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 truncate">{formatCurrency(userStats.totalPayout)}</p>
-                      <p className="text-[10px] sm:text-xs text-gray-600 mt-1">Payout</p>
+                      <p className="text-xs sm:text-sm lg:text-xl font-bold text-gray-900 truncate">{formatCurrency(userStats.totalPayout)}</p>
+                      <p className="text-[9px] sm:text-[10px] lg:text-xs text-gray-600 mt-0.5 sm:mt-1">Payout</p>
                     </div>
-                    <div className="bg-white rounded-xl p-3 sm:p-4 text-center border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                      <div className="w-8 h-8 sm:w-10 sm:h-10 bg-orange-500/10 rounded-xl flex items-center justify-center mx-auto mb-2">
-                        <FaBox className="text-orange-600 text-base sm:text-lg" />
+                    <div className="bg-white rounded-lg sm:rounded-xl p-2 sm:p-3 lg:p-4 text-center border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10 bg-orange-500/10 rounded-lg sm:rounded-xl flex items-center justify-center mx-auto mb-1 sm:mb-2">
+                        <FaBox className="text-orange-600 text-xs sm:text-sm lg:text-base" />
                       </div>
-                      <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">{userStats.totalProducts}</p>
-                      <p className="text-[10px] sm:text-xs text-gray-600 mt-1">Produkty</p>
+                      <p className="text-sm sm:text-base lg:text-xl font-bold text-gray-900">{userStats.totalProducts}</p>
+                      <p className="text-[9px] sm:text-[10px] lg:text-xs text-gray-600 mt-0.5 sm:mt-1">Produkty</p>
                     </div>
-                    <div className="bg-white rounded-xl p-3 sm:p-4 text-center border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                      <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-500/10 rounded-xl flex items-center justify-center mx-auto mb-2">
-                        <svg className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="bg-white rounded-lg sm:rounded-xl p-2 sm:p-3 lg:p-4 text-center border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10 bg-green-500/10 rounded-lg sm:rounded-xl flex items-center justify-center mx-auto mb-1 sm:mb-2">
+                        <svg className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                       </div>
-                      <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">{userStats.completedSales}</p>
-                      <p className="text-[10px] sm:text-xs text-gray-600 mt-1">Dokončené</p>
+                      <p className="text-sm sm:text-base lg:text-xl font-bold text-gray-900">{userStats.completedSales}</p>
+                      <p className="text-[9px] sm:text-[10px] lg:text-xs text-gray-600 mt-0.5 sm:mt-1">Dokončené</p>
                     </div>
-                    <div className="bg-white rounded-xl p-3 sm:p-4 text-center border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                      <div className="w-8 h-8 sm:w-10 sm:h-10 bg-yellow-500/10 rounded-xl flex items-center justify-center mx-auto mb-2">
-                        <svg className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="bg-white rounded-lg sm:rounded-xl p-2 sm:p-3 lg:p-4 text-center border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10 bg-yellow-500/10 rounded-lg sm:rounded-xl flex items-center justify-center mx-auto mb-1 sm:mb-2">
+                        <svg className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                       </div>
-                      <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">{userStats.pendingSales}</p>
-                      <p className="text-[10px] sm:text-xs text-gray-600 mt-1">Čakajúce</p>
+                      <p className="text-sm sm:text-base lg:text-xl font-bold text-gray-900">{userStats.pendingSales}</p>
+                      <p className="text-[9px] sm:text-[10px] lg:text-xs text-gray-600 mt-0.5 sm:mt-1">Čakajúce</p>
                     </div>
                   </div>
                 </div>
@@ -1084,10 +1084,10 @@ export default function UsersPage() {
                       </div>
                       <button
                         onClick={() => setSelectedSaleForStatus(null)}
-                        className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-colors flex-shrink-0"
+                        className="w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center bg-gray-800 hover:bg-gray-900 text-white rounded-xl transition-colors flex-shrink-0 shadow-lg"
                         aria-label="Zatvoriť"
                       >
-                        <FaTimes className="w-5 h-5 sm:w-6 sm:h-6" />
+                        <FaTimes className="w-6 h-6 sm:w-7 sm:h-7" />
                       </button>
                     </div>
                     <div className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6">

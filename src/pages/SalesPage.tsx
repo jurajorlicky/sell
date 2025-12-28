@@ -411,12 +411,12 @@ export default function SalesPage() {
           </div>
 
           {/* Quick Filters */}
-          <div className="px-3 sm:px-4 lg:px-6 py-2 sm:py-3 border-b border-gray-200 bg-gray-50">
-            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-              <span className="text-xs font-medium text-gray-600 mr-2">Rýchle filtre:</span>
+          <div className="px-2 sm:px-4 lg:px-6 py-1.5 sm:py-2 lg:py-3 border-b border-gray-200 bg-gray-50">
+            <div className="flex flex-wrap items-center gap-1 sm:gap-1.5 lg:gap-2">
+              <span className="text-[10px] sm:text-xs font-medium text-gray-600 mr-1 sm:mr-2">Rýchle filtre:</span>
               <button
                 onClick={() => setQuickFilter(quickFilter === 'today' ? '' : 'today')}
-                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
+                className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium rounded-md sm:rounded-lg transition-all ${
                   quickFilter === 'today'
                     ? 'bg-blue-600 text-white'
                     : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
@@ -426,17 +426,17 @@ export default function SalesPage() {
               </button>
               <button
                 onClick={() => setQuickFilter(quickFilter === 'waiting_payout' ? '' : 'waiting_payout')}
-                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
+                className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium rounded-md sm:rounded-lg transition-all ${
                   quickFilter === 'waiting_payout'
                     ? 'bg-blue-600 text-white'
                     : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                 }`}
               >
-                Čakajúce na payout ({waitingForPayout})
+                Čakajúce ({waitingForPayout})
               </button>
               <button
                 onClick={() => setQuickFilter(quickFilter === 'completed' ? '' : 'completed')}
-                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
+                className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium rounded-md sm:rounded-lg transition-all ${
                   quickFilter === 'completed'
                     ? 'bg-green-600 text-white'
                     : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
@@ -449,15 +449,15 @@ export default function SalesPage() {
 
           {/* Filters Panel */}
           {showFilters && (
-            <div className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 bg-gray-50 border-b border-gray-200">
+            <div className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 lg:py-4 bg-gray-50 border-b border-gray-200">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
                 {/* Status Filter */}
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-2">Status</label>
+                  <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1 sm:mb-2">Status</label>
                   <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                    className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 bg-white border border-gray-300 rounded-lg sm:rounded-xl text-gray-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                   >
                     <option value="">Všetky statusy</option>
                     <option value="accepted">Prijatý</option>
@@ -472,35 +472,35 @@ export default function SalesPage() {
 
                 {/* Date From */}
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-2">Dátum od</label>
+                  <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1 sm:mb-2">Dátum od</label>
                   <input
                     type="date"
                     value={dateFrom}
                     onChange={(e) => setDateFrom(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                    className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 bg-white border border-gray-300 rounded-lg sm:rounded-xl text-gray-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
                 </div>
 
                 {/* Date To */}
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-2">Dátum do</label>
+                  <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1 sm:mb-2">Dátum do</label>
                   <input
                     type="date"
                     value={dateTo}
                     onChange={(e) => setDateTo(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                    className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 bg-white border border-gray-300 rounded-lg sm:rounded-xl text-gray-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
                 </div>
 
                 {/* User Email Filter */}
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-2">Email používateľa</label>
+                  <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1 sm:mb-2">Email používateľa</label>
                   <input
                     type="text"
                     placeholder="Filtrovať podľa emailu..."
                     value={userEmailFilter}
                     onChange={(e) => setUserEmailFilter(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-xl text-gray-900 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500"
+                    className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 bg-white border border-gray-300 rounded-lg sm:rounded-xl text-gray-900 text-xs sm:text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
                 </div>
               </div>
@@ -695,11 +695,11 @@ export default function SalesPage() {
                 <h2 className="text-base sm:text-lg lg:text-xl text-gray-900 font-semibold flex-1 pr-2">Správa statusu predaja</h2>
                 <button
                   onClick={() => setSelectedSaleForStatus(null)}
-                  className="flex-shrink-0 w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
+                  className="flex-shrink-0 w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center bg-gray-800 hover:bg-gray-900 rounded-xl transition-colors shadow-lg"
                   aria-label="Zatvoriť"
                 >
-                  <svg className="w-5 h-5 sm:w-6 sm:h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <svg className="w-6 h-6 sm:w-7 sm:h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>
