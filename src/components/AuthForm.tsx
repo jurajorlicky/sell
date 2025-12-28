@@ -109,11 +109,11 @@ export default function AuthForm() {
                 </svg>
               </div>
               
-              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4">Skontrolujte svoj email</h2>
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4">Check your email</h2>
               
               <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 sm:p-6 mb-6">
                 <p className="text-sm sm:text-base text-gray-700 mb-4 leading-relaxed">
-                  Úspešne ste sa zaregistrovali! Poslali sme vám overovací email na vašu emailovú adresu.
+                  You have successfully registered! We have sent a verification email to your email address.
                 </p>
                 {registeredEmail && (
                   <p className="text-sm sm:text-base text-gray-900 mb-4 leading-relaxed font-semibold text-center">
@@ -121,10 +121,10 @@ export default function AuthForm() {
                   </p>
                 )}
                 <p className="text-sm sm:text-base text-gray-700 mb-4 leading-relaxed">
-                  <strong>Prosím skontrolujte svoju emailovú schránku</strong> a kliknite na odkaz v emaili, aby ste overili svoj účet.
+                  <strong>Please check your email inbox</strong> and click on the link in the email to verify your account.
                 </p>
                 <p className="text-xs sm:text-sm text-gray-600">
-                  Ak email nevidíte, skontrolujte aj priečinok so spam správami.
+                  If you don't see the email, please also check your spam folder.
                 </p>
               </div>
 
@@ -136,7 +136,7 @@ export default function AuthForm() {
                 }}
                 className="w-full bg-black text-white font-semibold py-2 sm:py-3 px-4 rounded-xl hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2 transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] text-sm sm:text-base"
               >
-                Rozumiem, prihlásiť sa
+                Got it, sign in
               </button>
             </div>
           </div>
@@ -159,14 +159,14 @@ export default function AuthForm() {
               />
             </div>
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">AirKicks Consign</h1>
-            <p className="text-gray-600 text-xs sm:text-sm">Vitajte späť! Prihláste sa do svojho účtu.</p>
+            <p className="text-gray-600 text-xs sm:text-sm">Welcome back! Sign in to your account.</p>
           </div>
           
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-4">
               <div>
                 <label htmlFor="email" className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
-                  E-mail adresa
+                  Email address
                 </label>
                 <input
                   id="email"
@@ -174,14 +174,14 @@ export default function AuthForm() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-white border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all duration-200 text-sm sm:text-base"
-                  placeholder="vas@email.com"
+                  placeholder="your@email.com"
                   required
                 />
               </div>
               
               <div>
                 <label htmlFor="password" className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
-                  Heslo
+                  Password
                 </label>
                 <input
                   id="password"
@@ -222,10 +222,10 @@ export default function AuthForm() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  Načítava sa...
+                  Loading...
                 </div>
               ) : (
-                isSignUp ? 'Vytvoriť účet' : 'Prihlásiť sa'
+                isSignUp ? 'Create account' : 'Sign in'
               )}
             </button>
 
@@ -235,7 +235,7 @@ export default function AuthForm() {
                 onClick={() => setIsSignUp(!isSignUp)}
                 className="text-xs sm:text-sm text-gray-600 hover:text-gray-900 font-medium transition-colors duration-200"
               >
-                {isSignUp ? 'Už máte účet? Prihláste sa' : 'Nemáte účet? Zaregistrujte sa'}
+                {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
               </button>
             </div>
           </form>
