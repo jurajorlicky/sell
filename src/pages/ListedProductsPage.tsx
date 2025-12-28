@@ -297,17 +297,17 @@ export default function ListedProductsPage() {
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 lg:gap-6">
                 {filtered.map((product) => (
                   <div
                     key={product.id}
-                    className="bg-white border border-gray-200 rounded-xl p-3 sm:p-4 lg:p-5 hover:shadow-lg transition-all duration-200"
+                    className="bg-white border border-gray-200 rounded-xl p-2.5 sm:p-3 lg:p-5 hover:shadow-lg transition-all duration-200"
                   >
                     {/* Product Image & Basic Info */}
-                    <div className="flex items-start space-x-2 sm:space-x-3 lg:space-x-4 mb-3 sm:mb-4">
-                      <div className="h-16 w-16 sm:h-20 sm:w-20 flex-shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-white">
+                    <div className="flex items-start space-x-2 sm:space-x-3 lg:space-x-4 mb-2 sm:mb-3 lg:mb-4">
+                      <div className="h-14 w-14 sm:h-16 sm:w-16 lg:h-20 lg:w-20 flex-shrink-0 overflow-hidden rounded-lg sm:rounded-xl border border-gray-200 bg-white">
                         <img
-                          className="h-full w-full object-contain p-1.5 sm:p-2"
+                          className="h-full w-full object-contain p-1 sm:p-1.5 lg:p-2"
                           src={product.image_url || '/default-image.png'}
                           alt={product.name}
                           onError={(e) => {
@@ -317,34 +317,34 @@ export default function ListedProductsPage() {
                         />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h4 className="text-sm font-semibold text-gray-900 truncate mb-1">{product.name}</h4>
-                        <div className="flex items-center space-x-1.5 sm:space-x-2 mb-1.5 sm:mb-2">
-                          <span className="inline-flex items-center px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                        <h4 className="text-xs sm:text-sm font-semibold text-gray-900 truncate mb-0.5 sm:mb-1">{product.name}</h4>
+                        <div className="flex items-center space-x-1 sm:space-x-1.5 lg:space-x-2 mb-1 sm:mb-1.5 lg:mb-2">
+                          <span className="inline-flex items-center px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-medium bg-gray-100 text-gray-800">
                             {product.size}
                           </span>
                         </div>
-                        <p className="text-xs text-gray-600">SKU: {product.sku || 'N/A'}</p>
-                        <p className="text-xs text-gray-500 font-mono mt-0.5">ID: {product.id.slice(0, 8)}...</p>
+                        <p className="text-[10px] sm:text-xs text-gray-600">SKU: {product.sku || 'N/A'}</p>
+                        <p className="text-[10px] sm:text-xs text-gray-500 font-mono mt-0.5">ID: {product.id.slice(0, 8)}...</p>
                       </div>
                     </div>
 
                     {/* Financial Info */}
-                    <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-3 sm:mb-4 pb-3 sm:pb-4 border-b border-gray-200">
+                    <div className="grid grid-cols-2 gap-1.5 sm:gap-2 lg:gap-3 mb-2 sm:mb-3 lg:mb-4 pb-2 sm:pb-3 lg:pb-4 border-b border-gray-200">
                       <div>
-                        <p className="text-xs text-gray-600 mb-0.5 sm:mb-1">Cena</p>
-                        <p className="text-sm font-semibold text-gray-900">{product.price.toFixed(2)} €</p>
+                        <p className="text-[10px] sm:text-xs text-gray-600 mb-0.5">Cena</p>
+                        <p className="text-xs sm:text-sm font-semibold text-gray-900">{product.price.toFixed(2)} €</p>
                       </div>
                       <div>
-                        <p className="text-xs text-gray-600 mb-0.5 sm:mb-1">Payout</p>
-                        <p className="text-sm font-semibold text-green-600">{product.payout.toFixed(2)} €</p>
+                        <p className="text-[10px] sm:text-xs text-gray-600 mb-0.5">Payout</p>
+                        <p className="text-xs sm:text-sm font-semibold text-green-600">{product.payout.toFixed(2)} €</p>
                       </div>
                     </div>
 
                     {/* User & Date */}
-                    <div className="flex items-center justify-between mb-3 sm:mb-4">
-                      <div className="text-xs text-gray-600">
+                    <div className="flex items-center justify-between mb-2 sm:mb-3 lg:mb-4">
+                      <div className="text-[10px] sm:text-xs text-gray-600">
                         <p className="truncate">{product.user_email}</p>
-                        <p className="mt-1">Vytvorené: {new Date(product.created_at).toLocaleDateString('sk-SK')}</p>
+                        <p className="mt-0.5 sm:mt-1">Vytvorené: {new Date(product.created_at).toLocaleDateString('sk-SK')}</p>
                         {product.expires_at && (
                           <p className="mt-1">
                             <span className="font-semibold">Expirácia:</span>{' '}
@@ -363,9 +363,9 @@ export default function ListedProductsPage() {
                         setExternalId('');
                         setShowModal(true);
                       }}
-                      className="w-full inline-flex items-center justify-center px-3 sm:px-4 py-2 sm:py-2.5 bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm font-semibold rounded-xl transition-all duration-200"
+                      className="w-full inline-flex items-center justify-center px-2.5 sm:px-3 lg:px-4 py-1.5 sm:py-2 lg:py-2.5 bg-green-600 hover:bg-green-700 text-white text-[10px] sm:text-xs lg:text-sm font-semibold rounded-lg sm:rounded-xl transition-all duration-200"
                     >
-                      <FaCheck className="mr-1.5 sm:mr-2 text-xs sm:text-sm" />
+                      <FaCheck className="mr-1 sm:mr-1.5 lg:mr-2 text-[10px] sm:text-xs lg:text-sm" />
                       Prijať
                     </button>
                   </div>

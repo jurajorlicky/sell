@@ -537,15 +537,15 @@ export default function UsersPage() {
           </div>
 
           {/* Mobile Cards View */}
-          <div className="md:hidden space-y-3">
+          <div className="md:hidden space-y-2">
             {filteredUsers.map((user) => (
               <div
                 key={user.id}
-                className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-all"
+                className="bg-white border border-gray-200 rounded-xl p-2.5 sm:p-3 hover:shadow-md transition-all"
               >
-                <div className="flex items-start justify-between mb-3">
+                <div className="flex items-start justify-between mb-2">
                   <div className="flex-1 min-w-0">
-                    <h4 className="text-sm font-semibold text-gray-900 truncate mb-1">{user.email}</h4>
+                    <h4 className="text-xs sm:text-sm font-semibold text-gray-900 truncate mb-0.5 sm:mb-1">{user.email}</h4>
                     {user.first_name || user.last_name ? (
                       <p className="text-xs text-gray-600 mb-2">
                         {`${user.first_name || ''} ${user.last_name || ''}`.trim()}

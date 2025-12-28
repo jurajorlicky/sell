@@ -310,7 +310,7 @@ export default function AdminDashboard() {
         {/* Overview Dashboard */}
         <div className="space-y-8">
           {/* Stats Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-6">
             {[
               { 
                 title: 'Používatelia', 
@@ -338,14 +338,14 @@ export default function AdminDashboard() {
               },
             ].map((stat, index) => (
               <div key={index} className="relative group">
-                <div className="bg-white rounded-2xl p-4 sm:p-6 border border-gray-200 hover:border-gray-300 transition-all duration-300 transform hover:scale-105 hover:shadow-lg">
+                <div className="bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-3 lg:p-6 border border-gray-200 hover:border-gray-300 transition-all duration-300 transform hover:scale-105 hover:shadow-lg">
                   <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-gray-600 text-xs sm:text-sm font-medium">{stat.title}</p>
-                      <p className="text-2xl sm:text-3xl font-bold text-gray-900 mt-2">{stat.value.toLocaleString()}</p>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-gray-600 text-[10px] sm:text-xs lg:text-sm font-medium truncate">{stat.title}</p>
+                      <p className="text-base sm:text-lg lg:text-3xl font-bold text-gray-900 mt-1 sm:mt-2">{stat.value.toLocaleString()}</p>
                     </div>
-                    <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-black flex items-center justify-center shadow-lg">
-                      <stat.icon className="text-white text-2xl" />
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-16 lg:h-16 rounded-lg sm:rounded-xl lg:rounded-2xl bg-black flex items-center justify-center shadow-lg flex-shrink-0 ml-1 sm:ml-2">
+                      <stat.icon className="text-white text-sm sm:text-base lg:text-2xl" />
                     </div>
                   </div>
                 </div>
@@ -354,31 +354,31 @@ export default function AdminDashboard() {
           </div>
 
           {/* Revenue Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-            <div className="bg-white rounded-2xl p-4 sm:p-6 border border-gray-200">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg sm:text-xl font-bold text-gray-900">Celkové tržby</h3>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-black flex items-center justify-center">
-                  <FaEuroSign className="text-white text-lg" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 lg:gap-6">
+            <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-6 border border-gray-200">
+              <div className="flex items-center justify-between mb-2 sm:mb-3 lg:mb-4">
+                <h3 className="text-sm sm:text-base lg:text-xl font-bold text-gray-900">Celkové tržby</h3>
+                <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 rounded-lg sm:rounded-xl bg-black flex items-center justify-center flex-shrink-0">
+                  <FaEuroSign className="text-white text-sm sm:text-base lg:text-lg" />
                 </div>
               </div>
-              <p className="text-2xl sm:text-4xl font-bold text-gray-900">
+              <p className="text-lg sm:text-2xl lg:text-4xl font-bold text-gray-900 truncate">
                 {formatCurrency(stats.totalRevenue)}
               </p>
-              <p className="text-gray-600 text-xs sm:text-sm mt-2">Celkové tržby zo všetkých predajov</p>
+              <p className="text-gray-600 text-[10px] sm:text-xs lg:text-sm mt-1 sm:mt-2">Celkové tržby zo všetkých predajov</p>
             </div>
 
-            <div className="bg-white rounded-2xl p-4 sm:p-6 border border-gray-200">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg sm:text-xl font-bold text-gray-900">Celkové výplaty</h3>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-black flex items-center justify-center">
-                  <FaChartLine className="text-white text-lg" />
+            <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-6 border border-gray-200">
+              <div className="flex items-center justify-between mb-2 sm:mb-3 lg:mb-4">
+                <h3 className="text-sm sm:text-base lg:text-xl font-bold text-gray-900">Celkové výplaty</h3>
+                <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 rounded-lg sm:rounded-xl bg-black flex items-center justify-center flex-shrink-0">
+                  <FaChartLine className="text-white text-sm sm:text-base lg:text-lg" />
                 </div>
               </div>
-              <p className="text-2xl sm:text-4xl font-bold text-gray-900">
+              <p className="text-lg sm:text-2xl lg:text-4xl font-bold text-gray-900 truncate">
                 {formatCurrency(stats.totalPayout)}
               </p>
-              <p className="text-gray-600 text-xs sm:text-sm mt-2">Celkové výplaty pre predajcov</p>
+              <p className="text-gray-600 text-[10px] sm:text-xs lg:text-sm mt-1 sm:mt-2">Celkové výplaty pre predajcov</p>
             </div>
           </div>
 
@@ -393,29 +393,29 @@ export default function AdminDashboard() {
                 </div>
               </div>
             </div>
-            <div className="p-4 sm:p-6">
+            <div className="p-2 sm:p-3 lg:p-6">
               {recentActivities.length > 0 ? (
                 <>
-                  <div className="space-y-4">
+                  <div className="space-y-2 sm:space-y-3 lg:space-y-4">
                     {(showAllActivities ? allActivities : recentActivities).map((activity) => {
                       const IconComponent = activity.icon;
                       return (
-                        <div key={activity.id} className="flex items-start space-x-3 sm:space-x-4 p-2 sm:p-3 rounded-xl hover:bg-gray-50 transition-colors">
-                          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-black flex items-center justify-center flex-shrink-0">
-                            <IconComponent className="text-sm text-white" />
+                        <div key={activity.id} className="flex items-start space-x-2 sm:space-x-3 lg:space-x-4 p-1.5 sm:p-2 lg:p-3 rounded-lg sm:rounded-xl hover:bg-gray-50 transition-colors">
+                          <div className="w-7 h-7 sm:w-8 sm:h-8 lg:w-10 lg:h-10 rounded-lg sm:rounded-xl bg-black flex items-center justify-center flex-shrink-0">
+                            <IconComponent className="text-xs sm:text-sm text-white" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-gray-900 text-xs sm:text-sm font-medium">{activity.action}</p>
+                            <p className="text-gray-900 text-[10px] sm:text-xs lg:text-sm font-medium break-words">{activity.action}</p>
                             {activity.productName && (
-                              <p className="text-gray-700 text-xs sm:text-sm mt-1 font-semibold">{activity.productName}</p>
+                              <p className="text-gray-700 text-[10px] sm:text-xs lg:text-sm mt-0.5 sm:mt-1 font-semibold truncate">{activity.productName}</p>
                             )}
                             {activity.price && (
-                              <p className="text-gray-600 text-xs mt-1">{formatCurrency(activity.price)}</p>
+                              <p className="text-gray-600 text-[10px] sm:text-xs mt-0.5">{formatCurrency(activity.price)}</p>
                             )}
                             {activity.userEmail && (
-                              <p className="text-gray-500 text-xs mt-1">Od: {activity.userEmail}</p>
+                              <p className="text-gray-500 text-[10px] sm:text-xs mt-0.5 truncate">Od: {activity.userEmail}</p>
                             )}
-                            <p className="text-gray-500 text-xs mt-1">{formatTimeAgo(activity.created_at)}</p>
+                            <p className="text-gray-500 text-[10px] sm:text-xs mt-0.5">{formatTimeAgo(activity.created_at)}</p>
                           </div>
                         </div>
                       );

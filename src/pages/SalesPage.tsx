@@ -298,17 +298,17 @@ export default function SalesPage() {
         <AdminNavigation />
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-6 mb-3 sm:mb-4 lg:mb-8">
-          <div className="bg-white rounded-2xl p-6 border border-gray-200">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-6 mb-3 sm:mb-4 lg:mb-8">
+          <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-6 border border-gray-200">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gray-100 rounded-xl flex items-center justify-center">
-                  <FaShoppingCart className="text-gray-900 text-xl" />
+                <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 bg-gray-100 rounded-lg sm:rounded-xl flex items-center justify-center">
+                  <FaShoppingCart className="text-gray-900 text-sm sm:text-base lg:text-xl" />
                 </div>
               </div>
-              <div className="ml-3 sm:ml-4">
-                <p className="text-xs sm:text-sm font-medium text-gray-600">Celkový počet predajov</p>
-                <p className="text-xl sm:text-2xl font-bold text-gray-900">{sales.length}</p>
+              <div className="ml-2 sm:ml-3 lg:ml-4">
+                <p className="text-[10px] sm:text-xs lg:text-sm font-medium text-gray-600">Celkový počet predajov</p>
+                <p className="text-base sm:text-lg lg:text-2xl font-bold text-gray-900">{sales.length}</p>
                 {todaySales > 0 && (
                   <p className="text-xs text-green-600 mt-1">+{todaySales} dnes</p>
                 )}
@@ -316,51 +316,51 @@ export default function SalesPage() {
             </div>
           </div>
           
-          <div className="bg-white rounded-2xl p-6 border border-gray-200">
+          <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-6 border border-gray-200">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-100 rounded-xl flex items-center justify-center">
-                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 bg-green-100 rounded-lg sm:rounded-xl flex items-center justify-center">
+                  <svg className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
                   </svg>
                 </div>
               </div>
-              <div className="ml-3 sm:ml-4">
-                <p className="text-xs sm:text-sm font-medium text-gray-600">Celkové tržby</p>
-                <p className="text-xl sm:text-2xl font-bold text-gray-900">{totalRevenue.toFixed(2)} €</p>
+              <div className="ml-2 sm:ml-3 lg:ml-4">
+                <p className="text-[10px] sm:text-xs lg:text-sm font-medium text-gray-600">Celkové tržby</p>
+                <p className="text-base sm:text-lg lg:text-2xl font-bold text-gray-900 truncate">{totalRevenue.toFixed(2)} €</p>
               </div>
             </div>
           </div>
           
-          <div className="bg-white rounded-2xl p-6 border border-gray-200">
+          <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-6 border border-gray-200">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 bg-blue-100 rounded-lg sm:rounded-xl flex items-center justify-center">
+                  <svg className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
               </div>
-              <div className="ml-3 sm:ml-4">
-                <p className="text-xs sm:text-sm font-medium text-gray-600">Čakajúce na payout</p>
-                <p className="text-xl sm:text-2xl font-bold text-gray-900">{waitingForPayout}</p>
-                <p className="text-xs text-blue-600 mt-1">{waitingPayoutAmount.toFixed(2)} €</p>
+              <div className="ml-2 sm:ml-3 lg:ml-4">
+                <p className="text-[10px] sm:text-xs lg:text-sm font-medium text-gray-600">Čakajúce na payout</p>
+                <p className="text-base sm:text-lg lg:text-2xl font-bold text-gray-900">{waitingForPayout}</p>
+                <p className="text-[10px] sm:text-xs text-blue-600 mt-0.5 sm:mt-1 truncate">{waitingPayoutAmount.toFixed(2)} €</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl p-6 border border-gray-200">
+          <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-6 border border-gray-200">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-100 rounded-xl flex items-center justify-center">
-                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 bg-green-100 rounded-lg sm:rounded-xl flex items-center justify-center">
+                  <svg className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
               </div>
-              <div className="ml-3 sm:ml-4">
-                <p className="text-xs sm:text-sm font-medium text-gray-600">Dokončené</p>
-                <p className="text-xl sm:text-2xl font-bold text-gray-900">{readyForPayout}</p>
+              <div className="ml-2 sm:ml-3 lg:ml-4">
+                <p className="text-[10px] sm:text-xs lg:text-sm font-medium text-gray-600">Dokončené</p>
+                <p className="text-base sm:text-lg lg:text-2xl font-bold text-gray-900">{readyForPayout}</p>
               </div>
             </div>
           </div>
@@ -519,16 +519,16 @@ export default function SalesPage() {
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 lg:gap-6">
                 {filteredSales.map((sale) => (
                   <div
                     key={sale.id}
-                    className="bg-white border border-gray-200 rounded-xl p-3 sm:p-4 lg:p-5 hover:shadow-lg transition-all duration-200 cursor-pointer"
+                    className="bg-white border border-gray-200 rounded-xl p-2.5 sm:p-3 lg:p-5 hover:shadow-lg transition-all duration-200 cursor-pointer"
                     onClick={() => setSelectedSaleForStatus(sale)}
                   >
                     {/* Product Image & Basic Info */}
-                    <div className="flex items-start space-x-3 sm:space-x-4 mb-3 sm:mb-4">
-                      <div className="h-16 w-16 sm:h-20 sm:w-20 flex-shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-white">
+                    <div className="flex items-start space-x-2 sm:space-x-3 lg:space-x-4 mb-2 sm:mb-3 lg:mb-4">
+                      <div className="h-14 w-14 sm:h-16 sm:w-16 lg:h-20 lg:w-20 flex-shrink-0 overflow-hidden rounded-lg sm:rounded-xl border border-gray-200 bg-white">
                           <img
                             className="h-full w-full object-contain p-2"
                             src={sale.image_url || '/default-image.png'}
@@ -540,44 +540,44 @@ export default function SalesPage() {
                           />
                         </div>
                       <div className="flex-1 min-w-0">
-                        <h4 className="text-sm font-semibold text-gray-900 truncate mb-1">{sale.name}</h4>
-                        <div className="flex items-center space-x-2 mb-2 flex-wrap gap-1">
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                        <h4 className="text-xs sm:text-sm font-semibold text-gray-900 truncate mb-0.5 sm:mb-1">{sale.name}</h4>
+                        <div className="flex items-center space-x-1 sm:space-x-2 mb-1 sm:mb-2 flex-wrap gap-0.5 sm:gap-1">
+                          <span className="inline-flex items-center px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-medium bg-gray-100 text-gray-800">
                               {sale.size}
                             </span>
-                          <div className="flex items-center space-x-1">
+                          <div className="flex items-center space-x-0.5 sm:space-x-1">
                             <SalesStatusBadge status={sale.status} />
                             {sale.is_manual && (
-                              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold bg-blue-500 text-white" title="Manuálna sale">
+                              <span className="inline-flex items-center justify-center w-4 h-4 sm:w-5 sm:h-5 rounded-full text-[10px] sm:text-xs font-bold bg-blue-500 text-white" title="Manuálna sale">
                                 M
                               </span>
                             )}
                           </div>
                         </div>
-                        <p className="text-xs text-gray-600">SKU: {sale.sku || 'N/A'}</p>
+                        <p className="text-[10px] sm:text-xs text-gray-600">SKU: {sale.sku || 'N/A'}</p>
                         {sale.external_id && (
-                          <p className="text-xs text-gray-600 font-mono mt-1">ID: {sale.external_id}</p>
+                          <p className="text-[10px] sm:text-xs text-gray-500 font-mono mt-0.5 truncate">ID: {sale.external_id}</p>
                         )}
                       </div>
                     </div>
 
                     {/* Financial Info */}
-                    <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-3 sm:mb-4 pb-3 sm:pb-4 border-b border-gray-200">
+                    <div className="grid grid-cols-2 gap-1.5 sm:gap-2 lg:gap-3 mb-2 sm:mb-3 lg:mb-4 pb-2 sm:pb-3 lg:pb-4 border-b border-gray-200">
                       <div>
-                        <p className="text-xs text-gray-600 mb-1">Cena</p>
-                        <p className="text-sm font-semibold text-gray-900">{sale.price.toFixed(2)} €</p>
+                        <p className="text-[10px] sm:text-xs text-gray-600 mb-0.5">Cena</p>
+                        <p className="text-xs sm:text-sm font-semibold text-gray-900">{sale.price.toFixed(2)} €</p>
                       </div>
                       <div>
-                        <p className="text-xs text-gray-600 mb-1">Payout</p>
-                        <p className="text-sm font-semibold text-green-600">{sale.payout.toFixed(2)} €</p>
+                        <p className="text-[10px] sm:text-xs text-gray-600 mb-0.5">Payout</p>
+                        <p className="text-xs sm:text-sm font-semibold text-green-600">{sale.payout.toFixed(2)} €</p>
                           </div>
                           </div>
 
                     {/* Tracking & Label Info */}
-                    <div className="mb-3 sm:mb-4 pb-3 sm:pb-4 border-b border-gray-200 space-y-1.5 sm:space-y-2">
-                      <div className="flex items-center justify-between text-xs">
+                    <div className="mb-2 sm:mb-3 lg:mb-4 pb-2 sm:pb-3 lg:pb-4 border-b border-gray-200 space-y-1 sm:space-y-1.5 lg:space-y-2">
+                      <div className="flex items-center justify-between text-[10px] sm:text-xs">
                         <span className="text-gray-600 flex items-center">
-                          <FaTruck className="mr-1" />
+                          <FaTruck className="mr-0.5 sm:mr-1 text-[10px] sm:text-xs" />
                           Tracking:
                         </span>
                         {sale.tracking_url || sale.tracking_number ? (
@@ -603,14 +603,14 @@ export default function SalesPage() {
                         )}
                           </div>
                       {sale.carrier && (
-                        <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center justify-between text-[10px] sm:text-xs">
                           <span className="text-gray-600">Dopravca:</span>
-                          <span className="text-gray-900 font-medium">{sale.carrier}</span>
+                          <span className="text-gray-900 font-medium truncate ml-2">{sale.carrier}</span>
                         </div>
                       )}
-                      <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center justify-between text-[10px] sm:text-xs">
                         <span className="text-gray-600 flex items-center">
-                          <FaFilePdf className="mr-1" />
+                          <FaFilePdf className="mr-0.5 sm:mr-1 text-[10px] sm:text-xs" />
                           Label:
                         </span>
                         {sale.label_url ? (
@@ -632,14 +632,14 @@ export default function SalesPage() {
 
                     {/* Payout Status Info */}
                     {sale.status === 'completed' ? (
-                      <div className="mb-4 pb-4 border-b border-gray-200">
+                      <div className="mb-2 sm:mb-3 lg:mb-4 pb-2 sm:pb-3 lg:pb-4 border-b border-gray-200">
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-2">
-                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                            <p className="text-xs font-medium text-green-700">Payout bol vyplatený</p>
+                          <div className="flex items-center space-x-1 sm:space-x-2">
+                            <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-500 rounded-full"></div>
+                            <p className="text-[10px] sm:text-xs font-medium text-green-700">Payout bol vyplatený</p>
                           </div>
                           {sale.payout_date && (
-                            <p className="text-xs text-gray-500">
+                            <p className="text-[10px] sm:text-xs text-gray-500">
                               {new Date(sale.payout_date).toLocaleDateString('sk-SK', {
                                 day: '2-digit',
                                 month: '2-digit',
@@ -650,21 +650,21 @@ export default function SalesPage() {
                         </div>
                       </div>
                     ) : (
-                      <div className="mb-4 pb-4 border-b border-gray-200">
+                      <div className="mb-2 sm:mb-3 lg:mb-4 pb-2 sm:pb-3 lg:pb-4 border-b border-gray-200">
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-2">
-                            <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                            <p className="text-xs font-medium text-gray-600">Payout nevyplatený</p>
+                          <div className="flex items-center space-x-1 sm:space-x-2">
+                            <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-gray-400 rounded-full"></div>
+                            <p className="text-[10px] sm:text-xs font-medium text-gray-600">Payout nevyplatený</p>
                           </div>
                         </div>
                       </div>
                     )}
 
                     {/* User & Date */}
-                    <div className="flex items-center justify-between mb-3 sm:mb-4">
-                      <div className="text-xs text-gray-600">
+                    <div className="flex items-center justify-between mb-2 sm:mb-3 lg:mb-4">
+                      <div className="text-[10px] sm:text-xs text-gray-600">
                         <p className="truncate">{sale.user_email}</p>
-                        <p className="mt-1">{formatDate(sale.created_at)}</p>
+                        <p className="mt-0.5 sm:mt-1">{formatDate(sale.created_at)}</p>
                       </div>
                     </div>
 
@@ -674,9 +674,9 @@ export default function SalesPage() {
                         e.stopPropagation();
                         setSelectedSaleForStatus(sale);
                       }}
-                      className="w-full inline-flex items-center justify-center px-3 sm:px-4 py-2 sm:py-2.5 bg-black text-white text-xs sm:text-sm font-semibold rounded-xl hover:bg-gray-800 transition-all duration-200"
+                      className="w-full inline-flex items-center justify-center px-2.5 sm:px-3 lg:px-4 py-1.5 sm:py-2 lg:py-2.5 bg-black text-white text-[10px] sm:text-xs lg:text-sm font-semibold rounded-lg sm:rounded-xl hover:bg-gray-800 transition-all duration-200"
                     >
-                      <FaUserShield className="mr-1.5 sm:mr-2 text-xs sm:text-sm" />
+                      <FaUserShield className="mr-1 sm:mr-1.5 lg:mr-2 text-[10px] sm:text-xs lg:text-sm" />
                       Upraviť
                     </button>
                   </div>

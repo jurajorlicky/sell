@@ -31,7 +31,7 @@ export default function ProductsPage() {
       const { data, error } = await supabase
         .from('products')
         .select('id, name, image_url, sku')
-        .order('name', { ascending: true })
+        .order('name', { ascending: true });
 
       if (error) throw error;
       setProducts(data || []);
@@ -65,7 +65,7 @@ export default function ProductsPage() {
 
   useEffect(() => {
     loadProducts();
-  }, []);
+  }, [loadProducts]);
 
   const filteredProducts = products.filter(product =>
     [product.name, product.sku].some(field =>
@@ -181,84 +181,94 @@ export default function ProductsPage() {
             </div>
           </div>
 
-          {/* Mobile Cards View */}
-          <div className="md:hidden space-y-3">
-            {filteredProducts.map((product) => (
-              <div
-                key={product.id}
-                className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-all"
-              >
-                <div className="flex items-start space-x-4">
-                  <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-white p-2 shadow-sm">
-                    <img
-                      className="h-full w-full object-contain"
-                      src={product.image_url || '/default-image.png'}
-                      alt={product.name}
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.src = '/default-image.png';
-                      }}
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="text-sm font-semibold text-gray-900 mb-1">{product.name}</h4>
-                    <p className="text-xs text-gray-600 font-mono mb-1">SKU: {product.sku}</p>
-                    <p className="text-xs text-gray-500 font-mono">ID: {product.id.slice(0, 8)}...</p>
-                  </div>
+          <div className="p-3 sm:p-4 lg:p-6">
+            {filteredProducts.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <FaShoppingBag className="text-gray-600 text-2xl" />
                 </div>
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">Žiadne produkty</h3>
+                <p className="text-sm sm:text-base text-gray-600">
+                  {searchTerm ? 'Nenašli sa žiadne produkty pre váš vyhľadávací výraz' : 'Zatiaľ nie sú pridané žiadne produkty'}
+                </p>
               </div>
-            ))}
-          </div>
-
-          {/* Desktop Table View */}
-          <div className="hidden md:block overflow-x-auto -mx-3 sm:mx-0">
-            <table className="min-w-full divide-y divide-gray-200/50">
-              <thead className="bg-white">
-                <tr>
-                  <th className="px-3 sm:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider hidden lg:table-cell">ID</th>
-                  <th className="px-3 sm:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">IMAGE</th>
-                  <th className="px-3 sm:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Názov</th>
-                  <th className="px-3 sm:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">SKU</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200/30">
-                {filteredProducts.map((product) => (
-                  <tr key={product.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-3 sm:px-6 py-4 text-sm text-gray-700 font-mono hidden lg:table-cell">{product.id}</td>
-                    <td className="px-3 sm:px-6 py-4">
-                      <div className="h-16 w-16 sm:h-20 sm:w-20 flex-shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-white p-2 shadow-sm">
-                        <img
-                          className="h-full w-full object-contain"
-                          src={product.image_url || '/default-image.png'}
-                          alt={product.name}
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.src = '/default-image.png';
-                          }}
-                        />
+            ) : (
+              <>
+                {/* Mobile Cards View */}
+                <div className="md:hidden space-y-2">
+                  {filteredProducts.map((product) => {
+                    const productId = String(product.id || '');
+                    return (
+                      <div
+                        key={productId}
+                        className="bg-white border border-gray-200 rounded-xl p-2.5 sm:p-3 hover:shadow-md transition-all"
+                      >
+                        <div className="flex items-start space-x-2 sm:space-x-3">
+                          <div className="h-14 w-14 sm:h-16 sm:w-16 flex-shrink-0 overflow-hidden rounded-lg sm:rounded-xl border border-gray-200 bg-white p-1 sm:p-1.5 shadow-sm">
+                            <img
+                              className="h-full w-full object-contain"
+                              src={product.image_url || '/default-image.png'}
+                              alt={product.name}
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.src = '/default-image.png';
+                              }}
+                            />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="text-xs sm:text-sm font-semibold text-gray-900 mb-0.5 sm:mb-1 break-words">{product.name}</h4>
+                            <p className="text-[10px] sm:text-xs text-gray-600 font-mono mb-0.5">SKU: {product.sku}</p>
+                            <p className="text-[10px] sm:text-xs text-gray-500 font-mono">ID: {productId.slice(0, 8)}...</p>
+                          </div>
+                        </div>
                       </div>
-                    </td>
-                    <td className="px-3 sm:px-6 py-4">
-                      <div className="text-sm font-semibold text-gray-900">{product.name}</div>
-                    </td>
-                    <td className="px-3 sm:px-6 py-4 text-sm text-gray-700 font-mono">{product.sku}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    );
+                  })}
+                </div>
 
-          {filteredProducts.length === 0 && (
-            <div className="text-center py-12">
-              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <FaShoppingBag className="text-gray-600 text-2xl" />
-              </div>
-              <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">Žiadne produkty</h3>
-              <p className="text-sm sm:text-base text-gray-600">
-                {searchTerm ? 'Nenašli sa žiadne produkty pre váš vyhľadávací výraz' : 'Zatiaľ nie sú pridané žiadne produkty'}
-              </p>
-            </div>
-          )}
+                {/* Desktop Table View */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200/50">
+                    <thead className="bg-white">
+                      <tr>
+                        <th className="px-3 sm:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider hidden lg:table-cell">ID</th>
+                        <th className="px-3 sm:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">IMAGE</th>
+                        <th className="px-3 sm:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Názov</th>
+                        <th className="px-3 sm:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">SKU</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200/30">
+                      {filteredProducts.map((product) => {
+                        const productId = String(product.id || '');
+                        return (
+                          <tr key={productId} className="hover:bg-gray-50 transition-colors">
+                            <td className="px-3 sm:px-6 py-4 text-sm text-gray-700 font-mono hidden lg:table-cell">{productId}</td>
+                            <td className="px-3 sm:px-6 py-4">
+                              <div className="h-16 w-16 sm:h-20 sm:w-20 flex-shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-white p-2 shadow-sm">
+                                <img
+                                  className="h-full w-full object-contain"
+                                  src={product.image_url || '/default-image.png'}
+                                  alt={product.name}
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement;
+                                    target.src = '/default-image.png';
+                                  }}
+                                />
+                              </div>
+                            </td>
+                            <td className="px-3 sm:px-6 py-4">
+                              <div className="text-sm font-semibold text-gray-900">{product.name}</div>
+                            </td>
+                            <td className="px-3 sm:px-6 py-4 text-sm text-gray-700 font-mono">{product.sku}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>
