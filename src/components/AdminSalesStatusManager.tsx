@@ -24,13 +24,13 @@ interface AdminSalesStatusManagerProps {
 }
 
 const statusOptions = [
-  { value: 'accepted', label: 'Prijatý' },
-  { value: 'processing', label: 'Spracováva sa' },
-  { value: 'shipped', label: 'Odoslaný' },
-  { value: 'delivered', label: 'Doručený' },
-  { value: 'completed', label: 'Dokončený' },
-  { value: 'cancelled', label: 'Zrušený' },
-  { value: 'returned', label: 'Vrátený' }
+  { value: 'accepted', label: 'Accepted' },
+  { value: 'processing', label: 'Processing' },
+  { value: 'shipped', label: 'Shipped' },
+  { value: 'delivered', label: 'Delivered' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'cancelled', label: 'Cancelled' },
+  { value: 'returned', label: 'Returned' }
 ];
 
 export default function AdminSalesStatusManager({ 
@@ -135,7 +135,7 @@ export default function AdminSalesStatusManager({
     
     if (file.type !== 'application/pdf') {
       console.warn('Invalid file type', { fileType: file.type });
-      setError('Prosím nahrajte PDF súbor. Vybraný typ: ' + file.type);
+      setError('Please upload a PDF file. Selected type: ' + file.type);
       return;
     }
 
@@ -209,13 +209,13 @@ export default function AdminSalesStatusManager({
         
         // Provide more specific error messages
         if (uploadError.message?.includes('Bucket not found') || uploadError.message?.includes('not found')) {
-          throw new Error('Storage bucket "labels" neexistuje. Prosím vytvorte ho v Supabase Dashboard > Storage > Create Bucket.');
+          throw new Error('Storage bucket "labels" does not exist. Please create it in Supabase Dashboard > Storage > Create Bucket.');
         } else if (uploadError.message?.includes('new row violates row-level security') || uploadError.message?.includes('row-level security')) {
           throw new Error('Nemáte oprávnenie na nahrávanie súborov. Skontrolujte RLS policies v Storage > labels > Policies. Bucket musí byť public alebo musíte mať správne nastavené policies.');
         } else if (uploadError.message?.includes('JWT')) {
-          throw new Error('Chyba autentifikácie. Prosím sa odhláste a prihláste znova.');
+          throw new Error('Authentication error. Please sign out and sign in again.');
         } else {
-          throw new Error(`Chyba pri nahrávaní: ${uploadError.message || JSON.stringify(uploadError)}`);
+          throw new Error(`Upload error: ${uploadError.message || JSON.stringify(uploadError)}`);
         }
       }
       
@@ -243,7 +243,7 @@ export default function AdminSalesStatusManager({
       if (updateError) {
         logger.error('Database update error', updateError);
         console.error('Database update failed', updateError);
-        throw new Error('Chyba pri ukladaní URL do databázy: ' + updateError.message);
+        throw new Error('Error saving URL to database: ' + updateError.message);
       }
       logger.info('Label URL saved to database');
       console.log('Database updated successfully');
@@ -315,7 +315,7 @@ export default function AdminSalesStatusManager({
       
     } catch (err: any) {
       logger.error('Error deleting label', err);
-      setError('Chyba pri mazaní PDF: ' + (err.message || 'Neznáma chyba'));
+      setError('Error deleting PDF: ' + (err.message || 'Unknown error'));
     } finally {
       setUploading(false);
     }
@@ -382,7 +382,7 @@ export default function AdminSalesStatusManager({
       onDelete();
     } catch (err: any) {
       logger.error('Error deleting sale', err);
-      setError('Chyba pri odstraňovaní predaja: ' + err.message);
+      setError('Error deleting sale: ' + err.message);
     } finally {
       setDeleting(false);
     }
@@ -420,7 +420,7 @@ export default function AdminSalesStatusManager({
 
       if (deleteError) {
         logger.error('Failed to delete contract from storage', deleteError);
-        throw new Error(`Chyba pri mazaní súboru zo storage: ${deleteError.message}`);
+        throw new Error(`Error deleting file from storage: ${deleteError.message}`);
       } else {
         logger.info('Contract deleted from storage successfully', { filePath });
       }
@@ -438,7 +438,7 @@ export default function AdminSalesStatusManager({
       
     } catch (err: any) {
       logger.error('Error deleting contract', err);
-      setError('Chyba pri mazaní PDF zmluvy: ' + (err.message || 'Neznáma chyba'));
+      setError('Error deleting contract PDF: ' + (err.message || 'Unknown error'));
     } finally {
       setUploading(false);
     }
@@ -598,7 +598,7 @@ export default function AdminSalesStatusManager({
       
     } catch (err: any) {
       logger.error('Error updating sales status', err);
-      setError('Chyba pri aktualizácii: ' + err.message);
+      setError('Error updating: ' + err.message);
     } finally {
       setDeleting(false);
     }
@@ -652,7 +652,7 @@ export default function AdminSalesStatusManager({
           </div>
           {currentExternalId && (
             <div className="text-right">
-              <p className="text-xs text-gray-600 uppercase tracking-wider mb-1">Externé ID</p>
+              <p className="text-xs text-gray-600 uppercase tracking-wider mb-1">External ID</p>
               <p className="text-sm font-semibold text-gray-900 font-mono">{currentExternalId}</p>
             </div>
           )}
@@ -690,7 +690,7 @@ export default function AdminSalesStatusManager({
       <div className="bg-white rounded-xl p-4 border border-gray-200">
         <label className="block text-sm font-semibold text-gray-900 mb-3">
           <FaClock className="inline mr-2 text-gray-700" />
-          Dátum predaja
+          Sale Date
         </label>
         <input
           type="date"
@@ -699,7 +699,7 @@ export default function AdminSalesStatusManager({
           className="block w-full px-4 py-3 bg-white border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-gray-900"
         />
         <p className="text-xs text-gray-600 mt-2">
-          Dátum, kedy bol predaj vytvorený.
+          Date when the sale was created.
         </p>
       </div>
 
@@ -708,7 +708,7 @@ export default function AdminSalesStatusManager({
         <div className="bg-white rounded-xl p-4 border border-gray-200">
           <label className="block text-sm font-semibold text-gray-900 mb-3">
             <FaBox className="inline mr-2 text-gray-700" />
-            Dátum doručenia
+            Delivery Date
           </label>
           <input
             type="date"
@@ -717,7 +717,7 @@ export default function AdminSalesStatusManager({
             className="block w-full px-4 py-3 bg-white border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-gray-900"
           />
           <p className="text-xs text-gray-600 mt-2">
-            Payout bude automaticky vyplatený 14 dní od doručenia (ak sa tovar nevráti).
+            Payout will be automatically paid 14 days after delivery (if the item is not returned).
           </p>
           {currentPayoutDate && (
             <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
@@ -731,12 +731,12 @@ export default function AdminSalesStatusManager({
               </p>
               {new Date(currentPayoutDate) > new Date() && (
                 <p className="text-xs text-gray-600 mt-1">
-                  Zostáva {Math.ceil((new Date(currentPayoutDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} dní
+                  {Math.ceil((new Date(currentPayoutDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days remaining
                 </p>
               )}
               {new Date(currentPayoutDate) <= new Date() && (
                 <p className="text-xs text-green-600 mt-1 font-medium">
-                  Payout je pripravený na vyplatenie
+                  Payout is ready for payment
                 </p>
               )}
             </div>
@@ -748,7 +748,7 @@ export default function AdminSalesStatusManager({
       <div className="bg-white rounded-xl p-4 border border-gray-200">
         <label className="block text-sm font-semibold text-gray-900 mb-3">
           <FaBox className="inline mr-2 text-gray-700" />
-          Externé ID / Číslo objednávky
+          External ID / Order Number
         </label>
         <input
           type="text"
@@ -757,7 +757,7 @@ export default function AdminSalesStatusManager({
           placeholder="napr. AIR-001, ORD-12345..."
           className="block w-full px-4 py-3 bg-white border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-gray-900 font-mono"
         />
-        <p className="mt-2 text-xs text-gray-600">Interné identifikačné číslo objednávky</p>
+        <p className="mt-2 text-xs text-gray-600">Internal order identification number</p>
       </div>
 
       {/* Tracking Information */}
@@ -765,7 +765,7 @@ export default function AdminSalesStatusManager({
         <div className="flex items-center mb-4">
           <FaTruck className="text-blue-600 mr-2" />
           <label className="block text-sm font-semibold text-gray-900">
-            Tracking informácie
+            Tracking Information
           </label>
         </div>
         
@@ -791,7 +791,7 @@ export default function AdminSalesStatusManager({
                 className="mt-2 inline-flex items-center text-xs text-blue-600 hover:text-blue-800 font-medium"
               >
                 <FaLink className="mr-1" />
-                Otvoriť tracking link
+                Open tracking link
               </a>
             )}
           </div>
@@ -802,7 +802,7 @@ export default function AdminSalesStatusManager({
       <div className="bg-white rounded-xl p-4 border border-gray-200">
         <label className="block text-sm font-semibold text-gray-900 mb-3">
           <FaFileContract className="inline mr-2 text-blue-600" />
-          PDF Zmluva (Purchase Agreement)
+          PDF Contract (Purchase Agreement)
         </label>
         
         {contractUrl ? (
@@ -811,14 +811,14 @@ export default function AdminSalesStatusManager({
               <div className="flex items-center space-x-3">
                 <FaFileContract className="text-blue-600 text-xl" />
                 <div>
-                  <p className="text-sm font-medium text-gray-900">Zmluva je vygenerovaná</p>
+                  <p className="text-sm font-medium text-gray-900">Contract is generated</p>
                   <a
                     href={contractUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-xs text-blue-600 hover:text-blue-800"
                   >
-                    Otvoriť PDF
+                    Open PDF
                   </a>
                 </div>
               </div>
@@ -826,13 +826,13 @@ export default function AdminSalesStatusManager({
                 onClick={handleDeleteContract}
                 disabled={uploading}
                 className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
-                title="Zmazať zmluvu"
+                title="Delete contract"
               >
                 <FaTrash />
               </button>
             </div>
             {uploading && (
-              <p className="text-xs text-gray-600">Maže sa...</p>
+              <p className="text-xs text-gray-600">Deleting...</p>
             )}
           </div>
         ) : (
@@ -840,7 +840,7 @@ export default function AdminSalesStatusManager({
             <button
               onClick={async () => {
                 if (!saleData || !userProfile) {
-                  setError('Chyba: Údaje o predaji alebo používateľovi nie sú načítané');
+                  setError('Error: Sale or user data not loaded');
                   return;
                 }
                 
@@ -913,7 +913,7 @@ export default function AdminSalesStatusManager({
                   logger.info('Contract PDF generated successfully', { saleId, url });
                 } catch (err: any) {
                   logger.error('Error generating contract', err);
-                  setError('Chyba pri generovaní PDF zmluvy: ' + (err.message || 'Neznáma chyba'));
+                  setError('Error generating contract PDF: ' + (err.message || 'Unknown error'));
                 } finally {
                   setGeneratingContract(false);
                 }
@@ -1065,7 +1065,7 @@ export default function AdminSalesStatusManager({
             ) : (
               <FaTrash className="mr-1.5 sm:mr-2 text-sm sm:text-base" />
             )}
-            <span className="text-xs sm:text-base">Odstrániť predaj</span>
+            <span className="text-xs sm:text-base">Delete Sale</span>
           </button>
         )}
         <div className="flex items-center space-x-2 sm:space-x-3 order-1 sm:order-2 flex-1 sm:flex-initial justify-end sm:ml-auto">
@@ -1074,7 +1074,7 @@ export default function AdminSalesStatusManager({
             disabled={saving || deleting}
             className="px-3 sm:px-4 py-2 sm:py-2.5 text-gray-800 font-medium rounded-lg sm:rounded-xl hover:bg-gray-100 transition-colors border border-gray-300 disabled:opacity-50 text-sm sm:text-base flex-1 sm:flex-initial"
         >
-          Zrušiť
+          Cancel
         </button>
         <button
           onClick={handleSave}
@@ -1087,12 +1087,12 @@ export default function AdminSalesStatusManager({
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
-                <span className="text-xs sm:text-base">Ukladá sa...</span>
+                <span className="text-xs sm:text-base">Saving...</span>
             </>
           ) : (
             <>
                 <FaSave className="mr-1.5 sm:mr-2 text-sm sm:text-base" />
-                <span className="text-xs sm:text-base">Uložiť zmeny</span>
+                <span className="text-xs sm:text-base">Save Changes</span>
             </>
           )}
         </button>
