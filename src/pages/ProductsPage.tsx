@@ -100,9 +100,9 @@ export default function ProductsPage() {
               </div>
               <div>
                 <h1 className="text-lg sm:text-2xl font-bold text-gray-900">
-                  Správa produktov
+                  Product Management
                 </h1>
-                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">Katalóg a správa produktov</p>
+                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">Catalog and product management</p>
               </div>
             </div>
             
@@ -113,14 +113,14 @@ export default function ProductsPage() {
                 className="inline-flex items-center px-2 py-2 sm:px-4 bg-black text-white font-semibold rounded-xl hover:bg-gray-800 transition-all duration-200 disabled:opacity-50"
               >
                 <FaSync className={`text-sm sm:mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-                <span className="hidden sm:inline">{refreshing ? 'Obnovuje sa...' : 'Obnoviť'}</span>
+                <span className="hidden sm:inline">{refreshing ? 'Refreshing...' : 'Refresh'}</span>
               </button>
               <button
                 onClick={handleSignOut}
                 className="inline-flex items-center px-2 py-2 sm:px-4 bg-black text-white font-semibold rounded-xl hover:bg-gray-800 transition-all duration-200 shadow-lg transform hover:scale-105"
               >
                 <FaSignOutAlt className="text-sm sm:mr-2" />
-                <span className="hidden sm:inline">Odhlásiť</span>
+                <span className="hidden sm:inline">Sign Out</span>
               </button>
             </div>
           </div>
@@ -140,7 +140,7 @@ export default function ProductsPage() {
                   onClick={handleRetry}
                   className="text-red-800 hover:text-red-100 text-sm font-medium"
                 >
-                  Skúsiť znova
+                  Try again
                 </button>
                 <button
                   onClick={() => setError(null)}
@@ -163,15 +163,15 @@ export default function ProductsPage() {
           <div className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 border-b border-gray-200 bg-white">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
               <div>
-                <h3 className="text-lg sm:text-xl font-bold text-gray-900">Produkty ({filteredProducts.length})</h3>
-                <p className="text-gray-600 text-xs sm:text-sm mt-1">Správa a prehľad produktov</p>
+                <h3 className="text-lg sm:text-xl font-bold text-gray-900">Products ({filteredProducts.length})</h3>
+                <p className="text-gray-600 text-xs sm:text-sm mt-1">Manage and overview of products</p>
               </div>
               <div className="flex items-center space-x-3">
                 <div className="relative">
                   <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-600 text-sm" />
                   <input
                     type="text"
-                    placeholder="Vyhľadať produkty..."
+                    placeholder="Search products..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-8 sm:pl-10 pr-3 sm:pr-4 py-2 bg-white border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 text-sm sm:text-base"
