@@ -471,7 +471,7 @@ export default function SalesPage() {
                 </div>
 
                 {/* Date From */}
-                <div>
+                <div className="col-span-2 sm:col-span-1">
                   <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1 sm:mb-2">Dátum od</label>
                   <input
                     type="date"
@@ -482,7 +482,7 @@ export default function SalesPage() {
                 </div>
 
                 {/* Date To */}
-                <div>
+                <div className="col-span-2 sm:col-span-1">
                   <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1 sm:mb-2">Dátum do</label>
                   <input
                     type="date"
@@ -669,7 +669,7 @@ export default function SalesPage() {
                     </div>
 
                     {/* Action Button */}
-                    <button
+                      <button
                       onClick={(e) => {
                         e.stopPropagation();
                         setSelectedSaleForStatus(sale);
@@ -678,7 +678,7 @@ export default function SalesPage() {
                     >
                       <FaUserShield className="mr-1 sm:mr-1.5 lg:mr-2 text-[10px] sm:text-xs lg:text-sm" />
                       Upraviť
-                    </button>
+                      </button>
                   </div>
                 ))}
               </div>

@@ -237,7 +237,7 @@ export default function ListedProductsPage() {
             <div className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 lg:py-4 bg-gray-50 border-b border-gray-200">
               <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
                 {/* Date From */}
-                <div>
+                <div className="col-span-2 sm:col-span-1">
                   <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1 sm:mb-2">Dátum od</label>
                   <input
                     type="date"
@@ -248,7 +248,7 @@ export default function ListedProductsPage() {
                 </div>
 
                 {/* Date To */}
-                <div>
+                <div className="col-span-2 sm:col-span-1">
                   <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1 sm:mb-2">Dátum do</label>
                   <input
                     type="date"
