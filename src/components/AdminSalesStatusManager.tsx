@@ -60,7 +60,7 @@ export default function AdminSalesStatusManager({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [emailSuccess, setEmailSuccess] = useState(false);
-  const [saleData, setSaleData] = useState<{ name: string; user_email: string; sku?: string; price: number; payout: number; external_id?: string; user_id?: string; created_at?: string; size?: string } | null>(null);
+  const [saleData, setSaleData] = useState<{ name: string; user_email: string; sku?: string; price: number; payout: number; external_id?: string; user_id?: string; created_at?: string; size?: string; image_url?: string } | null>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [generatingContract, setGeneratingContract] = useState(false);
   const [contractUrl, setContractUrl] = useState<string | null>(null);
@@ -73,7 +73,7 @@ export default function AdminSalesStatusManager({
         logger.debug('Loading existing sale data', { saleId });
         const { data, error } = await supabase
           .from('user_sales')
-          .select('status_notes, tracking_url, label_url, name, user_id, sku, price, payout, external_id, created_at, contract_url, size, is_manual, profiles(email)')
+          .select('status_notes, tracking_url, label_url, name, user_id, sku, price, payout, external_id, created_at, contract_url, size, is_manual, image_url, profiles(email)')
           .eq('id', saleId)
           .single();
 
@@ -94,7 +94,8 @@ export default function AdminSalesStatusManager({
             external_id: data.external_id,
             user_id: data.user_id,
             created_at: data.created_at,
-            size: data.size || ''
+            size: data.size || '',
+            image_url: data.image_url || undefined
           });
 
           // Load user profile for PDF generation
@@ -518,14 +519,30 @@ export default function AdminSalesStatusManager({
         try {
           // Send status change email if status changed
           if (selectedStatus !== currentStatus) {
+            logger.info('Attempting to send status change email', {
+              email: saleData.user_email,
+              saleId: saleId,
+              oldStatus: currentStatus,
+              newStatus: selectedStatus
+            });
             await sendStatusChangeEmail({
               email: saleData.user_email,
               saleId: saleId,
               productName: saleData.name,
               oldStatus: currentStatus,
               newStatus: selectedStatus,
-              notes: notes.trim() || undefined
+              notes: notes.trim() || undefined,
+              size: saleData.size,
+              sku: saleData.sku,
+              image_url: saleData.image_url,
+              price: saleData.price,
+              payout: saleData.payout,
+              external_id: saleData.external_id,
+              trackingUrl: trackingUrl || undefined,
+              label_url: labelUrl || undefined,
+              contract_url: contractUrl || undefined
             });
+            logger.info('Status change email sent successfully');
             setEmailSuccess(true);
           }
 
@@ -534,6 +551,11 @@ export default function AdminSalesStatusManager({
           const trackingChanged = currentTrackingUrl !== trackingUrl;
           if (trackingAdded || trackingChanged) {
             if (trackingUrl) {
+              logger.info('Attempting to send tracking email', {
+                email: saleData.user_email,
+                saleId: saleId,
+                trackingUrl: trackingUrl
+              });
               await sendTrackingEmail({
                 email: saleData.user_email,
                 saleId: saleId,
@@ -542,14 +564,30 @@ export default function AdminSalesStatusManager({
                 carrier: '', // Not used anymore, but kept for compatibility
                 trackingUrl: trackingUrl,
                 label_url: labelUrl || undefined,
-                notes: notes.trim() || undefined
+                notes: notes.trim() || undefined,
+                size: saleData.size,
+                sku: saleData.sku,
+                image_url: saleData.image_url,
+                price: saleData.price,
+                payout: saleData.payout,
+                external_id: saleData.external_id,
+                contract_url: contractUrl || undefined
               });
+              logger.info('Tracking email sent successfully');
               setEmailSuccess(true);
             }
           }
-        } catch (emailError) {
-          logger.warn('Failed to send email notification', emailError);
-          // Don't fail the save if email fails
+        } catch (emailError: any) {
+          logger.error('Failed to send email notification', {
+            error: emailError,
+            message: emailError?.message,
+            stack: emailError?.stack,
+            email: saleData.user_email,
+            saleId: saleId
+          });
+          console.error('Email error details:', emailError);
+          // Show error to user but don't fail the save
+          setError(`Upozornenie: Email notifikácia sa nepodarila odoslať: ${emailError?.message || 'Neznáma chyba'}. Predaj bol uložený úspešne.`);
         }
       }
       
@@ -1031,33 +1069,33 @@ export default function AdminSalesStatusManager({
           </button>
         )}
         <div className="flex items-center space-x-2 sm:space-x-3 order-1 sm:order-2 flex-1 sm:flex-initial justify-end sm:ml-auto">
-          <button
-            onClick={onClose}
+        <button
+          onClick={onClose}
             disabled={saving || deleting}
             className="px-3 sm:px-4 py-2 sm:py-2.5 text-gray-800 font-medium rounded-lg sm:rounded-xl hover:bg-gray-100 transition-colors border border-gray-300 disabled:opacity-50 text-sm sm:text-base flex-1 sm:flex-initial"
-          >
-            Zrušiť
-          </button>
-          <button
-            onClick={handleSave}
+        >
+          Zrušiť
+        </button>
+        <button
+          onClick={handleSave}
             disabled={!hasChanges || saving || deleting}
             className="inline-flex items-center justify-center px-4 sm:px-6 py-2 sm:py-2.5 bg-black text-white font-semibold rounded-lg sm:rounded-xl hover:bg-gray-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg transform hover:scale-105 text-sm sm:text-base flex-1 sm:flex-initial"
-          >
-            {saving ? (
-              <>
+        >
+          {saving ? (
+            <>
                 <svg className="animate-spin -ml-1 mr-1.5 sm:mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
                 <span className="text-xs sm:text-base">Ukladá sa...</span>
-              </>
-            ) : (
-              <>
+            </>
+          ) : (
+            <>
                 <FaSave className="mr-1.5 sm:mr-2 text-sm sm:text-base" />
                 <span className="text-xs sm:text-base">Uložiť zmeny</span>
-              </>
-            )}
-          </button>
+            </>
+          )}
+        </button>
         </div>
       </div>
     </div>

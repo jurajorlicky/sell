@@ -28,8 +28,10 @@ export async function sendNewSaleEmail(data: {
       logger.error('Email send failed', {
         error,
         type: 'new_sale',
-        email: data.email
+        email: data.email,
+        errorDetails: JSON.stringify(error, null, 2)
       });
+      console.error('Email send error details:', error);
       throw new Error(`Email send failed: ${error.message || JSON.stringify(error)}`);
     }
 
@@ -50,9 +52,22 @@ export async function sendStatusChangeEmail(data: {
   oldStatus: string;
   newStatus: string;
   notes?: string;
+  size?: string;
+  sku?: string;
+  image_url?: string;
+  price?: number;
+  payout?: number;
+  external_id?: string;
+  trackingUrl?: string;
+  label_url?: string;
+  contract_url?: string;
 }): Promise<void> {
   try {
     logger.info('Sending status change email', { email: data.email, saleId: data.saleId, type: 'status_change' });
+    console.log('Invoking Edge Function send-sale-email-ts with data:', {
+      type: 'status_change',
+      ...data
+    });
     
     const { data: result, error } = await supabase.functions.invoke('send-sale-email-ts', {
       body: {
@@ -61,13 +76,17 @@ export async function sendStatusChangeEmail(data: {
       }
     });
 
+    console.log('Edge Function response:', { result, error });
+
     if (error) {
       logger.error('Email send failed', {
         error,
         type: 'status_change',
         email: data.email,
-        saleId: data.saleId
+        saleId: data.saleId,
+        errorDetails: JSON.stringify(error, null, 2)
       });
+      console.error('Email send error details:', error);
       throw new Error(`Email send failed: ${error.message || JSON.stringify(error)}`);
     }
 
@@ -90,6 +109,13 @@ export async function sendTrackingEmail(data: {
   trackingUrl?: string;
   label_url?: string;
   notes?: string;
+  size?: string;
+  sku?: string;
+  image_url?: string;
+  price?: number;
+  payout?: number;
+  external_id?: string;
+  contract_url?: string;
 }): Promise<void> {
   try {
     logger.info('Sending tracking email', { email: data.email, saleId: data.saleId, type: 'tracking' });
@@ -106,8 +132,10 @@ export async function sendTrackingEmail(data: {
         error,
         type: 'tracking',
         email: data.email,
-        saleId: data.saleId
+        saleId: data.saleId,
+        errorDetails: JSON.stringify(error, null, 2)
       });
+      console.error('Email send error details:', error);
       throw new Error(`Email send failed: ${error.message || JSON.stringify(error)}`);
     }
 
