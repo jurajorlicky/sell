@@ -57,9 +57,20 @@ export default function EditProductModal({
 
   const fetchCurrentMarketPrice = async (product: Product) => {
     try {
-      // First, try to find lowest price from consignor (not eshop)
-      // Exclude current user's product from comparison
-      const { data: consignorPrice, error: consignorError } = await supabase
+      // Get lowest consignor price INCLUDING current user's product (for market price display)
+      const { data: allConsignorPrice, error: allConsignorError } = await supabase
+        .from('product_price_view') 
+        .select('final_price, owner')
+        .eq('product_id', product.product_id)
+        .eq('size', product.size)
+        .in('final_status', ['Skladom', 'Skladom Expres'])
+        .not('owner', 'is', null)
+        .order('final_price', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      // Get lowest consignor price EXCLUDING current user's product (for comparison)
+      const { data: otherConsignorPrice, error: otherConsignorError } = await supabase
         .from('product_price_view') 
         .select('final_price, owner')
         .eq('product_id', product.product_id)
@@ -83,27 +94,28 @@ export default function EditProductModal({
         .limit(1)
         .maybeSingle();
 
-      // Set consignor price separately for comparison
-      if (consignorPrice) {
-        setLowestConsignorPrice(consignorPrice.final_price);
+      // Set lowest consignor price (excluding current user) for comparison
+      if (otherConsignorPrice) {
+        setLowestConsignorPrice(otherConsignorPrice.final_price);
       } else {
         setLowestConsignorPrice(null);
       }
 
-      // Use the lowest price overall (eshop or consignor)
-      let priceData = null;
-      if (consignorPrice && eshopPrice) {
-        // Use the lower of the two
-        priceData = consignorPrice.final_price <= eshopPrice.final_price ? consignorPrice : eshopPrice;
-      } else if (consignorPrice) {
-        priceData = consignorPrice;
+      // Calculate current market price (INCLUDING current user's product)
+      // This is the actual lowest price on the market right now
+      let marketPriceData = null;
+      if (allConsignorPrice && eshopPrice) {
+        // Use the lower of the two (consignor or eshop)
+        marketPriceData = allConsignorPrice.final_price <= eshopPrice.final_price ? allConsignorPrice : eshopPrice;
+      } else if (allConsignorPrice) {
+        marketPriceData = allConsignorPrice;
       } else if (eshopPrice) {
-        priceData = eshopPrice;
+        marketPriceData = eshopPrice;
       }
 
-      if (priceData) {
-        setCurrentMarketPrice(priceData.final_price);
-        setCurrentMarketPriceOwner(priceData.owner);
+      if (marketPriceData) {
+        setCurrentMarketPrice(marketPriceData.final_price);
+        setCurrentMarketPriceOwner(marketPriceData.owner);
       } else {
         // Fallback to original price if no market price found
         const fallbackPrice = product?.original_price || product?.price || 0;
