@@ -17,12 +17,12 @@ interface NavTab {
 }
 
 const navTabs: NavTab[] = [
-  { id: 'overview', label: 'Prehľad', icon: FaChartBar, color: 'from-blue-500 to-cyan-500', path: '/admin' },
-  { id: 'products', label: 'Produkty', icon: FaShoppingBag, color: 'from-purple-500 to-violet-500', path: '/admin/products' },
-  { id: 'listed-products', label: 'Ponuky', icon: FaList, color: 'from-orange-500 to-amber-500', path: '/admin/listed-products' },
-  { id: 'sales', label: 'Predaje', icon: FaShoppingCart, color: 'from-green-500 to-emerald-500', path: '/admin/sales' },
-  { id: 'users', label: 'Užívatelia', icon: FaUsers, color: 'from-indigo-500 to-blue-500', path: '/admin/users' },
-  { id: 'settings', label: 'Nastavenia', icon: FaCog, color: 'from-gray-500 to-slate-500', path: '/admin/settings' },
+  { id: 'overview', label: 'Overview', icon: FaChartBar, color: 'from-blue-500 to-cyan-500', path: '/admin' },
+  { id: 'products', label: 'Products', icon: FaShoppingBag, color: 'from-purple-500 to-violet-500', path: '/admin/products' },
+  { id: 'listed-products', label: 'Offers', icon: FaList, color: 'from-orange-500 to-amber-500', path: '/admin/listed-products' },
+  { id: 'sales', label: 'Sales', icon: FaShoppingCart, color: 'from-green-500 to-emerald-500', path: '/admin/sales' },
+  { id: 'users', label: 'Users', icon: FaUsers, color: 'from-indigo-500 to-blue-500', path: '/admin/users' },
+  { id: 'settings', label: 'Settings', icon: FaCog, color: 'from-gray-500 to-slate-500', path: '/admin/settings' },
 ];
 
 export default function AdminNavigation() {

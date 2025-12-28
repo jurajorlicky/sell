@@ -165,9 +165,9 @@ export default function ListedProductsPage() {
               </div>
               <div>
                 <h1 className="text-lg sm:text-2xl font-bold text-gray-900">
-                  Ponuky používateľov
+                  User Offers
                 </h1>
-                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">Správa a prehľad ponúk</p>
+                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">Manage and overview of offers</p>
               </div>
             </div>
             <div className="flex items-center space-x-1 sm:space-x-3">
@@ -176,14 +176,14 @@ export default function ListedProductsPage() {
                 className="inline-flex items-center px-2 py-2 sm:px-4 bg-black text-white font-semibold rounded-xl hover:bg-gray-800 transition-all duration-200 disabled:opacity-50"
               >
                 <FaSync className={`text-sm sm:mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-                <span className="hidden sm:inline">{refreshing ? 'Obnovuje sa...' : 'Obnoviť'}</span>
+                <span className="hidden sm:inline">{refreshing ? 'Refreshing...' : 'Refresh'}</span>
               </button>
               <button
                 onClick={async () => { await supabase.auth.signOut(); window.location.href = '/'; }}
                 className="inline-flex items-center px-2 py-2 sm:px-4 bg-black text-white font-semibold rounded-xl hover:bg-gray-800 transition-all duration-200 shadow-lg transform hover:scale-105"
               >
                 <FaSignOutAlt className="text-sm sm:mr-2" />
-                <span className="hidden sm:inline">Odhlásiť</span>
+                <span className="hidden sm:inline">Sign Out</span>
               </button>
             </div>
           </div>
@@ -196,13 +196,13 @@ export default function ListedProductsPage() {
 
         <div className="bg-white rounded-2xl border border-gray-200 shadow-2xl overflow-hidden">
           <div className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 border-b border-gray-200 bg-white flex flex-col sm:flex-row sm:justify-between sm:items-center space-y-2 sm:space-y-0 gap-2 sm:gap-0">
-            <h3 className="text-lg sm:text-xl font-bold text-gray-900">Ponuky ({filtered.length})</h3>
+            <h3 className="text-lg sm:text-xl font-bold text-gray-900">Offers ({filtered.length})</h3>
             <div className="flex items-center space-x-3">
               <div className="relative">
                 <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-600 text-sm" />
                 <input
                   type="text"
-                  placeholder="Vyhľadať..."
+                  placeholder="Search..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-8 sm:pl-10 pr-3 sm:pr-4 py-2 bg-white border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm sm:text-base"
@@ -213,7 +213,7 @@ export default function ListedProductsPage() {
                 className={`inline-flex items-center px-3 py-2 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-all duration-200 ${
                   hasActiveFilters ? 'bg-gray-100 border-gray-400' : ''
                 }`}
-                title="Filtre"
+                title="Filters"
               >
                 <FaFilter className="text-gray-600 text-sm" />
                 {hasActiveFilters && (
@@ -224,7 +224,7 @@ export default function ListedProductsPage() {
                 <button
                   onClick={clearFilters}
                   className="inline-flex items-center px-3 py-2 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-all duration-200 text-sm text-gray-600"
-                  title="Vymazať filtre"
+                  title="Clear filters"
                 >
                   <FaTimes className="text-sm" />
                 </button>
@@ -238,7 +238,7 @@ export default function ListedProductsPage() {
               <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
                 {/* Date From */}
                 <div className="col-span-2 sm:col-span-1">
-                  <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1 sm:mb-2">Dátum od</label>
+                  <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1 sm:mb-2">Date from</label>
                   <input
                     type="date"
                     value={dateFrom}
@@ -249,7 +249,7 @@ export default function ListedProductsPage() {
 
                 {/* Date To */}
                 <div className="col-span-2 sm:col-span-1">
-                  <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1 sm:mb-2">Dátum do</label>
+                  <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1 sm:mb-2">Date to</label>
                   <input
                     type="date"
                     value={dateTo}
@@ -260,10 +260,10 @@ export default function ListedProductsPage() {
 
                 {/* User Email Filter */}
                 <div className="col-span-2 sm:col-span-1">
-                  <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1 sm:mb-2">Email používateľa</label>
+                  <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1 sm:mb-2">User email</label>
                   <input
                     type="text"
-                    placeholder="Filtrovať podľa emailu..."
+                    placeholder="Filter by email..."
                     value={userEmailFilter}
                     onChange={(e) => setUserEmailFilter(e.target.value)}
                     className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 bg-white border border-gray-300 rounded-lg sm:rounded-xl text-gray-900 text-xs sm:text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500"
@@ -272,10 +272,10 @@ export default function ListedProductsPage() {
 
                 {/* Size Filter */}
                 <div className="col-span-2 sm:col-span-1">
-                  <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1 sm:mb-2">Veľkosť</label>
+                  <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1 sm:mb-2">Size</label>
                   <input
                     type="text"
-                    placeholder="Filtrovať podľa veľkosti..."
+                    placeholder="Filter by size..."
                     value={sizeFilter}
                     onChange={(e) => setSizeFilter(e.target.value)}
                     className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 bg-white border border-gray-300 rounded-lg sm:rounded-xl text-gray-900 text-xs sm:text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500"
@@ -291,9 +291,9 @@ export default function ListedProductsPage() {
                 <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
                   <FaList className="text-gray-600 text-2xl" />
                 </div>
-                <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">Žiadne ponuky</h3>
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">No offers</h3>
                 <p className="text-sm sm:text-base text-gray-600">
-                  {searchTerm || hasActiveFilters ? 'Nenašli sa žiadne ponuky pre vaše filtre' : 'Zatiaľ nie sú žiadne ponuky od používateľov'}
+                  {searchTerm || hasActiveFilters ? 'No offers found for your filters' : 'No offers from users yet'}
                 </p>
               </div>
             ) : (
@@ -331,7 +331,7 @@ export default function ListedProductsPage() {
                     {/* Financial Info */}
                     <div className="grid grid-cols-2 gap-1.5 sm:gap-2 lg:gap-3 mb-2 sm:mb-3 lg:mb-4 pb-2 sm:pb-3 lg:pb-4 border-b border-gray-200">
                       <div>
-                        <p className="text-[10px] sm:text-xs text-gray-600 mb-0.5">Cena</p>
+                        <p className="text-[10px] sm:text-xs text-gray-600 mb-0.5">Price</p>
                         <p className="text-xs sm:text-sm font-semibold text-gray-900">{product.price.toFixed(2)} €</p>
                       </div>
                       <div>
@@ -389,7 +389,7 @@ export default function ListedProductsPage() {
                   setSelectedProduct(null);
                 }}
                 className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-colors flex-shrink-0"
-                aria-label="Zatvoriť"
+                aria-label="Close"
               >
                 <FaTimes className="w-5 h-5 sm:w-6 sm:h-6" />
               </button>
@@ -418,7 +418,7 @@ export default function ListedProductsPage() {
                   disabled={!externalId || refreshing}
                   className="px-3 sm:px-4 py-2 sm:py-2.5 bg-green-600 text-white text-sm sm:text-base rounded-xl hover:bg-green-700 disabled:opacity-50 transition-colors"
                 >
-                  Potvrdiť
+                  Confirm
                 </button>
               </div>
             </div>
