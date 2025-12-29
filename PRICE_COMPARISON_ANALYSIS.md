@@ -1,26 +1,38 @@
-# Price Comparison Logic Analysis & Improvement Suggestions
+# Price Comparison Logic Analysis & Improvements
 
-## Current Issues
+## ✅ Implemented Improvements
 
-### 1. **EditProductModal.tsx - Slovak Text**
-- Line 211-214 still has Slovak text that needs translation
+### 1. **Fixed Slovak Text in EditProductModal** ✅
+- Removed Slovak text from lines 211-214
+- All messages now in English
 
-### 2. **Floating Point Comparison**
-- Using `===` for price comparison can cause issues with decimal numbers
-- Should use epsilon tolerance (e.g., 0.01€)
+### 2. **Fixed Floating Point Comparison** ✅
+- Implemented `PRICE_EPSILON = 0.01` (1 cent tolerance)
+- Added helper functions: `isPriceEqual()`, `isPriceLower()`, `isPriceHigher()`
+- Prevents issues with decimal number comparisons
 
-### 3. **Dashboard Logic - Owner Detection**
-- `fetchMarketPricesWithTimeout` doesn't exclude current user's products
-- Should fetch separately: lowest consignor (excluding user) and eshop price
-- Then determine if user is the owner of the lowest price
+### 3. **Improved Dashboard Logic - Owner Detection** ✅
+- `fetchMarketPricesWithTimeout` now fetches:
+  - Lowest consignor price EXCLUDING current user (for comparison)
+  - Lowest consignor price INCLUDING current user (for market price display)
+- Better determination of whether user is the owner of lowest price
 
-### 4. **Unclear "Same Lowest" Logic**
-- When user has same price but isn't owner, shows "Same Lowest" (yellow)
-- This is confusing - should clarify: "Tied for lowest" or "Same price, not first"
+### 4. **Improved Status Messages** ✅
+- Changed "Same Lowest" → "Tied for Lowest" (clearer)
+- Better descriptions for all statuses
+- Shows exact price difference in €
 
-### 5. **Missing Edge Cases**
-- What if price is between eshop and consignor price?
-- What if multiple users have the same lowest price?
+### 5. **Enhanced EditProductModal** ✅
+- Uses epsilon comparison
+- Better feedback for tied prices (yellow "Tied" badge)
+- Shows exact difference when price is higher
+
+## Remaining Considerations
+
+### Potential Future Enhancements
+- Show percentage difference
+- Show count of competitors with lower prices
+- Add tooltip with more detailed comparison info
 
 ## Recommended Improvements
 
