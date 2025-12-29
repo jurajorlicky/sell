@@ -308,8 +308,8 @@ export default function App() {
       <div className="min-h-screen flex justify-center items-center bg-white">
         <div className="text-center">
           <div className="inline-block w-12 h-12 border-4 border-gray-200 border-t-black rounded-full animate-spin mb-4"></div>
-          <p className="text-gray-900 font-medium">Načítava sa...</p>
-          <p className="text-gray-600 text-sm mt-2">Prosím počkajte</p>
+          <p className="text-gray-900 font-medium">Loading...</p>
+          <p className="text-gray-600 text-sm mt-2">Please wait</p>
         </div>
       </div>
     );
@@ -324,7 +324,7 @@ export default function App() {
             <div className="min-h-screen flex justify-center items-center bg-gray-50">
               <div className="w-full max-w-md bg-white p-8 rounded-lg shadow-lg">
                 <h1 className="text-2xl font-bold text-gray-900 mb-6 text-center">
-                  Prihlásenie
+                  Sign In
                 </h1>
                 <AuthForm />
                 {error && (
