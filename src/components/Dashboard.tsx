@@ -137,15 +137,43 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
             return null;
           }
 
-          // Use the lowest price overall (eshop or consignor)
+          // Determine the lowest price overall (eshop or consignor)
+          // But prioritize user's own product if they have the lowest consignor price
           let priceData = null;
+          let finalOwner = null;
+          
+          // Check if user has the lowest consignor price
+          const userHasLowestConsignor = consignorPriceIncludingUser && 
+                                         consignorPriceIncludingUser.owner === product.user_id;
+          
           if (consignorPrice && eshopPrice) {
-            // Use the lower of the two
-            priceData = eshopPrice.final_price < consignorPrice.final_price ? eshopPrice : consignorPrice;
+            // Compare eshop price with consignor price
+            if (eshopPrice.final_price < consignorPrice.final_price) {
+              // Eshop is lower
+              priceData = eshopPrice;
+              finalOwner = null; // Eshop
+            } else if (eshopPrice.final_price === consignorPrice.final_price) {
+              // Same price - if user has the lowest consignor, show as user's price
+              if (userHasLowestConsignor) {
+                priceData = consignorPrice;
+                finalOwner = product.user_id; // User's price
+              } else {
+                priceData = eshopPrice;
+                finalOwner = null; // Eshop (or could be another consignor)
+              }
+            } else {
+              // Consignor is lower
+              priceData = consignorPrice;
+              finalOwner = consignorPrice.owner;
+            }
           } else if (consignorPrice) {
+            // Only consignor price exists
             priceData = consignorPrice;
+            finalOwner = consignorPrice.owner;
           } else if (eshopPrice) {
+            // Only eshop price exists
             priceData = eshopPrice;
+            finalOwner = null; // Eshop
           }
 
           if (priceData) {
@@ -154,7 +182,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
               key,
               data: {
                 final_price: priceData.final_price,
-                owner: priceData.owner,
+                owner: finalOwner, // Use determined owner
                 // Store lowest consignor price EXCLUDING user (for comparison)
                 lowest_consignor_price: consignorPriceExcludingUser?.final_price || null
               }
@@ -185,8 +213,8 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
   // Fetch market price for a single product
   const fetchSingleMarketPrice = useCallback(async (product: Product) => {
     try {
-      // Get lowest consignor price
-      const { data: consignorPrice, error: consignorError } = await supabase
+      // Get lowest consignor price INCLUDING current user's product
+      const { data: consignorPriceIncludingUser, error: consignorErrorIncluding } = await supabase
         .from('product_price_view')
         .select('final_price, owner')
         .eq('product_id', product.product_id)
@@ -196,6 +224,22 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
         .order('final_price', { ascending: true })
         .limit(1)
         .maybeSingle();
+
+      // Get lowest consignor price EXCLUDING current user's product
+      const { data: consignorPriceExcludingUser, error: consignorErrorExcluding } = await supabase
+        .from('product_price_view')
+        .select('final_price, owner')
+        .eq('product_id', product.product_id)
+        .eq('size', product.size)
+        .in('final_status', ['Skladom', 'Skladom Expres'])
+        .not('owner', 'is', null)
+        .neq('owner', product.user_id) // Exclude current user's product
+        .order('final_price', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      const consignorPrice = consignorPriceIncludingUser;
+      const consignorError = consignorErrorIncluding || consignorErrorExcluding;
 
       // Get eshop price
       const { data: eshopPrice, error: eshopError } = await supabase
@@ -209,31 +253,43 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
         .limit(1)
         .maybeSingle();
 
-      // Prefer consignor price, fallback to eshop price
-      let priceData = consignorPrice;
-      if (!consignorPrice && !consignorError && eshopPrice) {
-        priceData = eshopPrice;
-      }
-
-      // Use the lowest price overall (eshop or consignor)
+      // Determine the lowest price overall (eshop or consignor)
+      // But prioritize user's own product if they have the lowest consignor price
       let finalPrice = null;
       let finalOwner = null;
       
+      // Check if user has the lowest consignor price
+      const userHasLowestConsignor = consignorPrice && 
+                                     consignorPrice.owner === product.user_id;
+      
       if (consignorPrice && eshopPrice) {
-        // Use the lower of the two
+        // Compare eshop price with consignor price
         if (eshopPrice.final_price < consignorPrice.final_price) {
+          // Eshop is lower
           finalPrice = eshopPrice.final_price;
-          finalOwner = eshopPrice.owner;
+          finalOwner = null; // Eshop
+        } else if (eshopPrice.final_price === consignorPrice.final_price) {
+          // Same price - if user has the lowest consignor, show as user's price
+          if (userHasLowestConsignor) {
+            finalPrice = consignorPrice.final_price;
+            finalOwner = product.user_id; // User's price
+          } else {
+            finalPrice = eshopPrice.final_price;
+            finalOwner = null; // Eshop
+          }
         } else {
+          // Consignor is lower
           finalPrice = consignorPrice.final_price;
           finalOwner = consignorPrice.owner;
         }
       } else if (consignorPrice) {
+        // Only consignor price exists
         finalPrice = consignorPrice.final_price;
         finalOwner = consignorPrice.owner;
       } else if (eshopPrice) {
+        // Only eshop price exists
         finalPrice = eshopPrice.final_price;
-        finalOwner = eshopPrice.owner;
+        finalOwner = null; // Eshop
       }
 
       if (finalPrice !== null) {
@@ -242,8 +298,8 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
           ...prev,
           [key]: {
             final_price: finalPrice,
-            owner: finalOwner,
-            lowest_consignor_price: consignorPrice?.final_price || null
+            owner: finalOwner, // Use determined owner
+            lowest_consignor_price: consignorPriceExcludingUser?.final_price || null
           }
         }));
       }
@@ -374,8 +430,19 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
     const comparisonPrice = marketPrice;
     const hasConsignorPrice = lowest_consignor_price !== null;
 
-    // 1. Lowest - user is owner (green)
-    if (isPriceEqual(product.price, comparisonPrice) && isUserOwner && hasConsignorPrice) {
+    // Check if user's price matches the market price
+    const priceMatchesMarket = isPriceEqual(product.price, comparisonPrice);
+    
+    // If owner is null (eshop) but user's price matches market price AND there's a consignor price,
+    // it means user has the lowest consignor price that matches eshop price
+    const userHasLowestConsignorMatchingEshop = isEshop && 
+                                                priceMatchesMarket && 
+                                                hasConsignorPrice && 
+                                                lowest_consignor_price !== null &&
+                                                isPriceEqual(product.price, lowest_consignor_price as number);
+
+    // 1. Lowest - user is owner OR user has lowest consignor price matching market (green)
+    if (priceMatchesMarket && (isUserOwner || userHasLowestConsignorMatchingEshop)) {
       return {
         color: 'text-green-600 font-bold',
         badge: (
@@ -388,7 +455,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
     }
 
     // 2. Tied for lowest - not owner but same price (yellow)
-    if (isPriceEqual(product.price, comparisonPrice) && !isUserOwner && hasConsignorPrice) {
+    if (priceMatchesMarket && !isUserOwner && !userHasLowestConsignorMatchingEshop && hasConsignorPrice) {
       return {
         color: 'text-yellow-600 font-bold',
         badge: (
