@@ -16,46 +16,46 @@ interface SalesStatusBadgeProps {
 
 const statusConfig = {
   accepted: {
-    label: 'Prijatý',
+    label: 'Accepted',
     color: 'bg-blue-100 text-blue-800 border-blue-200',
     icon: FaCheck,
-    description: 'Predaj bol prijatý a čaká na label'
+    description: 'Sale has been accepted and is waiting for label'
   },
   processing: {
-    label: 'Label odoslaný',
+    label: 'Processing',
     color: 'bg-yellow-100 text-yellow-800 border-yellow-200',
     icon: FaCog,
-    description: 'Predaj sa pripravuje na odoslanie'
+    description: 'Sale is being prepared for shipment'
   },
   shipped: {
-    label: 'Odoslaný',
+    label: 'Shipped',
     color: 'bg-purple-100 text-purple-800 border-purple-200',
     icon: FaShippingFast,
-    description: 'Produkt bol odoslaný kupujúcemu'
+    description: 'Product has been shipped to buyer'
   },
   delivered: {
-    label: 'Doručený',
+    label: 'Delivered',
     color: 'bg-indigo-100 text-indigo-800 border-indigo-200',
     icon: FaTruck,
-    description: 'Produkt bol doručený kupujúcemu'
+    description: 'Product has been delivered to buyer'
   },
   completed: {
-    label: 'Dokončený',
+    label: 'Completed',
     color: 'bg-green-100 text-green-800 border-green-200',
     icon: FaCheckCircle,
-    description: 'Predaj je dokončený, payout vyplatený'
+    description: 'Sale is completed, payout has been paid'
   },
   cancelled: {
-    label: 'Zrušený',
+    label: 'Cancelled',
     color: 'bg-red-100 text-red-800 border-red-200',
     icon: FaTimes,
-    description: 'Predaj bol zrušený'
+    description: 'Sale has been cancelled'
   },
   returned: {
-    label: 'Vrátený',
+    label: 'Returned',
     color: 'bg-orange-100 text-orange-800 border-orange-200',
     icon: FaUndo,
-    description: 'Produkt bol vrátený'
+    description: 'Product has been returned'
   }
 };
 

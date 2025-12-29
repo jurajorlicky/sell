@@ -39,7 +39,7 @@ export default function SalesStatusTimeline({ saleId, currentStatus }: SalesStat
         setHistory(data || []);
       } catch (err: any) {
         console.error('Error fetching sales status history:', err);
-        setError('Chyba pri načítavaní histórie statusu');
+        setError('Error loading status history');
       } finally {
         setLoading(false);
       }
@@ -65,7 +65,7 @@ export default function SalesStatusTimeline({ saleId, currentStatus }: SalesStat
     return (
       <div className="flex items-center justify-center py-4">
         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-slate-600"></div>
-        <span className="ml-2 text-sm text-gray-600">Načítava sa história...</span>
+        <span className="ml-2 text-sm text-gray-600">Loading history...</span>
       </div>
     );
   }
@@ -80,13 +80,13 @@ export default function SalesStatusTimeline({ saleId, currentStatus }: SalesStat
 
   const getStatusLabel = (status: string) => {
     const labels: Record<string, string> = {
-      'accepted': 'Prijatý',
-      'processing': 'Spracováva sa',
-      'shipped': 'Odoslaný',
-      'delivered': 'Doručený',
-      'completed': 'Dokončený',
-      'cancelled': 'Zrušený',
-      'returned': 'Vrátený'
+      'accepted': 'Accepted',
+      'processing': 'Processing',
+      'shipped': 'Shipped',
+      'delivered': 'Delivered',
+      'completed': 'Completed',
+      'cancelled': 'Cancelled',
+      'returned': 'Returned'
     };
     return labels[status] || status;
   };
@@ -97,11 +97,11 @@ export default function SalesStatusTimeline({ saleId, currentStatus }: SalesStat
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-3 sm:p-4 border border-blue-200">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
-            <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1">Aktuálny status</p>
+            <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1">Current Status</p>
             <SalesStatusBadge status={currentStatus} />
           </div>
           <div className="text-right">
-            <p className="text-xs text-gray-600">História zmien</p>
+            <p className="text-xs text-gray-600">Change History</p>
             <p className="text-xs sm:text-sm font-semibold text-gray-900">{history.length}</p>
           </div>
         </div>
@@ -112,14 +112,14 @@ export default function SalesStatusTimeline({ saleId, currentStatus }: SalesStat
         <div className="flex items-center justify-between flex-wrap gap-2">
           <h4 className="text-xs sm:text-sm font-semibold text-gray-900 flex items-center">
             <FaClock className="mr-2 text-gray-600 text-sm" />
-            História zmien statusu
+            Status Change History
           </h4>
           {history.length > 3 && (
             <button
               onClick={() => setShowAll(!showAll)}
               className="text-xs text-blue-600 hover:text-blue-800 flex items-center space-x-1"
             >
-              <span>{showAll ? 'Skryť' : 'Zobraziť všetko'}</span>
+              <span>{showAll ? 'Hide' : 'Show All'}</span>
               {showAll ? <FaChevronUp className="text-xs" /> : <FaChevronDown className="text-xs" />}
             </button>
           )}
@@ -146,7 +146,7 @@ export default function SalesStatusTimeline({ saleId, currentStatus }: SalesStat
                             <span className="text-gray-400 text-xs">→</span>
                           </>
                         ) : (
-                          <span className="text-xs text-gray-500">Začiatok</span>
+                          <span className="text-xs text-gray-500">Start</span>
                         )}
                         <SalesStatusBadge status={item.new_status} className="text-xs" />
                       </div>
@@ -171,7 +171,7 @@ export default function SalesStatusTimeline({ saleId, currentStatus }: SalesStat
               {!showAll && history.length > 3 && (
                 <div className="text-center py-2">
                   <p className="text-xs text-gray-500">
-                    +{history.length - 3} ďalších zmien
+                    +{history.length - 3} more changes
                   </p>
                 </div>
               )}
@@ -179,8 +179,8 @@ export default function SalesStatusTimeline({ saleId, currentStatus }: SalesStat
           ) : (
             <div className="text-center py-4 sm:py-6 bg-gray-50 rounded-lg border border-gray-200">
               <FaClock className="mx-auto text-gray-400 text-lg sm:text-xl mb-2" />
-              <p className="text-xs sm:text-sm text-gray-500">Zatiaľ žiadna história zmien</p>
-              <p className="text-xs text-gray-400 mt-1">História sa vytvorí pri zmene statusu</p>
+              <p className="text-xs sm:text-sm text-gray-500">No change history yet</p>
+              <p className="text-xs text-gray-400 mt-1">History will be created when status changes</p>
             </div>
           )}
         </div>
