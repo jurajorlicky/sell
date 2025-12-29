@@ -7,7 +7,7 @@ import type { User } from '@supabase/supabase-js';
 interface IProfile {
   first_name: string;
   last_name: string;
-  profile_type: 'Osobný' | 'Obchodný';
+  profile_type: 'Personal' | 'Business';
   vat_type: string;
   company_name?: string;
   ico?: string;
@@ -32,7 +32,7 @@ export default function Profile() {
   const [profile, setProfile] = useState<IProfile>({
     first_name: '',
     last_name: '',
-    profile_type: 'Osobný',
+    profile_type: 'Personal',
     vat_type: '',
     company_name: '',
     ico: '',
@@ -70,7 +70,7 @@ export default function Profile() {
         // Timeout pre profile loading
         timeoutId = setTimeout(() => {
           if (isMounted) {
-            setError('Načítavanie profilu trvá príliš dlho. Skúste obnoviť stránku.');
+            setError('Loading profile is taking too long. Please refresh the page.');
             setLoading(false);
           }
         }, 8000);
@@ -90,7 +90,7 @@ export default function Profile() {
         }
 
         if (authError) {
-          throw new Error('Chyba autentifikácie: ' + authError.message);
+          throw new Error('Authentication error: ' + authError.message);
         }
 
         if (!user) {
@@ -124,7 +124,7 @@ export default function Profile() {
             setProfile({
               first_name: profileData.first_name || '',
               last_name: profileData.last_name || '',
-              profile_type: profileData.profile_type || 'Osobný',
+              profile_type: profileData.profile_type || 'Personal',
               vat_type: profileData.vat_type || '',
               company_name: profileData.company_name || '',
               ico: profileData.ico || '',
@@ -133,7 +133,7 @@ export default function Profile() {
               popisne_cislo: profileData.popisne_cislo || '',
               psc: profileData.psc || '',
               mesto: profileData.mesto || '',
-              krajina: profileData.krajina || 'Slovensko',
+              krajina: profileData.krajina || 'Slovakia',
               email: profileData.email || user.email,
               telephone: profileData.telephone || '',
               iban: profileData.iban || '',
@@ -209,7 +209,7 @@ export default function Profile() {
       navigate('/');
     } catch (error: any) {
       console.error('Error signing out:', error.message);
-      setError('Chyba pri odhlasení.');
+      setError('Error signing out.');
     }
   };
 
@@ -228,17 +228,17 @@ export default function Profile() {
     setError(null);
     setSuccessMessage(null);
 
-    if (profile.profile_type === 'Obchodný' && !profile.company_name) {
-      setError('Pri výbere Obchodný je potrebné vyplniť názov firmy.');
+    if (profile.profile_type === 'Business' && !profile.company_name) {
+      setError('When selecting Business, company name is required.');
       return;
     }
-    if (profile.profile_type === 'Obchodný') {
+    if (profile.profile_type === 'Business') {
       if (profile.vat_type === 'MARGIN' && !profile.ico) {
-        setError('Pri výbere MARGIN je potrebné vyplniť IČO.');
+        setError('When selecting MARGIN, company registration number (IČO) is required.');
         return;
       }
       if (profile.vat_type === 'VAT 0%' && (!profile.ico || !profile.vat_number)) {
-        setError('Pri výbere VAT 0% je potrebné vyplniť IČO a číslo DPH.');
+        setError('When selecting VAT 0%, company registration number (IČO) and VAT number are required.');
         return;
       }
     }
@@ -255,8 +255,8 @@ export default function Profile() {
         last_name: profile.last_name,
         profile_type: profile.profile_type,
         vat_type: profile.vat_type,
-        company_name: profile.profile_type === 'Obchodný' ? profile.company_name : null,
-        ico: profile.profile_type === 'Obchodný' ? profile.ico : null,
+        company_name: profile.profile_type === 'Business' ? profile.company_name : null,
+        ico: profile.profile_type === 'Business' ? profile.ico : null,
         vat_number: profile.vat_type === 'VAT 0%' ? profile.vat_number : null,
         address: profile.address,
         popisne_cislo: profile.popisne_cislo,
@@ -276,13 +276,13 @@ export default function Profile() {
         .upsert(updates, { onConflict: 'id' });
 
       if (upsertError) {
-        throw new Error('Chyba pri ukladaní profilu: ' + upsertError.message);
+        throw new Error('Error saving profile: ' + upsertError.message);
       }
 
-      setSuccessMessage('Profil bol úspešne uložený!');
+      setSuccessMessage('Profile has been saved successfully!');
       setShowModal(false);
     } catch (err: any) {
-      setError('Neočakávaná chyba pri ukladaní profilu: ' + err.message);
+      setError('Unexpected error saving profile: ' + err.message);
       console.error(err);
     }
   };
@@ -352,7 +352,7 @@ export default function Profile() {
 
   const saveSignature = async () => {
     if (!canvasRef.current || !user) {
-      setError('Canvas alebo používateľ nie je dostupný');
+      setError('Canvas or user is not available');
       return;
     }
 
@@ -377,7 +377,7 @@ export default function Profile() {
       // Convert canvas to blob
       canvasRef.current.toBlob(async (blob) => {
         if (!blob) {
-          setError('Chyba pri vytváraní obrázka podpisu');
+          setError('Error creating signature image');
           setUploadingSignature(false);
           return;
         }
@@ -396,7 +396,7 @@ export default function Profile() {
 
         if (uploadError) {
           console.error('Upload error:', uploadError);
-          throw new Error('Chyba pri nahrávaní podpisu: ' + uploadError.message);
+          throw new Error('Error uploading signature: ' + uploadError.message);
         }
 
         // Get public URL
@@ -408,7 +408,7 @@ export default function Profile() {
         console.log('File path:', filePath);
 
         if (!urlData?.publicUrl) {
-          throw new Error('Nepodarilo sa získať URL podpisu');
+          throw new Error('Failed to get signature URL');
         }
 
         const newSignatureUrl = urlData.publicUrl;
@@ -426,18 +426,18 @@ export default function Profile() {
 
         if (updateError) {
           console.error('Update error:', updateError);
-          throw new Error('Chyba pri ukladaní podpisu do profilu: ' + updateError.message);
+          throw new Error('Error saving signature to profile: ' + updateError.message);
         }
 
         // Update state
         setSignatureUrl(newSignatureUrl);
         setShowSignatureModal(false);
-        setSuccessMessage('Podpis bol úspešne uložený!');
+        setSuccessMessage('Signature has been saved successfully!');
         setUploadingSignature(false);
       }, 'image/png', 0.95);
     } catch (err: any) {
       console.error('Error saving signature:', err);
-      setError('Chyba pri ukladaní podpisu: ' + (err.message || 'Neznáma chyba'));
+      setError('Error saving signature: ' + (err.message || 'Unknown error'));
       setUploadingSignature(false);
     }
   };
@@ -468,15 +468,15 @@ export default function Profile() {
       if (updateError) throw updateError;
 
       setSignatureUrl(null);
-      setSuccessMessage('Podpis bol odstránený');
+      setSuccessMessage('Signature has been removed');
     } catch (err: any) {
-      setError('Chyba pri mazaní podpisu: ' + err.message);
+      setError('Error deleting signature: ' + err.message);
     }
   };
 
   const handleDeleteProfile = async () => {
     const confirmDelete = window.confirm(
-      'Naozaj chcete odstrániť svoj profil? Táto akcia je nezvratná.'
+      'Do you really want to delete your profile? This action is irreversible.'
     );
     if (!confirmDelete) return;
 
@@ -492,13 +492,13 @@ export default function Profile() {
         .eq('id', user.id);
 
       if (deleteError) {
-        throw new Error('Chyba pri odstraňovaní profilu: ' + deleteError.message);
+        throw new Error('Error deleting profile: ' + deleteError.message);
       }
 
       setProfile({
         first_name: '',
         last_name: '',
-        profile_type: 'Osobný',
+        profile_type: 'Personal',
         vat_type: '',
         company_name: '',
         ico: '',
@@ -507,16 +507,16 @@ export default function Profile() {
         popisne_cislo: '',
         psc: '',
         mesto: '',
-        krajina: 'Slovensko',
+        krajina: 'Slovakia',
         email: user.email || '',
         telephone: '',
         iban: '',
         discord: '',
       });
 
-      setSuccessMessage('Profil bol úspešne odstránený.');
+      setSuccessMessage('Profile has been deleted successfully.');
     } catch (error: any) {
-      setError('Neočakávaná chyba pri odstraňovaní profilu: ' + error.message);
+      setError('Unexpected error deleting profile: ' + error.message);
       console.error(error);
     }
   };
@@ -536,7 +536,7 @@ export default function Profile() {
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
           </div>
-          <p className="text-xl font-semibold text-slate-700 mb-2">Načítava sa profil...</p>
+          <p className="text-xl font-semibold text-slate-700 mb-2">Loading profile...</p>
           {error && (
             <div className="mt-6 p-4 bg-red-50 border-2 border-red-200 rounded-xl max-w-md mx-auto animate-scale-in">
               <p className="text-red-800 text-sm mb-3">{error}</p>
@@ -544,7 +544,7 @@ export default function Profile() {
                 onClick={() => window.location.reload()}
                 className="px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl hover:from-red-700 hover:to-red-800 transition-all duration-200 shadow-lg transform hover:scale-105"
               >
-                Obnoviť stránku
+                Refresh Page
               </button>
             </div>
           )}
@@ -564,8 +564,8 @@ export default function Profile() {
                 <FaUser className="text-white text-lg" />
               </div>
               <div>
-                <h1 className="text-lg sm:text-2xl font-bold text-slate-900">Môj profil</h1>
-                <p className="text-xs sm:text-sm text-slate-600 hidden sm:block">Osobné a fakturačné údaje</p>
+                <h1 className="text-lg sm:text-2xl font-bold text-slate-900">My Profile</h1>
+                <p className="text-xs sm:text-sm text-slate-600 hidden sm:block">Personal and billing information</p>
               </div>
             </div>
 
@@ -575,7 +575,7 @@ export default function Profile() {
                 className="inline-flex items-center px-3 py-2 sm:px-4 bg-white text-slate-700 font-semibold rounded-xl hover:bg-slate-50 transition-all duration-200 border border-slate-200 shadow-sm"
               >
                 <FaArrowLeft className="text-sm sm:mr-2" />
-                <span className="hidden sm:inline">Späť na Dashboard</span>
+                <span className="hidden sm:inline">Back to Dashboard</span>
               </Link>
 
               <Link
@@ -583,7 +583,7 @@ export default function Profile() {
                 className="inline-flex items-center px-3 py-2 sm:px-4 bg-white text-slate-700 font-semibold rounded-xl hover:bg-slate-50 transition-all duration-200 border border-slate-200 shadow-sm"
               >
                 <FaChartLine className="text-sm sm:mr-2" />
-                <span className="hidden sm:inline">Predaje</span>
+                <span className="hidden sm:inline">Sales</span>
               </Link>
 
               <button
@@ -591,7 +591,7 @@ export default function Profile() {
                 className="inline-flex items-center px-3 py-2 sm:px-4 bg-red-50 text-red-600 font-semibold rounded-xl hover:bg-red-100 transition-all duration-200 border border-red-200"
               >
                 <FaSignOutAlt className="text-sm sm:mr-2" />
-                <span className="hidden sm:inline">Odhlásiť sa</span>
+                <span className="hidden sm:inline">Sign Out</span>
               </button>
             </div>
           </div>
@@ -658,7 +658,7 @@ export default function Profile() {
               <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center mr-3 shadow-lg">
                 <FaUser className="text-white text-lg" />
               </div>
-              <h3 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent">Účet</h3>
+              <h3 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent">Account</h3>
             </div>
           </div>
           <div className="p-4 sm:p-6">
@@ -686,7 +686,7 @@ export default function Profile() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3a4 4 0 118 0v4m-4 6v6m-4-6h8m-8 0V9a2 2 0 012-2h4a2 2 0 012 2v2" />
                 </svg>
                 <div>
-                  <p className="text-xs sm:text-sm font-medium text-slate-600">Účet vytvorený</p>
+                  <p className="text-xs sm:text-sm font-medium text-slate-600">Account created</p>
                   <p className="text-sm sm:text-base text-slate-900 font-semibold">{user?.created_at ? new Date(user.created_at).toLocaleDateString('sk-SK') : 'N/A'}</p>
                 </div>
               </div>
@@ -702,7 +702,7 @@ export default function Profile() {
                 <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center mr-3 shadow-lg">
                   <FaUser className="text-white text-lg" />
                 </div>
-                <h3 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">Osobné informácie</h3>
+                <h3 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">Personal Information</h3>
               </div>
               <div className="flex space-x-2">
                 <button
@@ -710,14 +710,14 @@ export default function Profile() {
                   className="inline-flex items-center px-3 sm:px-4 py-2 bg-black text-white font-semibold rounded-xl hover:bg-gray-800 transition-all duration-200 transform hover:scale-105 shadow-lg"
                 >
                   <FaEdit className="text-sm sm:mr-2" />
-                  <span className="hidden sm:inline">Upraviť</span>
+                  <span className="hidden sm:inline">Edit</span>
                 </button>
                 <button
                   onClick={handleDeleteProfile}
                   className="inline-flex items-center px-3 sm:px-4 py-2 bg-red-50 text-red-600 font-semibold rounded-xl hover:bg-red-100 transition-all duration-200 border border-red-200 hover:border-red-300"
                 >
                   <FaTrash className="text-sm sm:mr-2" />
-                  <span className="hidden sm:inline">Odstrániť</span>
+                  <span className="hidden sm:inline">Delete</span>
                 </button>
               </div>
             </div>
@@ -728,7 +728,7 @@ export default function Profile() {
               <div className="flex items-center">
                 <FaUser className="text-slate-400 mr-2 sm:mr-3 flex-shrink-0" />
                 <div>
-                  <p className="text-xs sm:text-sm font-medium text-slate-600">Meno</p>
+                  <p className="text-xs sm:text-sm font-medium text-slate-600">First Name</p>
                   <p className="text-sm sm:text-base text-slate-900 font-semibold">{profile.first_name || '—'}</p>
                 </div>
               </div>
@@ -736,7 +736,7 @@ export default function Profile() {
               <div className="flex items-center">
                 <FaUser className="text-slate-400 mr-2 sm:mr-3 flex-shrink-0" />
                 <div>
-                  <p className="text-xs sm:text-sm font-medium text-slate-600">Priezvisko</p>
+                  <p className="text-xs sm:text-sm font-medium text-slate-600">Last Name</p>
                   <p className="text-sm sm:text-base text-slate-900 font-semibold">{profile.last_name || '—'}</p>
                 </div>
               </div>
@@ -744,7 +744,7 @@ export default function Profile() {
               <div className="flex items-center">
                 <FaBuilding className="text-slate-400 mr-2 sm:mr-3 flex-shrink-0" />
                 <div>
-                  <p className="text-xs sm:text-sm font-medium text-slate-600">Typ profilu</p>
+                  <p className="text-xs sm:text-sm font-medium text-slate-600">Profile Type</p>
                   <p className="text-sm sm:text-base text-slate-900 font-semibold">{profile.profile_type || '—'}</p>
                 </div>
               </div>
@@ -754,14 +754,14 @@ export default function Profile() {
                   <div className="flex items-center">
                     <FaBuilding className="text-slate-400 mr-2 sm:mr-3 flex-shrink-0" />
                     <div>
-                      <p className="text-xs sm:text-sm font-medium text-slate-600">Názov firmy</p>
+                      <p className="text-xs sm:text-sm font-medium text-slate-600">Company Name</p>
                       <p className="text-sm sm:text-base text-slate-900 font-semibold">{profile.company_name || '—'}</p>
                     </div>
                   </div>
                   <div className="flex items-center">
                     <FaBuilding className="text-slate-400 mr-2 sm:mr-3 flex-shrink-0" />
                     <div>
-                      <p className="text-xs sm:text-sm font-medium text-slate-600">Typ DPH</p>
+                      <p className="text-xs sm:text-sm font-medium text-slate-600">VAT Type</p>
                       <p className="text-sm sm:text-base text-slate-900 font-semibold">{profile.vat_type || '—'}</p>
                     </div>
                   </div>
@@ -776,7 +776,7 @@ export default function Profile() {
                     <div className="flex items-center">
                       <FaBuilding className="text-slate-400 mr-2 sm:mr-3 flex-shrink-0" />
                       <div>
-                        <p className="text-xs sm:text-sm font-medium text-slate-600">Číslo DPH</p>
+                        <p className="text-xs sm:text-sm font-medium text-slate-600">VAT Number</p>
                         <p className="text-sm sm:text-base text-slate-900 font-semibold">{profile.vat_number || '—'}</p>
                       </div>
                     </div>
@@ -787,7 +787,7 @@ export default function Profile() {
               <div className="flex items-center">
                 <FaPhone className="text-slate-400 mr-2 sm:mr-3 flex-shrink-0" />
                 <div>
-                  <p className="text-xs sm:text-sm font-medium text-slate-600">Telefón</p>
+                  <p className="text-xs sm:text-sm font-medium text-slate-600">Phone</p>
                   <p className="text-sm sm:text-base text-slate-900 font-semibold">{profile.telephone || '—'}</p>
                 </div>
               </div>
@@ -795,7 +795,7 @@ export default function Profile() {
               <div className="flex items-center">
                 <FaMapMarkerAlt className="text-slate-400 mr-2 sm:mr-3 flex-shrink-0" />
                 <div>
-                  <p className="text-xs sm:text-sm font-medium text-slate-600">Adresa</p>
+                  <p className="text-xs sm:text-sm font-medium text-slate-600">Address</p>
                   <p className="text-sm sm:text-base text-slate-900 font-semibold">
                     {profile.address || profile.popisne_cislo ? 
                       `${profile.address || ''} ${profile.popisne_cislo || ''}`.trim() : '—'}
@@ -806,7 +806,7 @@ export default function Profile() {
               <div className="flex items-center">
                 <FaMapMarkerAlt className="text-slate-400 mr-2 sm:mr-3 flex-shrink-0" />
                 <div>
-                  <p className="text-xs sm:text-sm font-medium text-slate-600">Mesto</p>
+                  <p className="text-xs sm:text-sm font-medium text-slate-600">City</p>
                   <p className="text-sm sm:text-base text-slate-900 font-semibold">{profile.mesto || '—'}</p>
                 </div>
               </div>
@@ -814,7 +814,7 @@ export default function Profile() {
               <div className="flex items-center">
                 <FaMapMarkerAlt className="text-slate-400 mr-2 sm:mr-3 flex-shrink-0" />
                 <div>
-                  <p className="text-xs sm:text-sm font-medium text-slate-600">PSČ</p>
+                  <p className="text-xs sm:text-sm font-medium text-slate-600">Postal Code</p>
                   <p className="text-sm sm:text-base text-slate-900 font-semibold">{profile.psc || '—'}</p>
                 </div>
               </div>
@@ -822,7 +822,7 @@ export default function Profile() {
               <div className="flex items-center">
                 <FaMapMarkerAlt className="text-slate-400 mr-2 sm:mr-3 flex-shrink-0" />
                 <div>
-                  <p className="text-xs sm:text-sm font-medium text-slate-600">Krajina</p>
+                  <p className="text-xs sm:text-sm font-medium text-slate-600">Country</p>
                   <p className="text-sm sm:text-base text-slate-900 font-semibold">{profile.krajina || '—'}</p>
                 </div>
               </div>
@@ -839,7 +839,7 @@ export default function Profile() {
               <div className="flex items-start sm:col-span-2">
                 <FaSignature className="text-slate-400 mr-2 sm:mr-3 flex-shrink-0 mt-1" />
                 <div className="flex-1">
-                  <p className="text-xs sm:text-sm font-medium text-slate-600 mb-2">Podpis</p>
+                  <p className="text-xs sm:text-sm font-medium text-slate-600 mb-2">Signature</p>
                   {signatureUrl ? (
                     <div className="border border-slate-300 rounded-xl p-3 bg-white">
                       <img 
@@ -861,7 +861,7 @@ export default function Profile() {
                       />
                     </div>
                   ) : (
-                    <p className="text-sm text-slate-500 italic">Podpis nie je nahraný</p>
+                    <p className="text-sm text-slate-500 italic">Signature is not uploaded</p>
                   )}
                 </div>
               </div>
@@ -875,7 +875,7 @@ export default function Profile() {
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-50">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden">
             <div className="flex items-center justify-between p-4 sm:p-6 border-b border-slate-200">
-              <h2 className="text-lg sm:text-2xl font-bold text-slate-900">Upraviť profil</h2>
+              <h2 className="text-lg sm:text-2xl font-bold text-slate-900">Edit Profile</h2>
               <button
                 onClick={handleCloseModal}
                 className="p-2 hover:bg-slate-100 rounded-xl transition-colors"
@@ -891,7 +891,7 @@ export default function Profile() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                   <div>
                     <label htmlFor="first_name" className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2">
-                      Meno
+                      First Name
                     </label>
                     <input
                       type="text"
@@ -905,7 +905,7 @@ export default function Profile() {
 
                   <div>
                     <label htmlFor="last_name" className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2">
-                      Priezvisko
+                      Last Name
                     </label>
                     <input
                       type="text"
@@ -919,23 +919,23 @@ export default function Profile() {
 
                   <div>
                     <label htmlFor="profile_type" className="block text-sm font-semibold text-slate-700 mb-2">
-                      Typ profilu
+                      Profile Type
                     </label>
                     <select
                       id="profile_type"
                       value={profile.profile_type}
-                      onChange={(e) => setProfile({ ...profile, profile_type: e.target.value as 'Osobný' | 'Obchodný', vat_type: e.target.value === 'Osobný' ? 'PRIVATE' : '' })}
+                      onChange={(e) => setProfile({ ...profile, profile_type: e.target.value as 'Personal' | 'Business', vat_type: e.target.value === 'Personal' ? 'PRIVATE' : '' })}
                       className="block w-full px-4 py-3 border border-slate-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
                     >
-                      <option value="Osobný">Osobný</option>
-                      <option value="Obchodný">Obchodný</option>
+                      <option value="Personal">Personal</option>
+                      <option value="Business">Business</option>
                     </select>
                   </div>
 
-                  {profile.profile_type === 'Obchodný' && (
+                  {profile.profile_type === 'Business' && (
                     <div>
                       <label htmlFor="company_name" className="block text-sm font-semibold text-slate-700 mb-2">
-                        Názov firmy
+                        Company Name
                       </label>
                       <input
                         type="text"
@@ -943,15 +943,15 @@ export default function Profile() {
                         value={profile.company_name || ''}
                         onChange={(e) => setProfile({ ...profile, company_name: e.target.value })}
                         className="block w-full px-4 py-3 border border-slate-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
-                        required={profile.profile_type === 'Obchodný'}
+                        required={profile.profile_type === 'Business'}
                       />
                     </div>
                   )}
 
-                  {profile.profile_type === 'Obchodný' && (
+                  {profile.profile_type === 'Business' && (
                     <div>
                       <label htmlFor="vat_type" className="block text-sm font-semibold text-slate-700 mb-2">
-                        Typ DPH
+                        VAT Type
                       </label>
                       <select
                         id="vat_type"
@@ -959,14 +959,14 @@ export default function Profile() {
                         onChange={(e) => setProfile({ ...profile, vat_type: e.target.value })}
                         className="block w-full px-4 py-3 border border-slate-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
                       >
-                        <option value="">Vyberte typ</option>
+                        <option value="">Select type</option>
                         <option value="MARGIN">MARGIN</option>
                         <option value="VAT 0%">VAT 0%</option>
                       </select>
                     </div>
                   )}
 
-                  {profile.profile_type === 'Obchodný' && (
+                  {profile.profile_type === 'Business' && (
                     <div>
                       <label htmlFor="ico" className="block text-sm font-semibold text-slate-700 mb-2">
                         IČO
@@ -977,7 +977,7 @@ export default function Profile() {
                         value={profile.ico || ''}
                         onChange={(e) => setProfile({ ...profile, ico: e.target.value })}
                         className="block w-full px-4 py-3 border border-slate-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
-                        required={profile.profile_type === 'Obchodný'}
+                        required={profile.profile_type === 'Business'}
                       />
                     </div>
                   )}
@@ -985,7 +985,7 @@ export default function Profile() {
                   {profile.profile_type === 'Obchodný' && profile.vat_type === 'VAT 0%' && (
                     <div>
                       <label htmlFor="vat_number" className="block text-sm font-semibold text-slate-700 mb-2">
-                        Číslo DPH
+                        VAT Number
                       </label>
                       <input
                         type="text"
@@ -1014,7 +1014,7 @@ export default function Profile() {
 
                   <div>
                     <label htmlFor="popisne_cislo" className="block text-sm font-semibold text-slate-700 mb-2">
-                      Popisné číslo
+                      Street Number
                     </label>
                     <input
                       type="text"
@@ -1056,7 +1056,7 @@ export default function Profile() {
 
                   <div>
                     <label htmlFor="krajina" className="block text-sm font-semibold text-slate-700 mb-2">
-                      Krajina
+                      Country
                     </label>
                     <select
                       id="krajina"
@@ -1065,10 +1065,10 @@ export default function Profile() {
                       className="block w-full px-4 py-3 border border-slate-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
                       required
                     >
-                      <option value="Slovensko">Slovensko</option>
-                      <option value="Ceska Republika">Česká Republika</option>
-                      <option value="Madarsko">Maďarsko</option>
-                      <option value="Rumunsko">Rumunsko</option>
+                      <option value="Slovakia">Slovakia</option>
+                      <option value="Czech Republic">Czech Republic</option>
+                      <option value="Hungary">Hungary</option>
+                      <option value="Romania">Romania</option>
                     </select>
                   </div>
 
@@ -1095,12 +1095,12 @@ export default function Profile() {
                       value={profile.discord}
                       onChange={(e) => setProfile({ ...profile, discord: e.target.value })}
                       className="block w-full px-4 py-3 border border-slate-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
-                      placeholder="napr. username#1234"
+                      placeholder="e.g. username#1234"
                     />
                   </div>
                   <div>
                     <label htmlFor="telephone" className="block text-sm font-semibold text-slate-700 mb-2">
-                      Telefónne číslo
+                      Phone Number
                     </label>
                     <input
                       type="text"
@@ -1129,13 +1129,13 @@ export default function Profile() {
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">
                     <FaSignature className="inline mr-2" />
-                    Podpis
+                    Signature
                   </label>
                   <div className="space-y-3">
                     {signatureUrl ? (
                       <div className="border border-slate-300 rounded-xl p-4 bg-white">
                         <div className="flex items-center justify-between mb-2">
-                          <p className="text-sm text-slate-600">Podpis je nahraný</p>
+                          <p className="text-sm text-slate-600">Signature is uploaded</p>
                           <button
                             type="button"
                             onClick={deleteSignature}
@@ -1146,7 +1146,7 @@ export default function Profile() {
                         </div>
                         <img 
                           src={signatureUrl} 
-                          alt="Podpis" 
+                          alt="Signature" 
                           className="max-w-full h-24 object-contain border border-slate-200 rounded"
                           onError={(e) => {
                             const target = e.target as HTMLImageElement;
@@ -1154,7 +1154,7 @@ export default function Profile() {
                             target.style.display = 'none';
                             const parent = target.parentElement;
                             if (parent) {
-                              parent.innerHTML = '<p class="text-sm text-red-600">Chyba pri načítaní obrázka podpisu</p>';
+                              parent.innerHTML = '<p class="text-sm text-red-600">Error loading signature image</p>';
                             }
                           }}
                           onLoad={() => {
@@ -1164,7 +1164,7 @@ export default function Profile() {
                       </div>
                     ) : (
                       <div className="border-2 border-dashed border-slate-300 rounded-xl p-4 bg-slate-50">
-                        <p className="text-sm text-slate-600 mb-2">Podpis nie je nahraný</p>
+                        <p className="text-sm text-slate-600 mb-2">Signature is not uploaded</p>
                       </div>
                     )}
                     <button
@@ -1173,7 +1173,7 @@ export default function Profile() {
                       className="w-full px-4 py-2 bg-black text-white font-semibold rounded-xl hover:bg-gray-800 transition-all"
                     >
                       <FaSignature className="inline mr-2" />
-                      {signatureUrl ? 'Zmeniť podpis' : 'Pridať podpis'}
+                      {signatureUrl ? 'Change Signature' : 'Add Signature'}
                     </button>
                   </div>
                 </div>
@@ -1184,13 +1184,13 @@ export default function Profile() {
                     onClick={handleCloseModal}
                     className="px-4 sm:px-6 py-2 sm:py-3 text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-xl transition-colors"
                   >
-                    Zrušiť
+                    Cancel
                   </button>
                   <button
                     type="submit"
                     className="px-4 sm:px-6 py-2 sm:py-3 text-sm font-semibold text-white bg-black hover:bg-gray-800 rounded-xl transition-all duration-200"
                   >
-                    Uložiť zmeny
+                    Save Changes
                   </button>
                 </div>
               </form>
@@ -1204,7 +1204,7 @@ export default function Profile() {
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-xl font-bold text-gray-900">Podpis</h2>
+              <h2 className="text-xl font-bold text-gray-900">Signature</h2>
               <button
                 onClick={() => {
                   setShowSignatureModal(false);
@@ -1217,7 +1217,7 @@ export default function Profile() {
             </div>
             <div className="p-6">
               <div className="mb-4">
-                <p className="text-sm text-gray-600 mb-3">Nakreslite svoj podpis dole:</p>
+                <p className="text-sm text-gray-600 mb-3">Draw your signature below:</p>
                 <div className="flex justify-center bg-gray-50 rounded-xl p-4 border border-gray-200">
                   <canvas
                     ref={canvasRef}
@@ -1241,7 +1241,7 @@ export default function Profile() {
                   onClick={clearSignature}
                   className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
                 >
-                  Vymazať
+                  Clear
                 </button>
                 <div className="flex space-x-3">
                   <button
@@ -1252,7 +1252,7 @@ export default function Profile() {
                     }}
                     className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
                   >
-                    Zrušiť
+                    Cancel
                   </button>
                   <button
                     type="button"
@@ -1260,7 +1260,7 @@ export default function Profile() {
                     disabled={uploadingSignature}
                     className="px-4 py-2 bg-black text-white font-semibold rounded-xl hover:bg-gray-800 transition-all disabled:opacity-50"
                   >
-                    {uploadingSignature ? 'Ukladá sa...' : 'Uložiť'}
+                    {uploadingSignature ? 'Saving...' : 'Save'}
                   </button>
                 </div>
               </div>
