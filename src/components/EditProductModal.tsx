@@ -174,28 +174,28 @@ export default function EditProductModal({
     if (isLowest) {
       // User has the lowest price
       setPriceColor('text-green-600');
-      setPriceMessage(`Najnižšia nová cena bude ${price} €`);
+      setPriceMessage(`Lowest new price will be ${price} €`);
       setPriceBadge(
         <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 ml-2">
-          Najnižšia
+          Lowest
         </span>
       );
     } else if (price > comparisonPrice) {
       // User's price is higher than the lowest market price
       setPriceColor('text-red-600');
-      setPriceMessage('Tvoja cena je vyššia ako najnižšia trhová cena!');
+      setPriceMessage('Your price is higher than the lowest market price!');
       setPriceBadge(
         <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 ml-2">
-          Vyššia
+          Higher
         </span>
       );
     } else if (price < comparisonPrice) {
       // User's price is lower (shouldn't happen if comparisonPrice is correct, but handle it)
       setPriceColor('text-green-600');
-      setPriceMessage(`Najnižšia nová cena bude ${price} €`);
+      setPriceMessage(`Lowest new price will be ${price} €`);
       setPriceBadge(
         <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 ml-2">
-          Najnižšia
+          Lowest
         </span>
       );
     } else {
@@ -203,7 +203,7 @@ export default function EditProductModal({
       // If it equals lowestConsignorPrice, someone else has the same price
       if (lowestConsignorPrice !== null && price === lowestConsignorPrice) {
         setPriceColor('text-slate-700');
-        setPriceMessage('Niekto má rovnakú cenu.');
+        setPriceMessage('Someone has the same price.');
         setPriceBadge(null);
       } else {
         // Equal to eshop price or no other consignor price exists
@@ -229,7 +229,7 @@ export default function EditProductModal({
     if (isNaN(numericValue) || numericValue <= 0) {
       setIsPriceValid(false);
       setPriceColor('text-red-600');
-      setPriceMessage('Cena musí byť kladné číslo.');
+      setPriceMessage('Price must be a positive number.');
       setPriceBadge(null);
     } else {
       setIsPriceValid(true);
@@ -276,7 +276,7 @@ export default function EditProductModal({
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-50 overflow-y-auto">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden">
         <div className="flex items-center justify-between p-4 sm:p-6 border-b border-slate-200">
-          <h2 className="text-lg sm:text-2xl font-bold text-slate-900">Upraviť produkt</h2>
+          <h2 className="text-lg sm:text-2xl font-bold text-slate-900">Edit Product</h2>
           <button
             onClick={onClose}
             className="p-2 hover:bg-slate-100 rounded-xl transition-colors"
@@ -303,7 +303,7 @@ export default function EditProductModal({
                   <h3 className="font-semibold text-slate-900 text-base sm:text-lg">{product.name}</h3>
                   <div className="flex items-center mt-2">
                     <span className="inline-flex items-center px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium bg-slate-200 text-slate-800">
-                      Veľkosť: {product.size}
+                      Size: {product.size}
                     </span>
                     <span className="inline-flex items-center px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium text-slate-800 ml-2">
                       SKU: {product.sku} {/* Added SKU display */}
@@ -324,7 +324,7 @@ export default function EditProductModal({
                   </div>
                   <div className="ml-3">
                     <p className="text-xs sm:text-sm font-medium text-blue-800">
-                      Aktuálna trhová cena: <span className="font-bold">{currentMarketPrice} €</span>
+                      Current market price: <span className="font-bold">{currentMarketPrice} €</span>
                     </p>
                   </div>
                 </div>
@@ -334,7 +334,7 @@ export default function EditProductModal({
             {/* Price Input */}
             <div>
               <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-3">
-                Nová cena
+                New Price
               </label>
               <div className="relative">
                 <input
@@ -342,7 +342,7 @@ export default function EditProductModal({
                   value={newPrice}
                   onChange={handlePriceChange}
                   className={`block w-full px-3 sm:px-4 py-2 sm:py-3 border rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent text-sm sm:text-base ${priceColor === 'text-red-600' ? 'border-red-300' : priceColor === 'text-green-600' ? 'border-green-300' : 'border-slate-300'} appearance-none`}
-                  placeholder="Zadajte novú cenu"
+                  placeholder="Enter new price"
                   step="1" // Changed to step=1 for €1 increments
                   min="1"
                   inputMode="numeric"
@@ -364,8 +364,8 @@ export default function EditProductModal({
                 <div className="mt-3 bg-green-50 rounded-xl p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs sm:text-sm font-medium text-green-800">Váš payout</p>
-                      <p className="text-xs text-green-600">Po odpočítaní poplatkov ({fees.fee_percent * 100}% + {fees.fee_fixed}€)</p>
+                      <p className="text-xs sm:text-sm font-medium text-green-800">Your payout</p>
+                      <p className="text-xs text-green-600">After fees ({fees.fee_percent * 100}% + {fees.fee_fixed}€)</p>
                     </div>
                     <p className="text-base sm:text-lg font-bold text-green-900">{computedPayoutValue.toFixed(2)} €</p>
                   </div>
@@ -394,7 +394,7 @@ export default function EditProductModal({
                 onClick={onClose}
                 className="px-4 sm:px-6 py-2 sm:py-3 text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-xl transition-colors"
               >
-                Zrušiť
+                Cancel
               </button>
               <button
                 type="submit"
@@ -407,13 +407,13 @@ export default function EditProductModal({
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Upravuje sa...
+                    Updating...
                   </>
                 ) : (
                   <>
                     <FaCheck className="mr-2" />
-                    <span className="hidden sm:inline">Uložiť zmeny</span>
-                    <span className="sm:hidden">Uložiť</span>
+                    <span className="hidden sm:inline">Save Changes</span>
+                    <span className="sm:hidden">Save</span>
                   </>
                 )}
               </button>
