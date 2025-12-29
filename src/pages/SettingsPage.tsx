@@ -54,7 +54,7 @@ export default function SettingsPage() {
       setBuyerSignatureUrl(data.buyer_signature_url || null);
     } catch (err: any) {
       console.error('Error loading settings:', err.message);
-      setError('Chyba pri načítavaní nastavení: ' + err.message);
+      setError('Error loading settings: ' + err.message);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -71,19 +71,19 @@ export default function SettingsPage() {
       const feeFixedValue = parseFloat(feeFixed);
 
       if (isNaN(feePercentValue) || isNaN(feeFixedValue)) {
-        throw new Error('Neplatné hodnoty poplatkov');
+        throw new Error('Invalid fee values');
       }
 
       if (feePercentValue < 0 || feePercentValue > 1) {
-        throw new Error('Percentuálny poplatok musí byť medzi 0% a 100%');
+        throw new Error('Percentage fee must be between 0% and 100%');
       }
 
       if (feeFixedValue < 0) {
-        throw new Error('Fixný poplatok nemôže byť záporný');
+        throw new Error('Fixed fee cannot be negative');
       }
 
       if (![7, 14, 30].includes(offerExpirationDays)) {
-        throw new Error('Doba expirácie ponuky musí byť 7, 14 alebo 30 dní');
+        throw new Error('Offer expiration period must be 7, 14, or 30 days');
       }
 
       const { error } = await supabase
@@ -99,11 +99,11 @@ export default function SettingsPage() {
 
       if (error) throw error;
 
-      setSuccess('Nastavenia boli úspešne uložené!');
+      setSuccess('Settings have been saved successfully!');
       loadSettings();
     } catch (err: any) {
       console.error('Error saving settings:', err.message);
-      setError('Chyba pri ukladaní nastavení: ' + err.message);
+      setError('Error saving settings: ' + err.message);
     } finally {
       setSaving(false);
     }
@@ -137,8 +137,8 @@ export default function SettingsPage() {
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-gray-300 border-t-gray-500 rounded-full animate-spin mx-auto mb-4"></div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Načítavajú sa nastavenia</h3>
-          <p className="text-sm text-gray-600">Prosím čakajte...</p>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Loading settings</h3>
+          <p className="text-sm text-gray-600">Please wait...</p>
         </div>
       </div>
     );
@@ -159,9 +159,9 @@ export default function SettingsPage() {
               </div>
               <div>
                 <h1 className="text-lg sm:text-2xl font-bold text-gray-900">
-                  Nastavenia
+                  Settings
                 </h1>
-                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">Správa systémových nastavení</p>
+                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">System settings management</p>
               </div>
             </div>
             
@@ -172,14 +172,14 @@ export default function SettingsPage() {
                 className="inline-flex items-center px-2 py-2 sm:px-4 bg-black text-white font-semibold rounded-xl hover:bg-gray-800 transition-all duration-200 disabled:opacity-50"
               >
                 <FaSync className={`text-sm sm:mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-                <span className="hidden sm:inline">{refreshing ? 'Obnovuje sa...' : 'Obnoviť'}</span>
+                <span className="hidden sm:inline">{refreshing ? 'Refreshing...' : 'Refresh'}</span>
               </button>
               <button
                 onClick={handleSignOut}
                 className="inline-flex items-center px-2 py-2 sm:px-4 bg-black text-white font-semibold rounded-xl hover:bg-gray-800 transition-all duration-200 shadow-lg transform hover:scale-105"
               >
                 <FaSignOutAlt className="text-sm sm:mr-2" />
-                <span className="hidden sm:inline">Odhlásiť</span>
+                <span className="hidden sm:inline">Sign Out</span>
               </button>
             </div>
           </div>
@@ -199,7 +199,7 @@ export default function SettingsPage() {
                   onClick={handleRetry}
                   className="text-red-800 hover:text-red-100 text-sm font-medium"
                 >
-                  Skúsiť znova
+                  Try again
                 </button>
                 <button
                   onClick={() => setError(null)}
@@ -241,8 +241,8 @@ export default function SettingsPage() {
         {/* Settings Form */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-2xl overflow-hidden">
           <div className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 border-b border-gray-200 bg-white">
-            <h3 className="text-lg sm:text-xl font-bold text-gray-900">Systémové nastavenia</h3>
-            <p className="text-gray-600 text-xs sm:text-sm mt-1">Konfigurácia poplatkov a systémových parametrov</p>
+            <h3 className="text-lg sm:text-xl font-bold text-gray-900">System Settings</h3>
+            <p className="text-gray-600 text-xs sm:text-sm mt-1">Configure fees and system parameters</p>
           </div>
 
           <div className="p-3 sm:p-4 lg:p-6">
@@ -250,7 +250,7 @@ export default function SettingsPage() {
               <div>
                 <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-3">
                   <FaPercent className="inline mr-2" />
-                  Percentuálny poplatok (%)
+                  Percentage Fee (%)
                 </label>
                 <input
                   type="number"
@@ -262,13 +262,13 @@ export default function SettingsPage() {
                   max="100"
                   placeholder="20"
                 />
-                <p className="text-xs text-gray-600 mt-2">Percentuálny poplatok z predajnej ceny</p>
+                <p className="text-xs text-gray-600 mt-2">Percentage fee from sale price</p>
               </div>
 
               <div>
                 <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-3">
                   <FaEuroSign className="inline mr-2" />
-                  Fixný poplatok (€)
+                  Fixed Fee (€)
                 </label>
                 <input
                   type="number"
@@ -279,24 +279,24 @@ export default function SettingsPage() {
                   min="0"
                   placeholder="5.00"
                 />
-                <p className="text-xs text-gray-600 mt-2">Fixný poplatok za každý predaj</p>
+                <p className="text-xs text-gray-600 mt-2">Fixed fee per sale</p>
               </div>
 
               <div>
                 <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-3">
                   <FaExclamationTriangle className="inline mr-2" />
-                  Doba expirácie ponuky (dni)
+                  Offer Expiration Period (days)
                 </label>
                 <select
                   value={offerExpirationDays}
                   onChange={(e) => setOfferExpirationDays(parseInt(e.target.value))}
                   className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-100 border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-500/50 focus:border-transparent transition-all duration-200 text-base"
                 >
-                  <option value={7}>7 dní</option>
-                  <option value={14}>14 dní</option>
-                  <option value={30}>30 dní</option>
+                  <option value={7}>7 days</option>
+                  <option value={14}>14 days</option>
+                  <option value={30}>30 days</option>
                 </select>
-                <p className="text-xs text-gray-600 mt-2">Po tomto počte dní sa ponuka automaticky vymaže</p>
+                <p className="text-xs text-gray-600 mt-2">After this number of days, the offer will be automatically deleted</p>
               </div>
             </div>
 
@@ -304,7 +304,7 @@ export default function SettingsPage() {
             <div className="mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-gray-200">
               <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-3">
                 <FaSignature className="inline mr-2" />
-                Podpis kupujúceho (Buyer Signature)
+                Buyer Signature
               </label>
               {buyerSignatureUrl ? (
                 <div className="space-y-3">
@@ -312,8 +312,8 @@ export default function SettingsPage() {
                     <div className="flex items-center space-x-3 flex-1 min-w-0">
                       <img src={buyerSignatureUrl} alt="Buyer Signature" className="h-14 sm:h-16 w-auto object-contain flex-shrink-0" />
                       <div className="min-w-0">
-                        <p className="text-sm font-medium text-gray-900">Podpis je nahraný</p>
-                        <p className="text-xs text-gray-500">Tento podpis sa použije vo všetkých PDF zmluvách</p>
+                        <p className="text-sm font-medium text-gray-900">Signature uploaded</p>
+                        <p className="text-xs text-gray-500">This signature will be used in all PDF contracts</p>
                       </div>
                     </div>
                     <button
@@ -331,7 +331,7 @@ export default function SettingsPage() {
                   <label className="flex flex-col items-center justify-center w-full h-20 sm:h-24 border-2 border-gray-300 border-dashed rounded-xl cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
                     <div className="flex flex-col items-center justify-center pt-2 sm:pt-3 pb-3 sm:pb-4">
                       <FaUpload className="text-gray-400 text-lg sm:text-xl mb-1.5 sm:mb-2" />
-                      <p className="text-xs text-gray-600 font-medium text-center px-2">Kliknite pre nahranie obrázka podpisu</p>
+                      <p className="text-xs text-gray-600 font-medium text-center px-2">Click to upload signature image</p>
                       <p className="text-xs text-gray-500 mt-1">PNG, JPG (max 2MB)</p>
                     </div>
                     <input
@@ -342,7 +342,7 @@ export default function SettingsPage() {
                         if (!file) return;
                         
                         if (file.size > 2 * 1024 * 1024) {
-                          setError('Súbor je príliš veľký. Maximálna veľkosť je 2MB');
+                          setError('File is too large. Maximum size is 2MB');
                           return;
                         }
                         
@@ -358,13 +358,13 @@ export default function SettingsPage() {
                             setUploadingSignature(false);
                           };
                           reader.onerror = () => {
-                            setError('Chyba pri načítavaní súboru');
+                            setError('Error loading file');
                             setUploadingSignature(false);
                           };
                           reader.readAsDataURL(file);
                         } catch (err: any) {
                           console.error('Error uploading buyer signature', err);
-                          setError('Chyba pri nahrávaní podpisu: ' + (err.message || 'Neznáma chyba'));
+                          setError('Error uploading signature: ' + (err.message || 'Unknown error'));
                           setUploadingSignature(false);
                         }
                         
@@ -381,7 +381,7 @@ export default function SettingsPage() {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                       </svg>
-                      <span>Nahráva sa...</span>
+                      <span>Uploading...</span>
                     </div>
                   )}
                 </div>
@@ -391,7 +391,7 @@ export default function SettingsPage() {
             {/* Preview */}
             {feePercent && feeFixed && (
               <div className="mt-6 bg-gray-50 rounded-xl p-4 border border-gray-200">
-                <h4 className="text-xs sm:text-sm font-semibold text-gray-700 mb-3">Náhľad výpočtu</h4>
+                <h4 className="text-xs sm:text-sm font-semibold text-gray-700 mb-3">Calculation Preview</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 text-sm">
                   {[100, 200, 500].map(price => {
                     const feePercentValue = parseFloat(feePercent) / 100;
@@ -399,7 +399,7 @@ export default function SettingsPage() {
                     const payout = price * (1 - feePercentValue) - feeFixedValue;
                     return (
                       <div key={price} className="bg-white rounded-lg p-2 sm:p-3">
-                        <div className="text-xs sm:text-sm text-gray-600">Predajná cena: <span className="text-gray-900 font-semibold">{price} €</span></div>
+                        <div className="text-xs sm:text-sm text-gray-600">Sale Price: <span className="text-gray-900 font-semibold">{price} €</span></div>
                         <div className="text-xs sm:text-sm text-gray-600">Payout: <span className="text-green-600 font-semibold">{Math.max(0, payout).toFixed(2)} €</span></div>
                       </div>
                     );
@@ -420,13 +420,13 @@ export default function SettingsPage() {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Ukladá sa...
+                    Saving...
                   </>
                 ) : (
                   <>
                     <FaSave className="mr-2" />
-                    <span className="hidden sm:inline">Uložiť nastavenia</span>
-                    <span className="sm:hidden">Uložiť</span>
+                    <span className="hidden sm:inline">Save Settings</span>
+                    <span className="sm:hidden">Save</span>
                   </>
                 )}
               </button>
