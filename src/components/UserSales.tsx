@@ -456,8 +456,8 @@ export default function UserSales() {
                 </h3>
                 <p className="text-sm sm:text-base text-gray-600 mb-6">
                   {sales.length === 0 
-                    ? 'You don't have any sales yet' 
-                    : 'Try changing filters or search term'}
+                    ? "You don't have any sales yet" 
+                    : "Try changing filters or search term"}
                 </p>
                 {sales.length === 0 ? (
                   <Link

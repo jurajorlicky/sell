@@ -749,7 +749,7 @@ export default function Profile() {
                 </div>
               </div>
 
-              {profile.profile_type === 'Obchodný' && (
+              {profile.profile_type === 'Business' && (
                 <>
                   <div className="flex items-center">
                     <FaBuilding className="text-slate-400 mr-2 sm:mr-3 flex-shrink-0" />
@@ -982,7 +982,7 @@ export default function Profile() {
                     </div>
                   )}
 
-                  {profile.profile_type === 'Obchodný' && profile.vat_type === 'VAT 0%' && (
+                  {profile.profile_type === 'Business' && profile.vat_type === 'VAT 0%' && (
                     <div>
                       <label htmlFor="vat_number" className="block text-sm font-semibold text-slate-700 mb-2">
                         VAT Number
