@@ -64,7 +64,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
     } catch (err: any) {
       clearTimeout(timeoutId);
       setError(err.name === 'AbortError'
-        ? 'Načítavanie produktov trvá príliš dlho. Skúste obnoviť stránku.'
+        ? 'Loading products is taking too long. Please refresh the page.'
         : err.message
       );
       setProducts([]);
@@ -267,7 +267,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
     } catch (err: any) {
       clearTimeout(timeoutId);
       if (err.name === 'AbortError' || err.message === 'Auth timeout') {
-        setError('Načítavanie trvá príliš dlho. Skúste obnoviť stránku.');
+        setError('Loading is taking too long. Please refresh the page.');
       } else {
         setError(err.message);
       }
@@ -290,12 +290,12 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
       await supabase.auth.signOut();
       navigate('/');
     } catch {
-      setError('Chyba pri odhlasovaní');
+      setError('Error signing out');
     }
   };
 
   const handleDeleteProduct = async (id: string) => {
-    if (!confirm('Naozaj chcete odstrániť tento produkt?')) return;
+    if (!confirm('Do you really want to delete this product?')) return;
     try {
       const { error } = await supabase.from('user_products').delete().eq('id', id);
       if (error) throw error;
@@ -333,10 +333,10 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
         color: 'text-slate-900',
         badge: (
           <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 ml-2">
-            Bez trhu
+            No Market
           </span>
         ),
-        desc: '(Trhová cena neznáma)'
+        desc: '(Market price unknown)'
       };
     }
 
@@ -355,10 +355,10 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
         color: 'text-green-600 font-bold',
         badge: (
           <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 ml-2">
-            Najnižšia
+            Lowest
           </span>
         ),
-        desc: '(Vaša najnižšia cena)'
+        desc: '(Your lowest price)'
       };
     }
 
@@ -368,10 +368,10 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
         color: 'text-yellow-600 font-bold',
         badge: (
           <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 ml-2">
-            Rovnaká najnižšia
+            Same Lowest
           </span>
         ),
-        desc: '(Máte najnižšiu cenu, ale nie ste prvý v poradí)'
+        desc: '(You have the lowest price, but you are not first in line)'
       };
     }
 
@@ -381,10 +381,10 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
         color: 'text-green-600 font-bold',
         badge: (
           <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 ml-2">
-            Pod eshopom
+            Below Eshop
           </span>
         ),
-        desc: `(${(marketPrice - product.price).toFixed(2)} € pod eshopom)`
+        desc: `(${(marketPrice - product.price).toFixed(2)} € below eshop)`
       };
     }
 
@@ -394,10 +394,10 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
         color: 'text-red-600 font-bold',
         badge: (
           <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 ml-2">
-            Vyššia
+            Higher
           </span>
         ),
-        desc: `(+${(product.price - comparisonPrice).toFixed(2)} € nad najnižšou consignera cenou)`
+        desc: `(+${(product.price - comparisonPrice).toFixed(2)} € above lowest consignor price)`
       };
     }
 
@@ -407,10 +407,10 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
         color: 'text-red-600 font-bold',
         badge: (
           <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 ml-2">
-            Vyššia
+            Higher
           </span>
         ),
-        desc: `(+${(product.price - marketPrice).toFixed(2)} € nad eshop cenou)`
+        desc: `(+${(product.price - marketPrice).toFixed(2)} € above eshop price)`
       };
     }
 
@@ -419,10 +419,10 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
       color: 'text-red-600 font-bold',
       badge: (
         <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 ml-2">
-          Konkurencia
+            Competition
         </span>
       ),
-      desc: `(Najnižšia cena: ${comparisonPrice} € - ${hasConsignorPrice ? 'Consignor' : 'Eshop'})`
+        desc: `(Lowest price: ${comparisonPrice} € - ${hasConsignorPrice ? 'Consignor' : 'Eshop'})`
     };
   };
 
@@ -437,20 +437,20 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
           </div>
-          <p className="text-lg text-slate-600 mb-2">Načítava sa dashboard...</p>
-          <p className="text-sm text-slate-500">Ak sa načítavanie zdá príliš dlhé, skúste obnoviť stránku</p>
+          <p className="text-lg text-slate-600 mb-2">Loading dashboard...</p>
+          <p className="text-sm text-slate-500">If loading seems too long, please try refreshing the page</p>
           {error && (
             <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-xl max-w-md mx-auto">
               <div className="flex items-center text-red-800 mb-2">
                 <FaExclamationTriangle className="mr-2" />
-                <span className="font-semibold">Chyba</span>
+                <span className="font-semibold">Error</span>
               </div>
               <p className="text-red-700 text-sm mb-3">{error}</p>
               <button
                 onClick={handleRetry}
                 className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
               >
-                Skúsiť znova
+                Try Again
               </button>
             </div>
           )}
@@ -463,12 +463,12 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
-          <div className="text-lg text-slate-600 mb-4">Používateľ neexistuje alebo nie je prihlásený.</div>
+          <div className="text-lg text-slate-600 mb-4">User does not exist or is not logged in.</div>
           <button
             onClick={() => navigate('/')}
             className="px-6 py-3 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-colors"
           >
-            Prihlásiť sa
+            Sign In
           </button>
         </div>
       </div>
@@ -488,7 +488,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
               </div>
               <div>
                 <h1 className="text-lg sm:text-2xl font-bold text-slate-900">AirKicks Consign</h1>
-                <p className="text-xs sm:text-sm text-slate-500 hidden sm:block">Správa vašich produktov</p>
+                <p className="text-xs sm:text-sm text-slate-500 hidden sm:block">Manage your products</p>
               </div>
             </div>
             <div className="flex items-center space-x-1 sm:space-x-3">
@@ -497,21 +497,21 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
                 className="inline-flex items-center px-3 py-2 sm:px-4 bg-slate-900 text-white font-semibold rounded-xl hover:bg-slate-800 transition-all duration-200 transform hover:scale-105 shadow"
               >
                 <FaPlus className="text-sm sm:mr-2" />
-                <span className="hidden sm:inline">Pridať produkt</span>
+                <span className="hidden sm:inline">Add Product</span>
               </button>
               <Link
                 to="/sales"
                 className="inline-flex items-center px-3 py-2 sm:px-4 bg-white text-slate-700 font-semibold rounded-xl hover:bg-slate-50 transition-all duration-200 border border-slate-200 shadow-sm"
               >
                 <FaChartLine className="text-sm sm:mr-2" />
-                <span className="hidden sm:inline">Predaje</span>
+                <span className="hidden sm:inline">Sales</span>
               </Link>
               <Link
                 to="/profile"
                 className="inline-flex items-center px-3 py-2 sm:px-4 bg-white text-slate-700 font-semibold rounded-xl hover:bg-slate-50 transition-all duration-200 border border-slate-200 shadow-sm"
               >
                 <FaUser className="text-sm sm:mr-2" />
-                <span className="hidden sm:inline">Profil</span>
+                <span className="hidden sm:inline">Profile</span>
               </Link>
               {isAdmin && (
                 <Link
@@ -527,7 +527,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
                 className="inline-flex items-center px-3 py-2 sm:px-4 bg-red-50 text-red-600 font-semibold rounded-xl hover:bg-red-100 transition-all duration-200 border border-red-200"
               >
                 <FaSignOutAlt className="text-sm sm:mr-2" />
-                <span className="hidden sm:inline">Odhlásiť</span>
+                <span className="hidden sm:inline">Sign Out</span>
               </button>
             </div>
           </div>
@@ -551,7 +551,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
                   onClick={handleRetry}
                   className="text-red-600 hover:text-red-800 text-sm font-medium"
                 >
-                  Skúsiť znova
+                  Try Again
                 </button>
                 <button
                   onClick={() => setError(null)}
@@ -576,7 +576,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
                 </div>
               </div>
               <div className="ml-3 sm:ml-4">
-                <p className="text-xs sm:text-sm font-medium text-slate-600">Celkový počet produktov</p>
+                <p className="text-xs sm:text-sm font-medium text-slate-600">Total Products</p>
                 <p className="text-xl sm:text-2xl font-bold text-slate-900">{products.length}</p>
               </div>
             </div>
@@ -591,7 +591,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
                 </div>
               </div>
               <div className="ml-3 sm:ml-4">
-                <p className="text-xs sm:text-sm font-medium text-slate-600">Celkový payout</p>
+                <p className="text-xs sm:text-sm font-medium text-slate-600">Total Payout</p>
                 <p className="text-xl sm:text-2xl font-bold text-slate-900">{totalPayout.toFixed(2)} €</p>
               </div>
             </div>
@@ -606,7 +606,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
                 </div>
               </div>
               <div className="ml-3 sm:ml-4">
-                <p className="text-xs sm:text-sm font-medium text-slate-600">Priemerná cena</p>
+                <p className="text-xs sm:text-sm font-medium text-slate-600">Average Price</p>
                 <p className="text-xl sm:text-2xl font-bold text-slate-900">
                   {products.length > 0
                     ? (products.reduce((sum, p) => sum + p.price, 0) / products.length).toFixed(2)
@@ -622,19 +622,19 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
           <div className="px-4 sm:px-6 py-4 border-b border-slate-100">
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center space-y-3 sm:space-y-0">
               <div>
-                <h3 className="text-base sm:text-lg font-semibold text-slate-900">Vaše produkty</h3>
+                <h3 className="text-base sm:text-lg font-semibold text-slate-900">Your Products</h3>
                 {marketPricesLoading && (
-                  <p className="text-xs sm:text-sm text-slate-500 mt-1">Načítavajú sa trhové ceny...</p>
+                  <p className="text-xs sm:text-sm text-slate-500 mt-1">Loading market prices...</p>
                 )}
               </div>
               <button
                 onClick={handleRefresh}
                 disabled={refreshing}
                 className="inline-flex items-center justify-center w-10 h-10 sm:w-auto sm:h-auto sm:px-4 sm:py-2 bg-white text-slate-700 font-semibold rounded-xl hover:bg-slate-50 transition-all duration-200 border border-slate-200 shadow-sm disabled:opacity-50"
-                title="Obnoviť produkty"
+                title="Refresh Products"
               >
                 <FaSyncAlt className={`text-sm sm:mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-                <span className="hidden sm:inline">{refreshing ? 'Obnovuje sa...' : 'Obnoviť'}</span>
+                <span className="hidden sm:inline">{refreshing ? 'Refreshing...' : 'Refresh'}</span>
               </button>
             </div>
           </div>
@@ -647,13 +647,13 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
                   <thead className="bg-slate-50">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">#</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Produkt</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Veľkosť</th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Product</th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Size</th>
                       <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">SKU</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Cena</th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Price</th>
                       <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Payout</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Expirácia</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Akcie</th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Expiration</th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-slate-100">
@@ -668,7 +668,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
                                 <img
                                   className="h-full w-full object-contain p-2"
                                   src={product?.image_url || '/default-image.png'}
-                                  alt={product?.name || 'Žiadny obrázok'}
+                                  alt={product?.name || 'No image'}
                                   onError={(e) => {
                                     const target = e.target as HTMLImageElement;
                                     target.src = '/default-image.png';
@@ -676,13 +676,13 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
                                 />
                               </div>
                               <div className="ml-4 min-w-0 flex-1">
-                                <div className="text-sm font-semibold text-slate-900 truncate">{product?.name || 'Neznámy produkt'}</div>
+                                <div className="text-sm font-semibold text-slate-900 truncate">{product?.name || 'Unknown product'}</div>
                               </div>
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-slate-100 text-slate-800">
-                              {product?.size || 'Neznáma veľkosť'}
+                              {product?.size || 'Unknown size'}
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
@@ -691,7 +691,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
                           <td className="px-6 py-4 whitespace-nowrap text-sm">
                             <div className="flex items-center">
                               <span className={priceDisplay.color}>
-                                {product?.price ? `${product.price} €` : 'Neznáma cena'}
+                                {product?.price ? `${product.price} €` : 'Unknown price'}
                               </span>
                               {priceDisplay.badge}
                             </div>
@@ -710,7 +710,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
                                 {new Date(product.expires_at).toLocaleDateString('sk-SK')}
                               </span>
                             ) : (
-                              <span className="text-slate-400">Bez expirácie</span>
+                              <span className="text-slate-400">No expiration</span>
                             )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -718,14 +718,14 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
                               <button
                                 onClick={() => handleEditProduct(product)}
                                 className="text-slate-600 hover:text-slate-900 transition-colors p-2 hover:bg-slate-100 rounded-lg"
-                                title="Upraviť produkt"
+                                title="Edit Product"
                               >
                                 <FaEdit className="h-4 w-4" />
                               </button>
                               <button
                                 onClick={() => handleDeleteProduct(product.id)}
                                 className="text-red-600 hover:text-red-700 transition-colors p-2 hover:bg-red-50 rounded-lg"
-                                title="Odstrániť produkt"
+                                title="Delete Product"
                               >
                                 <FaTrash className="h-4 w-4" />
                               </button>
@@ -764,9 +764,9 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
                           
                           <div className="space-y-2">
                             <div className="flex items-center justify-between">
-                              <span className="text-xs text-slate-600">Veľkosť:</span>
+                              <span className="text-xs text-slate-600">Size:</span>
                               <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-slate-200 text-slate-800">
-                                {product?.size || 'Neznáma veľkosť'}
+                                {product?.size || 'Unknown size'}
                               </span>
                             </div>
                             
@@ -779,7 +779,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
                               <span className="text-xs text-slate-600">Cena:</span>
                               <div className="flex items-center">
                                 <span className={`text-sm font-semibold ${priceDisplay.color}`}>
-                                  {product?.price ? `${product.price} €` : 'Neznáma cena'}
+                                  {product?.price ? `${product.price} €` : 'Unknown price'}
                                 </span>
                                 {priceDisplay.badge}
                               </div>
@@ -814,14 +814,14 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
                               className="inline-flex items-center px-3 py-1.5 bg-slate-600 text-white text-xs font-medium rounded-lg hover:bg-slate-700 transition-colors"
                             >
                               <FaEdit className="mr-1" />
-                              Upraviť
+                              Edit
                             </button>
                             <button
                               onClick={() => handleDeleteProduct(product.id)}
                               className="inline-flex items-center px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700 transition-colors"
                             >
                               <FaTrash className="mr-1" />
-                              Odstrániť
+                              Delete
                             </button>
                           </div>
                         </div>
@@ -836,14 +836,14 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
               <div className="w-12 h-12 sm:w-16 sm:h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <FaShoppingBag className="text-slate-400 text-2xl" />
               </div>
-              <h3 className="text-base sm:text-lg font-semibold text-slate-900 mb-2">Žiadne produkty</h3>
-              <p className="text-sm sm:text-base text-slate-600 mb-6">Začnite pridaním svojho prvého produktu</p>
+              <h3 className="text-base sm:text-lg font-semibold text-slate-900 mb-2">No Products</h3>
+              <p className="text-sm sm:text-base text-slate-600 mb-6">Start by adding your first product</p>
               <button
                 onClick={() => setIsAddModalOpen(true)}
                 className="inline-flex items-center px-4 sm:px-6 py-2 sm:py-3 bg-slate-900 text-white font-semibold rounded-xl hover:bg-slate-800 transition-all duration-200 transform hover:scale-105"
               >
                 <FaPlus className="mr-2" />
-                Pridať produkt
+                Add Product
               </button>
             </div>
           )}

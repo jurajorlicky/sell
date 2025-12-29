@@ -53,7 +53,7 @@ export default function UserSales() {
         setUser(user);
         await fetchSales(user.id);
       } catch (err) {
-        setError('Chyba pri načítavaní používateľských dát.');
+        setError('Error loading user data.');
       } finally {
         setLoading(false);
       }
@@ -71,7 +71,7 @@ export default function UserSales() {
       if (error) throw error;
       setSales(data || []);
     } catch (err) {
-      setError('Chyba pri načítavaní vašich predajov.');
+      setError('Error loading your sales.');
     }
   };
 
@@ -110,7 +110,7 @@ export default function UserSales() {
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
           </div>
-          <p className="text-lg text-gray-600">Načítavajú sa predaje...</p>
+          <p className="text-lg text-gray-600">Loading sales...</p>
         </div>
       </div>
     );
@@ -197,8 +197,8 @@ export default function UserSales() {
                 <FaShoppingCart className="text-gray-900 text-lg" />
               </div>
               <div>
-                <h1 className="text-lg sm:text-2xl font-bold text-gray-900">Moje predaje</h1>
-                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">História vašich predajov</p>
+                <h1 className="text-lg sm:text-2xl font-bold text-gray-900">My Sales</h1>
+                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">Your sales history</p>
               </div>
             </div>
             <div className="flex items-center space-x-1 sm:space-x-3">
@@ -207,21 +207,21 @@ export default function UserSales() {
                 className="inline-flex items-center px-3 py-2 sm:px-4 bg-white text-gray-800 font-semibold rounded-xl hover:bg-gray-50 transition-all duration-200 border border-gray-300 shadow-sm"
               >
                 <FaArrowLeft className="text-sm sm:mr-2" />
-                <span className="hidden sm:inline">Späť</span>
+                <span className="hidden sm:inline">Back</span>
               </Link>
               <Link
                 to="/profile"
                 className="inline-flex items-center px-3 py-2 sm:px-4 bg-white text-gray-800 font-semibold rounded-xl hover:bg-gray-50 transition-all duration-200 border border-gray-300 shadow-sm"
               >
                 <FaUser className="text-sm sm:mr-2" />
-                <span className="hidden sm:inline">Profil</span>
+                <span className="hidden sm:inline">Profile</span>
               </Link>
               <button
                 onClick={handleSignOut}
                 className="inline-flex items-center px-3 py-2 sm:px-4 bg-white text-gray-800 font-semibold rounded-xl hover:bg-gray-50 transition-all duration-200 border border-gray-300 shadow-sm"
               >
                 <FaSignOutAlt className="text-sm sm:mr-2" />
-                <span className="hidden sm:inline">Odhlásiť</span>
+                <span className="hidden sm:inline">Sign Out</span>
               </button>
             </div>
           </div>
@@ -245,7 +245,7 @@ export default function UserSales() {
                   onClick={handleRetry}
                   className="text-red-600 hover:text-red-800 text-sm font-medium"
                 >
-                  Skúsiť znova
+                  Try Again
                 </button>
                 <button
                   onClick={() => setError(null)}
@@ -268,10 +268,10 @@ export default function UserSales() {
                 <FaShoppingCart className="text-gray-900 text-xl" />
               </div>
               <div className="ml-3 sm:ml-4">
-                <p className="text-xs sm:text-sm font-medium text-gray-600">Celkový počet predajov</p>
+                <p className="text-xs sm:text-sm font-medium text-gray-600">Total Sales</p>
                 <p className="text-xl sm:text-2xl font-bold text-gray-900">{sales.length}</p>
                 {todaySales > 0 && (
-                  <p className="text-xs text-green-600 mt-1">+{todaySales} dnes</p>
+                  <p className="text-xs text-green-600 mt-1">+{todaySales} today</p>
                 )}
               </div>
             </div>
@@ -284,7 +284,7 @@ export default function UserSales() {
                 </svg>
               </div>
               <div className="ml-3 sm:ml-4">
-                <p className="text-xs sm:text-sm font-medium text-gray-600">Celkový payout</p>
+                <p className="text-xs sm:text-sm font-medium text-gray-600">Total Payout</p>
                 <p className="text-xl sm:text-2xl font-bold text-gray-900">{totalPayout.toFixed(2)} €</p>
               </div>
             </div>
@@ -297,7 +297,7 @@ export default function UserSales() {
                 </svg>
               </div>
               <div className="ml-3 sm:ml-4">
-                <p className="text-xs sm:text-sm font-medium text-gray-600">Čakajúce na payout</p>
+                <p className="text-xs sm:text-sm font-medium text-gray-600">Waiting for Payout</p>
                 <p className="text-xl sm:text-2xl font-bold text-gray-900">{waitingForPayout}</p>
                 <p className="text-xs text-blue-600 mt-1">{waitingPayoutAmount.toFixed(2)} €</p>
               </div>
@@ -311,7 +311,7 @@ export default function UserSales() {
                 </svg>
               </div>
               <div className="ml-3 sm:ml-4">
-                <p className="text-xs sm:text-sm font-medium text-gray-600">Dokončené</p>
+                <p className="text-xs sm:text-sm font-medium text-gray-600">Completed</p>
                 <p className="text-xl sm:text-2xl font-bold text-gray-900">{readyForPayout}</p>
               </div>
             </div>
@@ -322,15 +322,15 @@ export default function UserSales() {
         <div className="bg-white rounded-2xl border border-gray-200 shadow-2xl overflow-hidden">
           <div className="px-4 sm:px-6 py-4 border-b border-gray-200 bg-white flex flex-col sm:flex-row sm:justify-between sm:items-center space-y-3 sm:space-y-0">
             <div>
-              <h3 className="text-lg sm:text-xl font-bold text-gray-900">Moje predaje ({filteredSales.length})</h3>
-              <p className="text-gray-600 text-xs sm:text-sm mt-1">Prehľad všetkých vašich predajov</p>
+              <h3 className="text-lg sm:text-xl font-bold text-gray-900">My Sales ({filteredSales.length})</h3>
+              <p className="text-gray-600 text-xs sm:text-sm mt-1">Overview of all your sales</p>
             </div>
             <div className="flex items-center space-x-3">
               <div className="relative">
                 <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-600 text-sm" />
                 <input
                   type="text"
-                  placeholder="Vyhľadať..."
+                  placeholder="Search..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-8 sm:pl-10 pr-3 sm:pr-4 py-2 bg-white border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 text-sm sm:text-base"
@@ -341,7 +341,7 @@ export default function UserSales() {
                 className={`inline-flex items-center px-3 py-2 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-all duration-200 ${
                   hasActiveFilters ? 'bg-gray-100 border-gray-400' : ''
                 }`}
-                title="Filtre"
+                title="Filters"
               >
                 <FaFilter className="text-gray-600 text-sm" />
                 {hasActiveFilters && (
@@ -352,7 +352,7 @@ export default function UserSales() {
                 <button
                   onClick={clearFilters}
                   className="inline-flex items-center px-3 py-2 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-all duration-200 text-sm text-gray-600"
-                  title="Vymazať filtre"
+                  title="Clear Filters"
                 >
                   <FaTimes className="text-sm" />
                 </button>
@@ -363,7 +363,7 @@ export default function UserSales() {
           {/* Quick Filters */}
           <div className="px-4 sm:px-6 py-3 border-b border-gray-200 bg-gray-50">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-medium text-gray-600 mr-2">Rýchle filtre:</span>
+              <span className="text-xs font-medium text-gray-600 mr-2">Quick Filters:</span>
               <button
                 onClick={() => setQuickFilter(quickFilter === 'today' ? '' : 'today')}
                 className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
@@ -372,7 +372,7 @@ export default function UserSales() {
                     : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                 }`}
               >
-                Dnešné
+                Today
               </button>
               <button
                 onClick={() => setQuickFilter(quickFilter === 'waiting_payout' ? '' : 'waiting_payout')}
@@ -382,7 +382,7 @@ export default function UserSales() {
                     : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                 }`}
               >
-                Čakajúce na payout ({waitingForPayout})
+                Waiting for Payout ({waitingForPayout})
               </button>
               <button
                 onClick={() => setQuickFilter(quickFilter === 'completed' ? '' : 'completed')}
@@ -392,7 +392,7 @@ export default function UserSales() {
                     : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                 }`}
               >
-                Dokončené ({readyForPayout})
+                Completed ({readyForPayout})
               </button>
             </div>
           </div>
@@ -409,20 +409,20 @@ export default function UserSales() {
                     onChange={(e) => setStatusFilter(e.target.value)}
                     className="w-full px-3 py-2 bg-white border border-gray-300 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-gray-500"
                   >
-                    <option value="">Všetky statusy</option>
-                    <option value="accepted">Prijatý</option>
-                    <option value="processing">Spracováva sa</option>
-                    <option value="shipped">Odoslaný</option>
-                    <option value="delivered">Doručený</option>
-                    <option value="completed">Dokončený</option>
-                    <option value="cancelled">Zrušený</option>
-                    <option value="returned">Vrátený</option>
+                    <option value="">All statuses</option>
+                    <option value="accepted">Accepted</option>
+                    <option value="processing">Processing</option>
+                    <option value="shipped">Shipped</option>
+                    <option value="delivered">Delivered</option>
+                    <option value="completed">Completed</option>
+                    <option value="cancelled">Cancelled</option>
+                    <option value="returned">Returned</option>
                   </select>
                 </div>
 
                 {/* Date From */}
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-2">Dátum od</label>
+                  <label className="block text-xs font-semibold text-gray-700 mb-2">Date From</label>
                   <input
                     type="date"
                     value={dateFrom}
@@ -433,7 +433,7 @@ export default function UserSales() {
 
                 {/* Date To */}
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-2">Dátum do</label>
+                  <label className="block text-xs font-semibold text-gray-700 mb-2">Date To</label>
                   <input
                     type="date"
                     value={dateTo}
@@ -452,12 +452,12 @@ export default function UserSales() {
                   <FaShoppingCart className="text-gray-600 text-2xl" />
                 </div>
                 <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">
-                  {sales.length === 0 ? 'Žiadne predaje' : 'Nenašli sa žiadne predaje'}
+                  {sales.length === 0 ? 'No Sales' : 'No Sales Found'}
                 </h3>
                 <p className="text-sm sm:text-base text-gray-600 mb-6">
                   {sales.length === 0 
-                    ? 'Zatiaľ nemáte žiadne predaje' 
-                    : 'Skúste zmeniť filtre alebo vyhľadávací výraz'}
+                    ? 'You don't have any sales yet' 
+                    : 'Try changing filters or search term'}
                 </p>
                 {sales.length === 0 ? (
                   <Link
@@ -465,7 +465,7 @@ export default function UserSales() {
                     className="inline-flex items-center px-4 sm:px-6 py-2 sm:py-3 bg-black text-white font-semibold rounded-xl hover:bg-gray-800 transition-all duration-200 transform hover:scale-105"
                   >
                     <FaArrowLeft className="mr-2" />
-                    Späť na Dashboard
+                    Back to Dashboard
                   </Link>
                 ) : (
                           <button
@@ -473,7 +473,7 @@ export default function UserSales() {
                     className="inline-flex items-center px-4 sm:px-6 py-2 sm:py-3 bg-black text-white font-semibold rounded-xl hover:bg-gray-800 transition-all duration-200 transform hover:scale-105"
                           >
                     <FaTimes className="mr-2" />
-                    Vymazať filtre
+                    Clear Filters
                           </button>
                 )}
               </div>
@@ -507,7 +507,7 @@ export default function UserSales() {
                           <div className="flex items-center space-x-1">
                             <SalesStatusBadge status={sale.status} />
                             {sale.is_manual && (
-                              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold bg-blue-500 text-white" title="Manuálna sale">
+                              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold bg-blue-500 text-white" title="Manual sale">
                                 M
                               </span>
                             )}
@@ -523,7 +523,7 @@ export default function UserSales() {
                     {/* Financial Info */}
                     <div className="grid grid-cols-2 gap-3 mb-4 pb-4 border-b border-gray-200">
                       <div>
-                        <p className="text-xs text-gray-600 mb-1">Cena</p>
+                        <p className="text-xs text-gray-600 mb-1">Price</p>
                         <p className="text-sm font-semibold text-gray-900">{sale.price.toFixed(2)} €</p>
                       </div>
                       <div>
@@ -558,12 +558,12 @@ export default function UserSales() {
                             )}
                           </div>
                         ) : (
-                          <span className="text-gray-400 italic">ešte nie je</span>
+                          <span className="text-gray-400 italic">not yet</span>
                         )}
                           </div>
                       {sale.carrier && (
                         <div className="flex items-center justify-between text-xs">
-                          <span className="text-gray-600">Dopravca:</span>
+                          <span className="text-gray-600">Carrier:</span>
                           <span className="text-gray-900 font-medium">{sale.carrier}</span>
                         </div>
                       )}
@@ -584,7 +584,7 @@ export default function UserSales() {
                             <span>PDF</span>
                           </a>
                         ) : (
-                          <span className="text-gray-400 italic">ešte nie je</span>
+                          <span className="text-gray-400 italic">not yet</span>
                         )}
                       </div>
                     </div>
@@ -593,7 +593,7 @@ export default function UserSales() {
                     {sale.status === 'delivered' && sale.payout_date && (
                       <div className="mb-4 pb-4 border-b border-gray-200">
                         <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
-                          <p className="text-xs text-gray-600 mb-1">Plánovaný dátum vyplatenia:</p>
+                          <p className="text-xs text-gray-600 mb-1">Planned payout date:</p>
                           <p className="text-sm font-semibold text-blue-900">
                             {new Date(sale.payout_date).toLocaleDateString('sk-SK', {
                               day: '2-digit',
@@ -603,13 +603,13 @@ export default function UserSales() {
                           </p>
                           {new Date(sale.payout_date) > new Date() && (
                             <p className="text-xs text-gray-600 mt-1">
-                              Zostáva {Math.ceil((new Date(sale.payout_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} dní
+                              {Math.ceil((new Date(sale.payout_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days remaining
                             </p>
                           )}
                         </div>
                         {sale.delivered_at && (
                           <p className="text-xs text-gray-500 mt-2">
-                            Doručené: {new Date(sale.delivered_at).toLocaleDateString('sk-SK', {
+                            Delivered: {new Date(sale.delivered_at).toLocaleDateString('en-US', {
                               day: '2-digit',
                               month: '2-digit',
                               year: 'numeric'
@@ -625,7 +625,7 @@ export default function UserSales() {
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-2">
                             <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                            <p className="text-xs font-medium text-green-700">Payout bol vyplatený</p>
+                            <p className="text-xs font-medium text-green-700">Payout has been paid</p>
                           </div>
                           {sale.payout_date && (
                             <p className="text-xs text-gray-500">
@@ -643,7 +643,7 @@ export default function UserSales() {
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-2">
                             <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                            <p className="text-xs font-medium text-gray-600">Payout nevyplatený</p>
+                            <p className="text-xs font-medium text-gray-600">Payout not paid</p>
                           </div>
                         </div>
                       </div>
@@ -663,7 +663,7 @@ export default function UserSales() {
                       className="w-full inline-flex items-center justify-center px-4 py-2 bg-black text-white text-sm font-semibold rounded-xl hover:bg-gray-800 transition-all duration-200"
                     >
                       <FaEye className="mr-2" />
-                      Zobraziť detaily
+                      View Details
                     </button>
                   </div>
                 ))}
@@ -677,7 +677,7 @@ export default function UserSales() {
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-0 sm:p-4 z-50">
             <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full h-full sm:h-auto sm:max-w-3xl sm:max-h-[90vh] overflow-hidden flex flex-col">
               <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 flex-shrink-0">
-                <h2 className="text-lg sm:text-xl font-bold text-gray-900">Detail predaja</h2>
+                <h2 className="text-lg sm:text-xl font-bold text-gray-900">Sale Details</h2>
                 <button
                   onClick={() => {
                     setSelectedSaleForTimeline(null);
@@ -715,7 +715,7 @@ export default function UserSales() {
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs sm:text-sm">
                         <div>
-                          <span className="text-gray-600">Veľkosť:</span>
+                          <span className="text-gray-600">Size:</span>
                           <span className="ml-2 font-medium text-gray-900">{selectedSaleForTimeline.size}</span>
                         </div>
                         <div>
@@ -723,21 +723,21 @@ export default function UserSales() {
                           <span className="ml-2 font-medium text-gray-900 break-all">{selectedSaleForTimeline.sku || 'N/A'}</span>
                         </div>
                         <div>
-                          <span className="text-gray-600">Cena:</span>
+                          <span className="text-gray-600">Price:</span>
                           <span className="ml-2 font-semibold text-gray-900">{selectedSaleForTimeline.price.toFixed(2)} €</span>
                     </div>
                     <div>
-                          <span className="text-gray-600">Výplata:</span>
+                          <span className="text-gray-600">Payout:</span>
                           <span className="ml-2 font-semibold text-green-600">{selectedSaleForTimeline.payout.toFixed(2)} €</span>
                         </div>
                         {selectedSaleForTimeline.external_id && (
                           <div className="col-span-1 sm:col-span-2">
-                            <span className="text-gray-600">Externé ID:</span>
+                            <span className="text-gray-600">External ID:</span>
                             <span className="ml-2 font-mono text-gray-900 break-all text-xs">{selectedSaleForTimeline.external_id}</span>
                           </div>
                         )}
                         <div className="col-span-1 sm:col-span-2">
-                          <span className="text-gray-600">Dátum:</span>
+                          <span className="text-gray-600">Date:</span>
                           <span className="ml-2 text-gray-900">{formatDate(selectedSaleForTimeline.created_at)}</span>
                         </div>
                       </div>
@@ -754,7 +754,7 @@ export default function UserSales() {
                         <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
                           <div className="flex items-center space-x-2">
                             <FaTruck className="text-blue-600 text-sm sm:text-base" />
-                            <span className="text-xs sm:text-sm font-semibold text-gray-900">Tracking informácie</span>
+                            <span className="text-xs sm:text-sm font-semibold text-gray-900">Tracking Information</span>
                           </div>
                           {selectedSaleForTimeline.tracking_url && (
                             <a
@@ -764,20 +764,20 @@ export default function UserSales() {
                               className="text-blue-600 hover:text-blue-800 text-xs sm:text-sm font-medium flex items-center space-x-1"
                             >
                               <FaLink className="text-xs" />
-                              <span>Otvoriť</span>
+                              <span>Open</span>
                             </a>
                           )}
                         </div>
                         <div className="bg-white rounded-lg p-2 sm:p-3 border border-blue-100">
                           <p className="text-xs sm:text-sm font-mono text-gray-900 font-semibold break-all">{selectedSaleForTimeline.tracking_number}</p>
                           {selectedSaleForTimeline.carrier && (
-                            <p className="text-xs text-gray-600 mt-1">Dopravca: <span className="font-medium">{selectedSaleForTimeline.carrier}</span></p>
+                            <p className="text-xs text-gray-600 mt-1">Carrier: <span className="font-medium">{selectedSaleForTimeline.carrier}</span></p>
                           )}
                         </div>
                       </div>
                     ) : (
                       <div className="bg-gray-50 rounded-xl p-3 sm:p-4 border border-gray-200">
-                        <p className="text-xs sm:text-sm text-gray-600">Tracking informácie zatiaľ nie sú k dispozícii</p>
+                        <p className="text-xs sm:text-sm text-gray-600">Tracking information is not yet available</p>
                       </div>
                     )}
 
@@ -795,13 +795,13 @@ export default function UserSales() {
                             className="inline-flex items-center space-x-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium rounded-lg transition-colors"
                           >
                             <FaFilePdf />
-                            <span>Otvoriť PDF</span>
+                            <span>Open PDF</span>
                           </a>
                         </div>
                       </div>
                     ) : (
                       <div className="bg-gray-50 rounded-xl p-3 sm:p-4 border border-gray-200">
-                        <p className="text-xs sm:text-sm text-gray-600">Label zatiaľ nie je k dispozícii</p>
+                        <p className="text-xs sm:text-sm text-gray-600">Label is not yet available</p>
                       </div>
                     )}
                   </div>
@@ -810,10 +810,10 @@ export default function UserSales() {
                 {/* Payout Date Info - Only for delivered status */}
                 {selectedSaleForTimeline.status === 'delivered' && selectedSaleForTimeline.payout_date && (
                   <div className="mb-4 sm:mb-6">
-                    <h4 className="text-xs sm:text-sm font-semibold text-gray-900 mb-2 sm:mb-3">Informácie o výplate</h4>
+                    <h4 className="text-xs sm:text-sm font-semibold text-gray-900 mb-2 sm:mb-3">Payout Information</h4>
                     <div className="bg-blue-50 rounded-xl p-3 sm:p-4 border border-blue-200">
                       <div className="mb-2 sm:mb-3">
-                        <p className="text-xs text-gray-600 mb-1">Plánovaný dátum vyplatenia:</p>
+                        <p className="text-xs text-gray-600 mb-1">Planned payout date:</p>
                         <p className="text-xs sm:text-sm font-semibold text-blue-900">
                           {new Date(selectedSaleForTimeline.payout_date).toLocaleDateString('sk-SK', {
                             day: '2-digit',
@@ -824,7 +824,7 @@ export default function UserSales() {
                       </div>
                       {new Date(selectedSaleForTimeline.payout_date) > new Date() && (
                         <p className="text-xs text-gray-600">
-                          Zostáva {Math.ceil((new Date(selectedSaleForTimeline.payout_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} dní do vyplatenia
+                          {Math.ceil((new Date(selectedSaleForTimeline.payout_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days until payout
                         </p>
                       )}
                       {selectedSaleForTimeline.delivered_at && (
@@ -843,12 +843,12 @@ export default function UserSales() {
                 {/* Completed Status Info */}
                 {selectedSaleForTimeline.status === 'completed' && (
                   <div className="mb-4 sm:mb-6">
-                    <h4 className="text-xs sm:text-sm font-semibold text-gray-900 mb-2 sm:mb-3">Informácie o výplate</h4>
+                    <h4 className="text-xs sm:text-sm font-semibold text-gray-900 mb-2 sm:mb-3">Payout Information</h4>
                     <div className="bg-green-50 rounded-xl p-3 sm:p-4 border border-green-200">
-                      <p className="text-xs sm:text-sm font-semibold text-green-900 mb-2">Dokončené - Payout bol vyplatený</p>
+                      <p className="text-xs sm:text-sm font-semibold text-green-900 mb-2">Completed - Payout has been paid</p>
                       {selectedSaleForTimeline.payout_date && (
                         <p className="text-xs text-gray-600">
-                          Vyplatené: {new Date(selectedSaleForTimeline.payout_date).toLocaleDateString('sk-SK', {
+                          Paid: {new Date(selectedSaleForTimeline.payout_date).toLocaleDateString('en-US', {
                             day: '2-digit',
                             month: '2-digit',
                             year: 'numeric'
@@ -873,7 +873,7 @@ export default function UserSales() {
                   <div className="bg-yellow-50 rounded-xl p-3 sm:p-4 mb-4 sm:mb-6 border border-yellow-200">
                     <h4 className="text-xs sm:text-sm font-semibold text-gray-900 mb-2 flex items-center">
                       <FaStickyNote className="mr-2 text-yellow-600 text-sm" />
-                      Poznámka
+                      Note
                     </h4>
                     <p className="text-xs sm:text-sm text-gray-700">{selectedSaleForTimeline.status_notes}</p>
                   </div>
@@ -883,7 +883,7 @@ export default function UserSales() {
                 <div className="mb-4 sm:mb-6">
                   <h4 className="text-xs sm:text-sm font-semibold text-gray-900 mb-2 sm:mb-3 flex items-center">
                     <FaClock className="mr-2 text-gray-600 text-sm" />
-                    História zmien statusu
+                    Status Change History
                   </h4>
                 <SalesStatusTimeline 
                   saleId={selectedSaleForTimeline.id} 
