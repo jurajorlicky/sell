@@ -88,8 +88,23 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
         const timeoutId = setTimeout(() => controller.abort(), 3000);
 
         try {
-          // Get lowest consignor price
-          const { data: consignorPrice, error: consignorError } = await supabase
+          // Get lowest consignor price EXCLUDING current user's product
+          // This is for comparison - to see if user has the lowest among competitors
+          const { data: consignorPriceExcludingUser, error: consignorErrorExcluding } = await supabase
+            .from('product_price_view')
+            .select('final_price, owner')
+            .eq('product_id', product.product_id)
+            .eq('size', product.size)
+            .in('final_status', ['Skladom', 'Skladom Expres'])
+            .not('owner', 'is', null)
+            .neq('owner', product.user_id) // Exclude current user's product
+            .order('final_price', { ascending: true })
+            .limit(1)
+            .maybeSingle();
+
+          // Get lowest consignor price INCLUDING current user's product
+          // This is for determining the absolute lowest market price
+          const { data: consignorPriceIncludingUser, error: consignorErrorIncluding } = await supabase
             .from('product_price_view')
             .select('final_price, owner')
             .eq('product_id', product.product_id)
@@ -99,6 +114,9 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
             .order('final_price', { ascending: true })
             .limit(1)
             .maybeSingle();
+
+          const consignorPrice = consignorPriceIncludingUser; // Use including for market price
+          const consignorError = consignorErrorIncluding || consignorErrorExcluding;
 
           // Get eshop price
           const { data: eshopPrice, error: eshopError } = await supabase
@@ -137,7 +155,8 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
               data: {
                 final_price: priceData.final_price,
                 owner: priceData.owner,
-                lowest_consignor_price: consignorPrice?.final_price || null
+                // Store lowest consignor price EXCLUDING user (for comparison)
+                lowest_consignor_price: consignorPriceExcludingUser?.final_price || null
               }
             };
           }
@@ -324,6 +343,12 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
   };
 
   // ------------- BADGE LOGIC -------------
+  // Price comparison with epsilon tolerance (1 cent)
+  const PRICE_EPSILON = 0.01;
+  const isPriceEqual = (price1: number, price2: number) => Math.abs(price1 - price2) < PRICE_EPSILON;
+  const isPriceLower = (price1: number, price2: number) => price1 < price2 - PRICE_EPSILON;
+  const isPriceHigher = (price1: number, price2: number) => price1 > price2 + PRICE_EPSILON;
+
   const getPriceDisplay = (product: Product) => {
     const key = `${product.product_id}-${product.size}`;
     const marketData = marketPrices[key];
@@ -349,8 +374,8 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
     const comparisonPrice = marketPrice;
     const hasConsignorPrice = lowest_consignor_price !== null;
 
-    // 1. Najnižšia - si owner (zelená)
-    if (product.price === comparisonPrice && isUserOwner && hasConsignorPrice) {
+    // 1. Lowest - user is owner (green)
+    if (isPriceEqual(product.price, comparisonPrice) && isUserOwner && hasConsignorPrice) {
       return {
         color: 'text-green-600 font-bold',
         badge: (
@@ -358,25 +383,25 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
             Lowest
           </span>
         ),
-        desc: '(Your lowest price)'
+        desc: '(You have the lowest price)'
       };
     }
 
-    // 2. Najnižšia - NIE SI owner a nie je to eshop (žltá)
-    if (product.price === comparisonPrice && !isUserOwner && hasConsignorPrice) {
+    // 2. Tied for lowest - not owner but same price (yellow)
+    if (isPriceEqual(product.price, comparisonPrice) && !isUserOwner && hasConsignorPrice) {
       return {
         color: 'text-yellow-600 font-bold',
         badge: (
           <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 ml-2">
-            Same Lowest
+            Tied for Lowest
           </span>
         ),
-        desc: '(You have the lowest price, but you are not first in line)'
+        desc: '(Same price as lowest, but not first in line)'
       };
     }
 
-    // 3. Pod eshopom (zelená) - only if no consignor price exists
-    if (isEshop && !hasConsignorPrice && product.price < marketPrice) {
+    // 3. Below eshop (green) - only if no consignor price exists
+    if (isEshop && !hasConsignorPrice && isPriceLower(product.price, marketPrice)) {
       return {
         color: 'text-green-600 font-bold',
         badge: (
@@ -388,8 +413,8 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
       };
     }
 
-    // 4. Vyššia ako najnižšia consignera cena (červená)
-    if (hasConsignorPrice && product.price > comparisonPrice) {
+    // 4. Higher than lowest consignor price (red)
+    if (hasConsignorPrice && isPriceHigher(product.price, comparisonPrice)) {
       return {
         color: 'text-red-600 font-bold',
         badge: (
@@ -401,8 +426,8 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
       };
     }
 
-    // 5. Vyššia ako eshop cena (červená) - only if no consignor price
-    if (!hasConsignorPrice && product.price > marketPrice) {
+    // 5. Higher than eshop price (red) - only if no consignor price
+    if (!hasConsignorPrice && isPriceHigher(product.price, marketPrice)) {
       return {
         color: 'text-red-600 font-bold',
         badge: (
@@ -414,15 +439,15 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
       };
     }
 
-    // 6. Všetko ostatné - konkurencia (červená)
+    // 6. Everything else - competition (red)
     return {
       color: 'text-red-600 font-bold',
       badge: (
         <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 ml-2">
-            Competition
+          Competition
         </span>
       ),
-        desc: `(Lowest price: ${comparisonPrice} € - ${hasConsignorPrice ? 'Consignor' : 'Eshop'})`
+      desc: `(Lowest price: ${comparisonPrice} € - ${hasConsignorPrice ? 'Consignor' : 'Eshop'})`
     };
   };
 

@@ -152,6 +152,12 @@ export default function EditProductModal({
     }
   }, [product, recommendedPrice]);
 
+  // Price comparison with epsilon tolerance (1 cent)
+  const PRICE_EPSILON = 0.01;
+  const isPriceEqual = (price1: number, price2: number) => Math.abs(price1 - price2) < PRICE_EPSILON;
+  const isPriceLower = (price1: number, price2: number) => price1 < price2 - PRICE_EPSILON;
+  const isPriceHigher = (price1: number, price2: number) => price1 > price2 + PRICE_EPSILON;
+
   const updatePriceStatus = (price: number, recommended: number) => {
     // Calculate the lowest price to compare against (excluding current user's product)
     // lowestConsignorPrice already excludes current user's product
@@ -167,8 +173,8 @@ export default function EditProductModal({
 
     // Determine if user has the lowest price
     // If lowestConsignorPrice is null, no other consignor has a price
-    const hasLowestConsignorPrice = lowestConsignorPrice === null || price < lowestConsignorPrice;
-    const hasLowerThanEshop = currentMarketPrice === null || price < currentMarketPrice;
+    const hasLowestConsignorPrice = lowestConsignorPrice === null || isPriceLower(price, lowestConsignorPrice);
+    const hasLowerThanEshop = currentMarketPrice === null || isPriceLower(price, currentMarketPrice);
     const isLowest = hasLowestConsignorPrice && hasLowerThanEshop;
 
     if (isLowest) {
@@ -180,16 +186,17 @@ export default function EditProductModal({
           Lowest
         </span>
       );
-    } else if (price > comparisonPrice) {
+    } else if (isPriceHigher(price, comparisonPrice)) {
       // User's price is higher than the lowest market price
+      const difference = (price - comparisonPrice).toFixed(2);
       setPriceColor('text-red-600');
-      setPriceMessage('Your price is higher than the lowest market price!');
+      setPriceMessage(`Your price is ${difference} € higher than the lowest market price`);
       setPriceBadge(
         <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 ml-2">
           Higher
         </span>
       );
-    } else if (price < comparisonPrice) {
+    } else if (isPriceLower(price, comparisonPrice)) {
       // User's price is lower (shouldn't happen if comparisonPrice is correct, but handle it)
       setPriceColor('text-green-600');
       setPriceMessage(`Lowest new price will be ${price} €`);
@@ -199,19 +206,23 @@ export default function EditProductModal({
         </span>
       );
     } else {
-      // Price equals comparison price
+      // Price equals comparison price (within epsilon)
       // If it equals lowestConsignorPrice, someone else has the same price
-      if (lowestConsignorPrice !== null && price === lowestConsignorPrice) {
-        setPriceColor('text-slate-700');
-        setPriceMessage('Someone has the same price.');
-        setPriceBadge(null);
+      if (lowestConsignorPrice !== null && isPriceEqual(price, lowestConsignorPrice)) {
+        setPriceColor('text-yellow-600');
+        setPriceMessage('Tied for lowest price with another consignor');
+        setPriceBadge(
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 ml-2">
+            Tied
+          </span>
+        );
       } else {
         // Equal to eshop price or no other consignor price exists
         setPriceColor('text-green-600');
-        setPriceMessage(`Najnižšia nová cena bude ${price} €`);
+        setPriceMessage(`Lowest new price will be ${price} €`);
         setPriceBadge(
           <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 ml-2">
-            Najnižšia
+            Lowest
           </span>
         );
       }
