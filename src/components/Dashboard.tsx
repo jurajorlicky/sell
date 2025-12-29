@@ -21,6 +21,9 @@ interface MarketPriceData {
   final_price: number;
   owner: string | null;
   lowest_consignor_price?: number | null;
+  lowest_eshop_price?: number | null;
+  is_lowest_eshop?: boolean; // True if the lowest price is from eshop
+  is_user_first_in_line?: boolean; // True if user is first in line when tied
 }
 
 export default function Dashboard({ isAdmin }: DashboardProps) {
@@ -90,6 +93,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
         try {
           // Get lowest consignor price EXCLUDING current user's product
           // This is for comparison - to see if user has the lowest among competitors
+          // Also get all consignors with the same lowest price to check if user is first in line
           const { data: consignorPriceExcludingUser, error: consignorErrorExcluding } = await supabase
             .from('product_price_view')
             .select('final_price, owner')
@@ -101,6 +105,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
             .order('final_price', { ascending: true })
             .limit(1)
             .maybeSingle();
+
 
           // Get lowest consignor price INCLUDING current user's product
           // This is for determining the absolute lowest market price
@@ -178,13 +183,46 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
 
           if (priceData) {
             const key = `${product.product_id}-${product.size}`;
+            const isLowestEshop = finalOwner === null && eshopPrice !== null;
+            
+            // Check if user is first in line when tied (same price as lowest consignor)
+            let isUserFirstInLine = finalOwner === product.user_id;
+            if (consignorPriceExcludingUser && 
+                isPriceEqual(product.price, consignorPriceExcludingUser.final_price) &&
+                isPriceEqual(product.price, priceData.final_price)) {
+              // User has same price as lowest consignor - check if they're first in line
+              try {
+                const { data: samePriceConsignors } = await supabase
+                  .from('user_products')
+                  .select('user_id, created_at')
+                  .eq('product_id', product.product_id)
+                  .eq('size', product.size)
+                  .eq('price', product.price)
+                  .or('expires_at.is.null,expires_at.gt.' + new Date().toISOString())
+                  .order('created_at', { ascending: true })
+                  .limit(1);
+                
+                if (samePriceConsignors && samePriceConsignors.length > 0) {
+                  isUserFirstInLine = samePriceConsignors[0].user_id === product.user_id;
+                }
+              } catch (err) {
+                console.warn('Error checking if user is first in line:', err);
+                // Fallback: if user is owner, they're first
+                isUserFirstInLine = finalOwner === product.user_id;
+              }
+            }
+            
             return {
               key,
               data: {
                 final_price: priceData.final_price,
                 owner: finalOwner, // Use determined owner
                 // Store lowest consignor price EXCLUDING user (for comparison)
-                lowest_consignor_price: consignorPriceExcludingUser?.final_price || null
+                lowest_consignor_price: consignorPriceExcludingUser?.final_price || null,
+                // Store eshop price for comparison
+                lowest_eshop_price: eshopPrice?.final_price || null,
+                is_lowest_eshop: isLowestEshop,
+                is_user_first_in_line: isUserFirstInLine
               }
             };
           }
@@ -294,12 +332,48 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
 
       if (finalPrice !== null) {
         const key = `${product.product_id}-${product.size}`;
+        const isLowestEshop = finalOwner === null && eshopPrice !== null;
+        
+        // Price comparison with epsilon tolerance (1 cent)
+        const PRICE_EPSILON_SINGLE = 0.01;
+        const isPriceEqualSingle = (price1: number, price2: number) => Math.abs(price1 - price2) < PRICE_EPSILON_SINGLE;
+        
+        // Check if user is first in line when tied (same price as lowest consignor)
+        let isUserFirstInLine = finalOwner === product.user_id;
+        if (consignorPriceExcludingUser && 
+            isPriceEqualSingle(product.price, consignorPriceExcludingUser.final_price) &&
+            isPriceEqualSingle(product.price, finalPrice)) {
+          // User has same price as lowest consignor - check if they're first in line
+          try {
+            const { data: samePriceConsignors } = await supabase
+              .from('user_products')
+              .select('user_id, created_at')
+              .eq('product_id', product.product_id)
+              .eq('size', product.size)
+              .eq('price', product.price)
+              .or('expires_at.is.null,expires_at.gt.' + new Date().toISOString())
+              .order('created_at', { ascending: true })
+              .limit(1);
+            
+            if (samePriceConsignors && samePriceConsignors.length > 0) {
+              isUserFirstInLine = samePriceConsignors[0].user_id === product.user_id;
+            }
+          } catch (err) {
+            console.warn('Error checking if user is first in line:', err);
+            // Fallback: if user is owner, they're first
+            isUserFirstInLine = finalOwner === product.user_id;
+          }
+        }
+        
         setMarketPrices((prev) => ({
           ...prev,
           [key]: {
             final_price: finalPrice,
             owner: finalOwner, // Use determined owner
-            lowest_consignor_price: consignorPriceExcludingUser?.final_price || null
+            lowest_consignor_price: consignorPriceExcludingUser?.final_price || null,
+            lowest_eshop_price: eshopPrice?.final_price || null,
+            is_lowest_eshop: isLowestEshop,
+            is_user_first_in_line: isUserFirstInLine
           }
         }));
       }
@@ -421,7 +495,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
       };
     }
 
-    const { final_price: marketPrice, owner, lowest_consignor_price } = marketData;
+    const { final_price: marketPrice, owner, lowest_consignor_price, lowest_eshop_price, is_lowest_eshop, is_user_first_in_line } = marketData;
     const isEshop = owner === null;
     const isUserOwner = owner === user?.id;
     
@@ -429,6 +503,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
     // marketPrice is already the lowest of eshop and consignor prices
     const comparisonPrice = marketPrice;
     const hasConsignorPrice = lowest_consignor_price !== null;
+    const hasEshopPrice = lowest_eshop_price !== null;
 
     // Check if user's price matches the market price
     const priceMatchesMarket = isPriceEqual(product.price, comparisonPrice);
@@ -441,8 +516,11 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
                                                 lowest_consignor_price !== null &&
                                                 isPriceEqual(product.price, lowest_consignor_price as number);
 
+    // Use stored is_user_first_in_line or fallback to isUserOwner
+    const isUserFirstInLine = is_user_first_in_line !== undefined ? is_user_first_in_line : isUserOwner;
+
     // 1. Lowest - user is owner OR user has lowest consignor price matching market (green)
-    if (priceMatchesMarket && (isUserOwner || userHasLowestConsignorMatchingEshop)) {
+    if (priceMatchesMarket && isUserFirstInLine) {
       return {
         color: 'text-green-600 font-bold',
         badge: (
@@ -454,8 +532,8 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
       };
     }
 
-    // 2. Tied for lowest - not owner but same price (yellow)
-    if (priceMatchesMarket && !isUserOwner && !userHasLowestConsignorMatchingEshop && hasConsignorPrice) {
+    // 2. Tied for lowest - not first in line (yellow)
+    if (priceMatchesMarket && !isUserFirstInLine && hasConsignorPrice) {
       return {
         color: 'text-yellow-600 font-bold',
         badge: (
@@ -463,7 +541,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
             Tied for Lowest
           </span>
         ),
-        desc: '(Same price as lowest, but not first in line)'
+        desc: '(Same price as lowest, but you are not first in line)'
       };
     }
 
@@ -480,8 +558,37 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
       };
     }
 
-    // 4. Higher than lowest consignor price (red)
-    if (hasConsignorPrice && isPriceHigher(product.price, comparisonPrice)) {
+    // 4. Higher than lowest price - determine if it's eshop or consignor
+    if (isPriceHigher(product.price, comparisonPrice)) {
+      // Determine which is lower: eshop or consignor
+      let higherThanWhat = '';
+      let higherBy = 0;
+      
+      if (hasConsignorPrice && hasEshopPrice) {
+        // Both exist - compare with the lower one
+        if (lowest_eshop_price! < lowest_consignor_price!) {
+          // Eshop is lower
+          higherBy = product.price - lowest_eshop_price!;
+          higherThanWhat = 'eshop price';
+        } else {
+          // Consignor is lower or equal
+          higherBy = product.price - lowest_consignor_price!;
+          higherThanWhat = 'lowest consignor price';
+        }
+      } else if (hasConsignorPrice) {
+        // Only consignor exists
+        higherBy = product.price - lowest_consignor_price!;
+        higherThanWhat = 'lowest consignor price';
+      } else if (hasEshopPrice) {
+        // Only eshop exists
+        higherBy = product.price - lowest_eshop_price!;
+        higherThanWhat = 'eshop price';
+      } else {
+        // Fallback
+        higherBy = product.price - comparisonPrice;
+        higherThanWhat = 'lowest price';
+      }
+      
       return {
         color: 'text-red-600 font-bold',
         badge: (
@@ -489,20 +596,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
             Higher
           </span>
         ),
-        desc: `(+${(product.price - comparisonPrice).toFixed(2)} € above lowest consignor price)`
-      };
-    }
-
-    // 5. Higher than eshop price (red) - only if no consignor price
-    if (!hasConsignorPrice && isPriceHigher(product.price, marketPrice)) {
-      return {
-        color: 'text-red-600 font-bold',
-        badge: (
-          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 ml-2">
-            Higher
-          </span>
-        ),
-        desc: `(+${(product.price - marketPrice).toFixed(2)} € above eshop price)`
+        desc: `(+${higherBy.toFixed(2)} € above ${higherThanWhat})`
       };
     }
 
