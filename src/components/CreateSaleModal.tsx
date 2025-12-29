@@ -175,7 +175,7 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated }: Crea
       setAllUsers(data || []);
     } catch (err: any) {
       logger.error('Error loading users', err);
-      setError('Chyba pri načítavaní používateľov: ' + err.message);
+      setError('Error loading users: ' + err.message);
     } finally {
       setLoadingUsers(false);
     }
@@ -193,7 +193,7 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated }: Crea
       setProducts(data || []);
     } catch (err: any) {
       logger.error('Error loading products', err);
-      setError('Chyba pri načítavaní produktov: ' + err.message);
+      setError('Error loading products: ' + err.message);
     } finally {
       setLoadingProducts(false);
     }
@@ -246,17 +246,17 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated }: Crea
     e.preventDefault();
     
     if (!selectedUserId) {
-      setError('Prosím vyberte používateľa');
+      setError('Please select a user');
       return;
     }
 
     if (!selectedProductId) {
-      setError('Prosím vyberte produkt');
+      setError('Please select a product');
       return;
     }
 
     if (!productName || !size || !price || !payout || !saleDate) {
-      setError('Prosím vyplňte všetky povinné polia');
+      setError('Please fill in all required fields');
       return;
     }
 
@@ -264,12 +264,12 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated }: Crea
     const payoutNum = parseFloat(payout);
 
     if (isNaN(priceNum) || priceNum <= 0) {
-      setError('Cena musí byť kladné číslo');
+      setError('Price must be a positive number');
       return;
     }
 
     if (isNaN(payoutNum) || payoutNum <= 0 || payoutNum > priceNum) {
-      setError('Výplata musí byť kladné číslo a menšie alebo rovné cene');
+      setError('Payout must be a positive number and less than or equal to price');
       return;
     }
 
@@ -278,7 +278,7 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated }: Crea
       setError(null);
 
       if (!selectedProduct) {
-        setError('Vybraný produkt nebol nájdený');
+        setError('Selected product was not found');
         return;
       }
 
@@ -335,7 +335,7 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated }: Crea
       onClose();
     } catch (err: any) {
       logger.error('Error creating sale', err);
-      setError('Chyba pri vytváraní predaja: ' + (err.message || 'Neznáma chyba'));
+      setError('Error creating sale: ' + (err.message || 'Unknown error'));
     } finally {
       setSaving(false);
     }
@@ -358,9 +358,9 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated }: Crea
       >
         <div className="flex items-center justify-between p-6 border-b border-gray-200 flex-shrink-0">
           <div>
-            <h2 className="text-xl font-bold text-gray-900">Vytvoriť nový predaj</h2>
+            <h2 className="text-xl font-bold text-gray-900">Create New Sale</h2>
             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 mt-1">
-              Manuálna sale
+              Manual sale
             </span>
           </div>
           <button
@@ -383,10 +383,10 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated }: Crea
             <div className="relative">
               <label className="block text-sm font-semibold text-gray-900 mb-2">
                 <FaUser className="inline mr-2" />
-                Email používateľa *
+                User Email *
               </label>
               {loadingUsers ? (
-                <div className="text-sm text-gray-600">Načítavajú sa používatelia...</div>
+                <div className="text-sm text-gray-600">Loading users...</div>
               ) : (
                 <>
                   <div className="relative">
@@ -408,7 +408,7 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated }: Crea
                         }
                       }}
                       className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
-                      placeholder="Začnite písať email..."
+                      placeholder="Start typing email..."
                       required
                     />
                   </div>
@@ -438,7 +438,7 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated }: Crea
                   )}
                   {selectedUser && (
                     <div className="mt-2 text-sm text-green-600">
-                      ✓ Vybratý: {selectedUser.email}
+                      ✓ Selected: {selectedUser.email}
                     </div>
                   )}
                 </>
@@ -449,10 +449,10 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated }: Crea
             <div className="relative">
               <label className="block text-sm font-semibold text-gray-900 mb-2">
                 <FaBox className="inline mr-2" />
-                Produkt *
+                Product *
               </label>
               {loadingProducts ? (
-                <div className="text-sm text-gray-600">Načítavajú sa produkty...</div>
+                <div className="text-sm text-gray-600">Loading products...</div>
               ) : (
                 <>
                   <div className="relative">
@@ -475,7 +475,7 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated }: Crea
                         }
                       }}
                       className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
-                      placeholder="Začnite písať názov produktu..."
+                      placeholder="Start typing product name..."
                       required
                     />
                   </div>
@@ -515,7 +515,7 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated }: Crea
                   )}
                   {selectedProduct && (
                     <div className="mt-2 text-sm text-green-600">
-                      ✓ Vybratý: {selectedProduct.name}
+                      ✓ Selected: {selectedProduct.name}
                     </div>
                   )}
                 </>
@@ -526,7 +526,7 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated }: Crea
             {selectedProductId && (
               <div>
                 <label className="block text-sm font-semibold text-gray-900 mb-2">
-                  Názov produktu *
+                  Product Name *
                 </label>
                 <input
                   type="text"
@@ -541,10 +541,10 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated }: Crea
             {selectedProductId && (
               <div>
                 <label className="block text-sm font-semibold text-gray-900 mb-2">
-                  Veľkosť *
+                  Size *
                 </label>
                 {loadingSizes ? (
-                  <div className="text-sm text-gray-600">Načítavajú sa veľkosti...</div>
+                  <div className="text-sm text-gray-600">Loading sizes...</div>
                 ) : availableSizes.length > 0 ? (
                   <select
                     value={size}
@@ -559,7 +559,7 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated }: Crea
                     className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
                     required
                   >
-                    <option value="">Vyberte veľkosť...</option>
+                    <option value="">Select size...</option>
                     {availableSizes.map((sizeOption) => (
                       <option key={sizeOption.size} value={sizeOption.size}>
                         {sizeOption.size} ({sizeOption.price.toFixed(2)} €)
@@ -572,7 +572,7 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated }: Crea
                     value={size}
                     onChange={(e) => setSize(e.target.value)}
                     className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
-                    placeholder="Napríklad: 42, M, L"
+                    placeholder="For example: 42, M, L"
                     required
                   />
                 )}
@@ -584,7 +584,7 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated }: Crea
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-900 mb-2">
-                    Cena predaja (€) *
+                    Sale Price (€) *
                   </label>
                   <input
                     type="number"
@@ -599,7 +599,7 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated }: Crea
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-900 mb-2">
-                    Výplata (€) *
+                    Payout (€) *
                   </label>
                   <input
                     type="number"
@@ -619,14 +619,14 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated }: Crea
             {selectedProductId && (
               <div>
                 <label className="block text-sm font-semibold text-gray-900 mb-2">
-                  SKU (voliteľné)
+                  SKU (optional)
                 </label>
                 <input
                   type="text"
                   value={sku}
                   onChange={(e) => setSku(e.target.value)}
                   className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-gray-900"
-                  placeholder="Napríklad: NIKE-AM90-42"
+                  placeholder="For example: NIKE-AM90-42"
                   readOnly
                 />
               </div>
@@ -636,7 +636,7 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated }: Crea
             {selectedProductId && (
               <div>
                 <label className="block text-sm font-semibold text-gray-900 mb-2">
-                  Dátum predaja *
+                  Sale Date *
                 </label>
                 <input
                   type="date"
@@ -651,14 +651,14 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated }: Crea
             {/* External ID */}
             <div>
               <label className="block text-sm font-semibold text-gray-900 mb-2">
-                Externé ID (voliteľné)
+                External ID (optional)
               </label>
               <input
                 type="text"
                 value={externalId}
                 onChange={(e) => setExternalId(e.target.value)}
                 className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
-                placeholder="Napríklad: ORDER-12345"
+                placeholder="For example: ORDER-12345"
               />
             </div>
 
@@ -666,7 +666,7 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated }: Crea
             {selectedProductId && imageUrl && (
               <div>
                 <label className="block text-sm font-semibold text-gray-900 mb-2">
-                  Obrázok produktu
+                  Product Image
                 </label>
                 <div className="mt-2">
                   <img 
@@ -689,7 +689,7 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated }: Crea
                 disabled={saving}
                 className="px-4 py-2.5 text-gray-800 font-medium rounded-xl hover:bg-gray-100 transition-colors border border-gray-300 disabled:opacity-50"
               >
-                Zrušiť
+                Cancel
               </button>
               <button
                 type="submit"
@@ -702,12 +702,12 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated }: Crea
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Vytvára sa...
+                    Creating...
                   </>
                 ) : (
                   <>
                     <FaSave className="mr-2" />
-                    Vytvoriť predaj
+                    Create Sale
                   </>
                 )}
               </button>

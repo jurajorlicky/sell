@@ -182,13 +182,13 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
       })) : [];
       
       setSizes(sortedSizes);
-      setSku(product.sku || 'Neznámé SKU');
+      setSku(product.sku || 'Unknown SKU');
     } catch (err: any) {
       clearTimeout(timeoutId);
       console.error('Error fetching sizes:', err);
       
       if (err.name === 'AbortError') {
-        setError('Načítavanie veľkostí trvá príliš dlho. Skúste znova.');
+        setError('Loading sizes is taking too long. Please try again.');
       } else {
         setError(err.message);
       }
@@ -302,7 +302,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-50 overflow-y-auto">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden">
         <div className="flex items-center justify-between p-4 sm:p-6 border-b border-slate-200">
-          <h2 className="text-lg sm:text-2xl font-bold text-slate-900">Pridať produkt</h2>
+          <h2 className="text-lg sm:text-2xl font-bold text-slate-900">Add Product</h2>
           <button
             onClick={onClose}
             className="p-2 hover:bg-slate-100 rounded-xl transition-colors"
@@ -317,7 +317,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
               <>
                 <div>
                   <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-3">
-                    Vyhľadajte produkt
+                    Search for product
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -328,7 +328,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="block w-full pl-8 sm:pl-10 pr-3 py-2 sm:py-3 border border-slate-300 rounded-xl shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent text-sm sm:text-base"
-                      placeholder="Začnite písať názov produktu..."
+                      placeholder="Start typing product name..."
                     />
                   </div>
                 </div>
@@ -340,7 +340,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
-                      Vyhľadávam produkty...
+                      Searching products...
                     </div>
                   </div>
                 )}
@@ -383,7 +383,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
                       </div>
                       <div>
                         <h3 className="text-sm sm:text-base font-semibold text-slate-900">{selectedProduct.product_name}</h3>
-                        <p className="text-xs sm:text-sm text-slate-600">Vybraný produkt</p>
+                        <p className="text-xs sm:text-sm text-slate-600">Selected product</p>
                         <p className="text-xs sm:text-sm text-slate-600">SKU: {sku}</p>
                       </div>
                     </div>
@@ -392,14 +392,14 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
                       onClick={handleChangeProduct}
                       className="text-xs sm:text-sm text-slate-600 hover:text-slate-900 font-medium px-2 sm:px-3 py-1 hover:bg-white rounded-lg transition-colors"
                     >
-                      Zmeniť
+                      Change
                     </button>
                   </div>
                 </div>
 
                 <div>
                   <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-3">
-                    Veľkosť
+                    Size
                   </label>
                   <select
                     value={selectedSize}
@@ -410,7 +410,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
                     className="block w-full px-3 sm:px-4 py-2 sm:py-3 border border-slate-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent text-sm sm:text-base appearance-none"
                     required
                   >
-                    <option value="">Vyberte veľkosť</option>
+                    <option value="">Select size</option>
                     {sizes.map((size, index) => (
                       <option key={index} value={size.size}>
                         {size.size}
@@ -430,7 +430,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
                         </div>
                         <div className="ml-3">
                           <p className="text-xs sm:text-sm font-medium text-blue-800">
-                            Najnižšia trhová cena: <span className="font-bold">{recommendedPrice} €</span>
+                            Lowest market price: <span className="font-bold">{recommendedPrice} €</span>
                           </p>
                         </div>
                       </div>
@@ -438,7 +438,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
                     
                     <div>
                       <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-3">
-                        Vaša predajná cena
+                        Your sale price
                       </label>
                       <div className="relative">
                         <input
@@ -446,7 +446,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
                           value={newPrice}
                           onChange={(e) => setNewPrice(e.target.value.replace(/[^0-9]/g, ''))}
                           className={`block w-full px-3 sm:px-4 py-2 sm:py-3 border rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent text-sm sm:text-base ${priceColor === 'text-red-600' ? 'border-red-300' : priceColor === 'text-green-600' ? 'border-green-300' : 'border-slate-300'} appearance-none`}
-                          placeholder="Zadajte cenu v eurách"
+                          placeholder="Enter price in euros"
                           min="1"
                           inputMode="numeric"
                           required
@@ -467,8 +467,8 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
                         <div className="mt-3 bg-green-50 rounded-xl p-4">
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="text-xs sm:text-sm font-medium text-green-800">Váš payout</p>
-                              <p className="text-xs text-green-600">Po odpočítaní poplatkov ({fees.fee_percent * 100}% + {fees.fee_fixed}€)</p>
+                              <p className="text-xs sm:text-sm font-medium text-green-800">Your payout</p>
+                              <p className="text-xs text-green-600">After fees ({fees.fee_percent * 100}% + {fees.fee_fixed}€)</p>
                             </div>
                             <p className="text-base sm:text-lg font-bold text-green-900">{computedPayout.toFixed(2)} €</p>
                           </div>
@@ -495,7 +495,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
                     onClick={handleRetry}
                     className="text-red-600 hover:text-red-800 text-sm font-medium"
                   >
-                    Skúsiť znova
+                    Try again
                   </button>
                 </div>
               </div>
@@ -507,7 +507,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
                 onClick={onClose}
                 className="px-4 sm:px-6 py-2 sm:py-3 text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-xl transition-colors"
               >
-                Zrušiť
+                Cancel
               </button>
               <button
                 type="submit"
@@ -520,13 +520,13 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Pridáva sa...
+                    Adding...
                   </>
                 ) : (
                   <>
                     <FaCheck className="mr-2" />
-                    <span className="hidden sm:inline">Pridať produkt</span>
-                    <span className="sm:hidden">Pridať</span>
+                    <span className="hidden sm:inline">Add Product</span>
+                    <span className="sm:hidden">Add</span>
                   </>
                 )}
               </button>
