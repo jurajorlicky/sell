@@ -192,51 +192,49 @@ export default function InvoicesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-3 sm:py-6 lg:py-8">
-        <AdminNavigation />
-
-        {/* Header */}
-        <header className="bg-white rounded-2xl border border-gray-200 shadow-sm mb-4 sm:mb-6">
-          <div className="px-3 sm:px-6 py-3 sm:py-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
-              <div className="flex items-center space-x-2 sm:space-x-4">
-                <div className="relative">
-                  <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-600 via-indigo-600 to-blue-800 rounded-2xl shadow-lg">
-                    <FaFileInvoice className="text-white text-xl" />
-                  </div>
-                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 rounded-full border-2 border-white animate-pulse"></div>
+    <div className="min-h-screen bg-white">
+      {/* Header */}
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-4">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center space-x-2 sm:space-x-4">
+              <div className="relative">
+                <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-600 via-indigo-600 to-blue-800 rounded-2xl shadow-lg">
+                  <FaFileInvoice className="text-white text-xl" />
                 </div>
-                <div>
-                  <h1 className="text-lg sm:text-2xl font-bold text-gray-900">
-                    Invoices
-                  </h1>
-                  <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">
-                    Invoice management and overview
-                  </p>
-                </div>
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 rounded-full border-2 border-white animate-pulse"></div>
               </div>
-              
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={handleRefresh}
-                  disabled={refreshing}
-                  className="inline-flex items-center px-3 py-2 sm:px-4 bg-gray-100 text-gray-700 font-medium rounded-xl hover:bg-gray-200 transition-all duration-200 shadow-sm"
-                >
-                  <FaSync className={`text-sm sm:mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-                  <span className="hidden sm:inline">Refresh</span>
-                </button>
-                <button
-                  onClick={handleSignOut}
-                  className="inline-flex items-center px-3 py-2 sm:px-4 bg-black text-white font-semibold rounded-xl hover:bg-gray-800 transition-all duration-200 shadow-lg"
-                >
-                  <FaSignOutAlt className="text-sm sm:mr-2" />
-                  <span className="hidden sm:inline">Sign Out</span>
-                </button>
+              <div>
+                <h1 className="text-lg sm:text-2xl font-bold text-gray-900">
+                  Invoices
+                </h1>
+                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">Invoice management and overview</p>
               </div>
             </div>
+            
+            <div className="flex items-center space-x-1 sm:space-x-3">
+              <button
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="inline-flex items-center px-2 py-2 sm:px-4 bg-black text-white font-semibold rounded-xl hover:bg-gray-800 transition-all duration-200 disabled:opacity-50"
+              >
+                <FaSync className={`text-sm sm:mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">{refreshing ? 'Refreshing...' : 'Refresh'}</span>
+              </button>
+              <button
+                onClick={handleSignOut}
+                className="inline-flex items-center px-2 py-2 sm:px-4 bg-black text-white font-semibold rounded-xl hover:bg-gray-800 transition-all duration-200 shadow-lg transform hover:scale-105"
+              >
+                <FaSignOutAlt className="text-sm sm:mr-2" />
+                <span className="hidden sm:inline">Sign Out</span>
+              </button>
+            </div>
           </div>
-        </header>
+        </div>
+      </header>
+
+      <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-3 sm:py-6 lg:py-8">
+        <AdminNavigation />
 
         {/* Search and Filters */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm mb-4 sm:mb-6 p-3 sm:p-4">
