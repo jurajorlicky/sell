@@ -81,10 +81,10 @@ export async function generatePurchaseAgreement(data: PurchaseAgreementData): Pr
       yPos = addText('PURCHASE AGREEMENT', pageWidth / 2, yPos, pageWidth - 2 * margin, 18, 'center', 'bold');
       yPos += 5;
 
-      // Form ID (external ID)
+      // ID (external ID or form ID)
       doc.setFontSize(10);
       doc.setFont('helvetica', 'normal');
-      const formIdText = data.externalId ? `FORM ID: ${data.externalId}` : `FORM ID: ${data.formId}`;
+      const formIdText = data.externalId ? `ID: ${data.externalId}` : `ID: ${data.formId}`;
       yPos = addText(formIdText, pageWidth / 2, yPos, pageWidth - 2 * margin, 10, 'center', 'normal');
       yPos += 15;
 
