@@ -162,6 +162,9 @@ export default function SalesPage() {
       }
     } else if (quickFilter === 'completed') {
       if (sale.status !== 'completed') return false;
+    } else if (quickFilter === 'manual') {
+      // Filter for manual sales
+      if (!sale.is_manual) return false;
     }
 
     // Text search
@@ -462,6 +465,16 @@ export default function SalesPage() {
                 }`}
               >
                 Completed ({readyForPayout})
+              </button>
+              <button
+                onClick={() => setQuickFilter(quickFilter === 'manual' ? '' : 'manual')}
+                className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium rounded-md sm:rounded-lg transition-all ${
+                  quickFilter === 'manual'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                Manual ({sales.filter(sale => sale.is_manual).length})
               </button>
             </div>
           </div>
