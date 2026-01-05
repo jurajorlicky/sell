@@ -53,6 +53,7 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated }: Crea
   const [externalId, setExternalId] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [saleDate, setSaleDate] = useState<string>('');
+  const [sendEmail, setSendEmail] = useState(true); // Default: send email
 
   const userInputRef = useRef<HTMLInputElement>(null);
   const productInputRef = useRef<HTMLInputElement>(null);
@@ -158,6 +159,7 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated }: Crea
     setImageUrl('');
     setExternalId('');
     setSaleDate('');
+    setSendEmail(true); // Reset to default: send email
     setAvailableSizes([]);
     setShowUserSuggestions(false);
     setShowProductSuggestions(false);
@@ -312,8 +314,8 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated }: Crea
 
       if (saleError) throw saleError;
 
-      // Send email notification
-      if (selectedUser?.email) {
+      // Send email notification if enabled
+      if (sendEmail && selectedUser?.email) {
         try {
           await sendNewSaleEmail({
             email: selectedUser.email,
@@ -667,6 +669,22 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated }: Crea
               />
             </div>
 
+            {/* Send Email Toggle */}
+            {selectedUser?.email && (
+              <div className="flex items-center space-x-3 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                <input
+                  type="checkbox"
+                  id="sendEmail"
+                  checked={sendEmail}
+                  onChange={(e) => setSendEmail(e.target.checked)}
+                  className="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 focus:ring-2"
+                />
+                <label htmlFor="sendEmail" className="text-sm font-medium text-gray-900 cursor-pointer">
+                  Send email notification to {selectedUser.email}
+                </label>
+              </div>
+            )}
+
             {/* Product Image (display only) */}
             {selectedProductId && imageUrl && (
               <div>
@@ -723,4 +741,5 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated }: Crea
     </div>
   );
 }
+
 

@@ -72,6 +72,7 @@ export default function AdminSalesStatusManager({
   const [originalInvoiceDate, setOriginalInvoiceDate] = useState(''); // Store original invoice date for comparison
   const [notes, setNotes] = useState('');
   const [originalNotes, setOriginalNotes] = useState(''); // Store original notes for comparison
+  const [sendEmail, setSendEmail] = useState(true); // Default: send email
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -710,8 +711,8 @@ export default function AdminSalesStatusManager({
       setSuccess(true);
       setEmailSuccess(false);
 
-      // Send email notifications
-      if (saleData && saleData.user_email && saleData.user_email !== 'N/A') {
+      // Send email notifications if enabled
+      if (sendEmail && saleData && saleData.user_email && saleData.user_email !== 'N/A') {
         try {
           // Send status change email if status changed
           if (selectedStatus !== currentStatus) {
@@ -1240,6 +1241,22 @@ export default function AdminSalesStatusManager({
           </div>
         )}
       </div>
+
+      {/* Send Email Toggle */}
+      {saleData && saleData.user_email && saleData.user_email !== 'N/A' && (
+        <div className="flex items-center space-x-3 p-4 bg-gray-50 rounded-xl border border-gray-200">
+          <input
+            type="checkbox"
+            id="sendEmail"
+            checked={sendEmail}
+            onChange={(e) => setSendEmail(e.target.checked)}
+            className="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 focus:ring-2"
+          />
+          <label htmlFor="sendEmail" className="text-sm font-medium text-gray-900 cursor-pointer">
+            Send email notification to {saleData.user_email}
+          </label>
+        </div>
+      )}
 
       {/* Notes */}
       <div className="bg-white rounded-xl p-4 border border-gray-200">
