@@ -76,7 +76,7 @@ export default function AdminSalesStatusManager({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [emailSuccess, setEmailSuccess] = useState(false);
-  const [saleData, setSaleData] = useState<{ name: string; user_email: string; sku?: string; price: number; payout: number; external_id?: string; user_id?: string; created_at?: string; size?: string; image_url?: string; is_manual?: boolean } | null>(null);
+  const [saleData, setSaleData] = useState<{ name: string; user_email: string; sku?: string; price: number; payout: number; external_id?: string; user_id?: string; created_at?: string; size?: string; image_url?: string; is_manual?: boolean; product_id?: string } | null>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [generatingContract, setGeneratingContract] = useState(false);
   const [contractUrl, setContractUrl] = useState<string | null>(null);
@@ -89,7 +89,7 @@ export default function AdminSalesStatusManager({
         logger.debug('Loading existing sale data', { saleId });
         const { data, error } = await supabase
           .from('user_sales')
-          .select('status_notes, tracking_url, label_url, name, user_id, sku, price, payout, external_id, created_at, contract_url, size, is_manual, image_url, profiles(email)')
+          .select('status_notes, tracking_url, label_url, name, user_id, sku, price, payout, external_id, created_at, contract_url, size, is_manual, image_url, product_id, profiles(email)')
           .eq('id', saleId)
           .single();
 
@@ -136,7 +136,8 @@ export default function AdminSalesStatusManager({
             created_at: data.created_at,
             size: data.size || '',
             image_url: data.image_url || undefined,
-            is_manual: data.is_manual || false
+            is_manual: data.is_manual || false,
+            product_id: data.product_id // Add product_id for invoice sale lookup
           });
 
           // Load user profile for PDF generation
@@ -583,17 +584,31 @@ export default function AdminSalesStatusManager({
       
       // Handle invoiceDate - update invoice sale if changed
       // Find invoice sale by external_id and update its created_at
-      if (externalId && invoiceDate !== originalInvoiceDate) {
+      if (invoiceDate !== originalInvoiceDate) {
         if (invoiceDate) {
           // Update invoice sale date separately
           const [year, month, day] = invoiceDate.split('-').map(Number);
           const invoiceDateObj = new Date(year, month - 1, day, 12, 0, 0);
           
-          const { error: invoiceUpdateError } = await supabase
+          // Try to find invoice sale by external_id first, then by user_id + product_id
+          let updateQuery = supabase
             .from('user_sales')
             .update({ created_at: invoiceDateObj.toISOString() })
-            .eq('external_id', externalId)
             .eq('sale_type', 'invoice');
+          
+          if (externalId) {
+            updateQuery = updateQuery.eq('external_id', externalId);
+          } else if (saleData?.user_id && saleData?.product_id) {
+            // Fallback: find by user_id and product_id
+            updateQuery = updateQuery
+              .eq('user_id', saleData.user_id)
+              .eq('product_id', saleData.product_id);
+          } else {
+            logger.warn('Cannot update invoice sale date: missing external_id, user_id, or product_id');
+            throw new Error('Cannot update invoice sale date: missing required identifiers');
+          }
+          
+          const { error: invoiceUpdateError, data: invoiceUpdateData } = await updateQuery;
           
           if (invoiceUpdateError) {
             logger.warn('Failed to update invoice sale date', invoiceUpdateError);
@@ -602,7 +617,8 @@ export default function AdminSalesStatusManager({
             logger.debug('Updated invoice sale date', {
               externalId,
               invoiceDate,
-              isoDate: invoiceDateObj.toISOString()
+              isoDate: invoiceDateObj.toISOString(),
+              updatedRows: invoiceUpdateData
             });
             // Update original invoice date after successful save
             setOriginalInvoiceDate(invoiceDate);
@@ -979,9 +995,14 @@ export default function AdminSalesStatusManager({
                   // Format buyer address (AirKicks company info - can be configured)
                   const buyerAddress = 'Lysica 336, 013 05 Lysica, SLOVAKIA';
                   
-                  // Generate form ID from sale date
-                  const saleDate = saleData.created_at ? new Date(saleData.created_at) : new Date();
-                  const formId = saleDate.toISOString().split('T')[0].replace(/-/g, '');
+                  // Use invoice date for PDF, fallback to sale date if not set
+                  const contractDateISO = invoiceDate 
+                    ? new Date(invoiceDate + 'T12:00:00').toISOString()
+                    : (saleData.created_at || new Date().toISOString());
+                  
+                  // Generate form ID from contract date
+                  const contractDateObj = new Date(contractDateISO);
+                  const formId = contractDateObj.toISOString().split('T')[0].replace(/-/g, '');
                   
                   // Load buyer signature from admin settings
                   const { data: adminSettings } = await supabase
@@ -1014,9 +1035,9 @@ export default function AdminSalesStatusManager({
                     sellerPhone: userProfile.telephone || undefined,
                     sellerIBAN: userProfile.iban || undefined,
                     sellerSignatureUrl: userProfile.signature_url || undefined,
-                    // Location and Date
+                    // Location and Date - use invoice date for contract
                     location: userProfile.mesto || 'Slovakia',
-                    saleDate: saleData.created_at || new Date().toISOString()
+                    saleDate: contractDateISO
                   });
                   
                   // Upload to storage
