@@ -69,6 +69,7 @@ export default function AdminSalesStatusManager({
   const [deliveredAt, setDeliveredAt] = useState(currentDeliveredAt ? isoToLocalDateString(currentDeliveredAt) : '');
   const [saleDate, setSaleDate] = useState(currentCreatedAt ? isoToLocalDateString(currentCreatedAt) : '');
   const [invoiceDate, setInvoiceDate] = useState(''); // Date for invoice sale (used in PDF contract)
+  const [originalInvoiceDate, setOriginalInvoiceDate] = useState(''); // Store original invoice date for comparison
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -101,6 +102,7 @@ export default function AdminSalesStatusManager({
           
           // Load invoice sale date (find invoice sale with same external_id or user_id + product_id)
           // Invoice sale has sale_type = 'invoice' and same external_id
+          let loadedInvoiceDate = '';
           if (data.external_id) {
             const { data: invoiceSale } = await supabase
               .from('user_sales')
@@ -110,15 +112,17 @@ export default function AdminSalesStatusManager({
               .maybeSingle();
             
             if (invoiceSale?.created_at) {
-              setInvoiceDate(isoToLocalDateString(invoiceSale.created_at));
+              loadedInvoiceDate = isoToLocalDateString(invoiceSale.created_at);
             } else {
               // If no invoice sale found, use operational sale date as default
-              setInvoiceDate(data.created_at ? isoToLocalDateString(data.created_at) : '');
+              loadedInvoiceDate = data.created_at ? isoToLocalDateString(data.created_at) : '';
             }
           } else {
             // Fallback: use operational sale date
-            setInvoiceDate(data.created_at ? isoToLocalDateString(data.created_at) : '');
+            loadedInvoiceDate = data.created_at ? isoToLocalDateString(data.created_at) : '';
           }
+          setInvoiceDate(loadedInvoiceDate);
+          setOriginalInvoiceDate(loadedInvoiceDate); // Store original for comparison
           
           // Store sale data for email notifications and PDF generation
           setSaleData({
@@ -486,9 +490,6 @@ export default function AdminSalesStatusManager({
     const currentSaleDateStr = currentCreatedAt ? isoToLocalDateString(currentCreatedAt) : '';
     const currentDeliveredAtStr = currentDeliveredAt ? isoToLocalDateString(currentDeliveredAt) : '';
     
-    // Check if invoice date changed (we'll handle it separately, but include in hasChanges check)
-    const currentInvoiceDateStr = invoiceDate || (currentCreatedAt ? isoToLocalDateString(currentCreatedAt) : '');
-    
     const hasChanges = 
       selectedStatus !== currentStatus || 
       externalId !== currentExternalId || 
@@ -496,7 +497,7 @@ export default function AdminSalesStatusManager({
       labelUrl !== currentLabelUrl ||
       deliveredAt !== currentDeliveredAtStr ||
       saleDate !== currentSaleDateStr ||
-      invoiceDate !== currentInvoiceDateStr ||
+      invoiceDate !== originalInvoiceDate ||
       (notes.trim() !== '');
 
     if (!hasChanges) {
@@ -582,11 +583,8 @@ export default function AdminSalesStatusManager({
       
       // Handle invoiceDate - update invoice sale if changed
       // Find invoice sale by external_id and update its created_at
-      if (externalId) {
-        const currentInvoiceDateStr = invoiceDate || (currentCreatedAt ? isoToLocalDateString(currentCreatedAt) : '');
-        const previousInvoiceDate = currentCreatedAt ? isoToLocalDateString(currentCreatedAt) : '';
-        
-        if (invoiceDate && invoiceDate !== previousInvoiceDate) {
+      if (externalId && invoiceDate !== originalInvoiceDate) {
+        if (invoiceDate) {
           // Update invoice sale date separately
           const [year, month, day] = invoiceDate.split('-').map(Number);
           const invoiceDateObj = new Date(year, month - 1, day, 12, 0, 0);
@@ -599,12 +597,15 @@ export default function AdminSalesStatusManager({
           
           if (invoiceUpdateError) {
             logger.warn('Failed to update invoice sale date', invoiceUpdateError);
+            throw invoiceUpdateError; // Throw error so user knows it failed
           } else {
             logger.debug('Updated invoice sale date', {
               externalId,
               invoiceDate,
               isoDate: invoiceDateObj.toISOString()
             });
+            // Update original invoice date after successful save
+            setOriginalInvoiceDate(invoiceDate);
           }
         }
       }
@@ -803,20 +804,6 @@ export default function AdminSalesStatusManager({
         <p className="text-xs text-gray-600 mt-2">
           Date when the sale was created.
         </p>
-        
-        <label className="block text-sm font-semibold text-gray-900 mb-3 mt-4">
-          <FaFileContract className="inline mr-2 text-gray-700" />
-          Contract Date (for PDF/Invoice)
-        </label>
-        <input
-          type="date"
-          value={invoiceDate}
-          onChange={(e) => setInvoiceDate(e.target.value)}
-          className="block w-full px-4 py-3 bg-white border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-gray-900"
-        />
-        <p className="text-xs text-gray-600 mt-2">
-          Date to display in the contract PDF. This will be saved to the invoice sale record.
-        </p>
       </div>
 
       {/* Delivery Date & Payout Date */}
@@ -920,6 +907,23 @@ export default function AdminSalesStatusManager({
           <FaFileContract className="inline mr-2 text-blue-600" />
           PDF Contract (Purchase Agreement)
         </label>
+        
+        {/* Contract Date Input */}
+        <div className="mb-4">
+          <label className="block text-sm font-semibold text-gray-900 mb-3">
+            <FaClock className="inline mr-2 text-gray-700" />
+            Contract Date (for PDF/Invoice)
+          </label>
+          <input
+            type="date"
+            value={invoiceDate}
+            onChange={(e) => setInvoiceDate(e.target.value)}
+            className="block w-full px-4 py-3 bg-white border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-gray-900"
+          />
+          <p className="text-xs text-gray-600 mt-2">
+            Date to display in the contract PDF. This will be saved to the invoice sale record.
+          </p>
+        </div>
         
         {contractUrl ? (
           <div className="space-y-3">
