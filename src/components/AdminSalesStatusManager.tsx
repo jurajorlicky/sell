@@ -496,6 +496,15 @@ export default function AdminSalesStatusManager({
       if (labelUrl !== currentLabelUrl) {
         updateData.label_url = labelUrl || null;
       }
+      // Handle saleDate (created_at) - if manually changed
+      if (saleDate !== (currentCreatedAt ? isoToLocalDateString(currentCreatedAt) : '')) {
+        if (saleDate) {
+          // Create date at noon local time to avoid timezone shift
+          const [year, month, day] = saleDate.split('-').map(Number);
+          const saleDateObj = new Date(year, month - 1, day, 12, 0, 0);
+          updateData.created_at = saleDateObj.toISOString();
+        }
+      }
       // Handle delivered_at - if status is 'delivered' and deliveredAt is set
       if (selectedStatus === 'delivered' && deliveredAt) {
         const deliveredDate = new Date(deliveredAt + 'T00:00:00');
