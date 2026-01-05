@@ -52,8 +52,26 @@ export default function AdminSalesStatusManager({
   const [externalId, setExternalId] = useState(currentExternalId);
   const [trackingUrl, setTrackingUrl] = useState(currentTrackingUrl);
   const [labelUrl, setLabelUrl] = useState(currentLabelUrl);
-  const [deliveredAt, setDeliveredAt] = useState(currentDeliveredAt ? currentDeliveredAt.split('T')[0] : '');
-  const [saleDate, setSaleDate] = useState(currentCreatedAt ? currentCreatedAt.split('T')[0] : '');
+  // Helper function to convert ISO date string to local date string (YYYY-MM-DD) for date input
+  const isoToLocalDateString = (isoString: string): string => {
+    if (!isoString) return '';
+    // Extract date part and parse as local date to avoid timezone shift
+    const dateMatch = isoString.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (dateMatch) {
+      const [year, month, day] = dateMatch[1].split('-').map(Number);
+      // Create date in local timezone
+      const localDate = new Date(year, month - 1, day);
+      // Format as YYYY-MM-DD for date input
+      const yearStr = localDate.getFullYear();
+      const monthStr = String(localDate.getMonth() + 1).padStart(2, '0');
+      const dayStr = String(localDate.getDate()).padStart(2, '0');
+      return `${yearStr}-${monthStr}-${dayStr}`;
+    }
+    return isoString.split('T')[0];
+  };
+
+  const [deliveredAt, setDeliveredAt] = useState(currentDeliveredAt ? isoToLocalDateString(currentDeliveredAt) : '');
+  const [saleDate, setSaleDate] = useState(currentCreatedAt ? isoToLocalDateString(currentCreatedAt) : '');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -82,7 +100,7 @@ export default function AdminSalesStatusManager({
           if (data.tracking_url) setTrackingUrl(data.tracking_url);
           if (data.label_url) setLabelUrl(data.label_url);
           if (data.contract_url) setContractUrl(data.contract_url);
-          if (data.created_at) setSaleDate(data.created_at.split('T')[0]);
+          if (data.created_at) setSaleDate(isoToLocalDateString(data.created_at));
           
           // Store sale data for email notifications and PDF generation
           setSaleData({
@@ -451,8 +469,8 @@ export default function AdminSalesStatusManager({
       externalId !== currentExternalId || 
       trackingUrl !== currentTrackingUrl ||
       labelUrl !== currentLabelUrl ||
-      deliveredAt !== (currentDeliveredAt ? currentDeliveredAt.split('T')[0] : '') ||
-      saleDate !== (currentCreatedAt ? currentCreatedAt.split('T')[0] : '') ||
+      deliveredAt !== (currentDeliveredAt ? isoToLocalDateString(currentDeliveredAt) : '') ||
+      saleDate !== (currentCreatedAt ? isoToLocalDateString(currentCreatedAt) : '') ||
       notes.trim();
 
     if (!hasChanges) {
@@ -489,7 +507,7 @@ export default function AdminSalesStatusManager({
       } else if (selectedStatus !== 'delivered' && currentDeliveredAt) {
         // Clear delivered_at if status is not 'delivered'
         updateData.delivered_at = null;
-      } else if (deliveredAt !== (currentDeliveredAt ? currentDeliveredAt.split('T')[0] : '')) {
+      } else if (deliveredAt !== (currentDeliveredAt ? isoToLocalDateString(currentDeliveredAt) : '')) {
         // If delivered_at is manually changed
         if (deliveredAt) {
           const deliveredDate = new Date(deliveredAt + 'T00:00:00');
