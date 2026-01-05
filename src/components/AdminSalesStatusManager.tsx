@@ -567,6 +567,28 @@ export default function AdminSalesStatusManager({
       if (notes.trim() !== originalNotes.trim()) {
         updateData.status_notes = notes.trim() || null;
       }
+      
+      // Handle invoiceDate - update invoice_date column in the same sale record
+      if (invoiceDate !== originalInvoiceDate) {
+        if (invoiceDate) {
+          // Update invoice_date column
+          const [year, month, day] = invoiceDate.split('-').map(Number);
+          const invoiceDateObj = new Date(year, month - 1, day, 12, 0, 0);
+          const invoiceDateISO = invoiceDateObj.toISOString();
+          
+          logger.debug('Updating invoice_date', {
+            invoiceDate,
+            originalInvoiceDate,
+            saleId,
+            isoDate: invoiceDateISO
+          });
+          
+          updateData.invoice_date = invoiceDateISO;
+        } else {
+          // Clear invoice_date if empty
+          updateData.invoice_date = null;
+        }
+      }
 
       const { error: updateError } = await supabase
         .from('user_sales')
@@ -575,125 +597,9 @@ export default function AdminSalesStatusManager({
 
       if (updateError) throw updateError;
       
-      // Handle invoiceDate - update invoice sale if changed
-      // Find invoice sale by external_id and update its created_at
+      // Update original invoice date after successful save
       if (invoiceDate !== originalInvoiceDate) {
-        if (invoiceDate) {
-          // Update invoice sale date separately
-          const [year, month, day] = invoiceDate.split('-').map(Number);
-          const invoiceDateObj = new Date(year, month - 1, day, 12, 0, 0);
-          const invoiceDateISO = invoiceDateObj.toISOString();
-          
-          logger.debug('Attempting to update invoice sale date', {
-            invoiceDate,
-            originalInvoiceDate,
-            externalId,
-            userId: saleData?.user_id,
-            productId: saleData?.product_id,
-            isoDate: invoiceDateISO
-          });
-          
-          // First, check if invoice sale exists
-          let invoiceSaleId: string | null = null;
-          if (externalId) {
-            const { data: existingInvoiceSale } = await supabase
-              .from('user_sales')
-              .select('id')
-              .eq('external_id', externalId)
-              .eq('sale_type', 'invoice')
-              .maybeSingle();
-            
-            if (existingInvoiceSale) {
-              invoiceSaleId = existingInvoiceSale.id;
-            }
-          } else if (saleData?.user_id && saleData?.product_id) {
-            const { data: existingInvoiceSale } = await supabase
-              .from('user_sales')
-              .select('id')
-              .eq('user_id', saleData.user_id)
-              .eq('product_id', saleData.product_id)
-              .eq('sale_type', 'invoice')
-              .maybeSingle();
-            
-            if (existingInvoiceSale) {
-              invoiceSaleId = existingInvoiceSale.id;
-            }
-          }
-          
-          // If invoice sale doesn't exist, create it
-          if (!invoiceSaleId && saleData) {
-            logger.info('Invoice sale does not exist, creating new one', {
-              externalId,
-              userId: saleData.user_id,
-              productId: saleData.product_id
-            });
-            
-            const { data: newInvoiceSale, error: createError } = await supabase
-              .from('user_sales')
-              .insert({
-                user_id: saleData.user_id,
-                product_id: saleData.product_id,
-                name: saleData.name,
-                size: saleData.size || '',
-                price: saleData.price,
-                payout: saleData.payout,
-                sku: saleData.sku,
-                external_id: externalId || null,
-                image_url: saleData.image_url,
-                status: 'accepted',
-                created_at: invoiceDateISO,
-                sale_type: 'invoice',
-                is_manual: saleData.is_manual || false
-              })
-              .select('id')
-              .single();
-            
-            if (createError) {
-              logger.error('Failed to create invoice sale', createError);
-              throw createError;
-            }
-            
-            invoiceSaleId = newInvoiceSale.id;
-            logger.info('Created new invoice sale', { invoiceSaleId });
-          }
-          
-          // Update invoice sale date
-          if (invoiceSaleId) {
-            const { error: invoiceUpdateError, data: invoiceUpdateData } = await supabase
-              .from('user_sales')
-              .update({ created_at: invoiceDateISO })
-              .eq('id', invoiceSaleId)
-              .select();
-            
-            if (invoiceUpdateError) {
-              logger.error('Failed to update invoice sale date', invoiceUpdateError);
-              throw invoiceUpdateError;
-            } else {
-              logger.info('Updated invoice sale date successfully', {
-                invoiceSaleId,
-                externalId,
-                invoiceDate,
-                originalInvoiceDate,
-                isoDate: invoiceDateISO,
-                updatedData: invoiceUpdateData
-              });
-              // Update original invoice date after successful save
-              setOriginalInvoiceDate(invoiceDate);
-            }
-          } else {
-            logger.warn('Cannot update invoice sale date: missing identifiers', {
-              externalId,
-              userId: saleData?.user_id,
-              productId: saleData?.product_id
-            });
-            throw new Error('Cannot update invoice sale date: missing required identifiers');
-          }
-        }
-      } else {
-        logger.debug('Invoice date unchanged, skipping update', {
-          invoiceDate,
-          originalInvoiceDate
-        });
+        setOriginalInvoiceDate(invoiceDate);
       }
       
       logger.info('Sale updated successfully');
