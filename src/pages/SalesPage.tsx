@@ -74,12 +74,18 @@ export default function SalesPage() {
           tracking_number, carrier, tracking_url, label_url, contract_url, delivered_at, payout_date, is_manual,
           sale_type, profiles(email)
         `)
-        .eq('sale_type', 'operational') // Only show operational sales in the main list
         .order('created_at', { ascending: false });
+
+      // Filter operational sales if sale_type column exists, otherwise show all
+      const filteredData = data?.filter(sale => {
+        // If sale_type doesn't exist in database, show all sales (backward compatibility)
+        // If sale_type exists, only show operational sales
+        return !sale.sale_type || sale.sale_type === 'operational';
+      }) || [];
 
       if (error) throw error;
 
-      const enriched = (data || []).map((sale: any) => ({
+      const enriched = filteredData.map((sale: any) => ({
         ...sale,
         user_email: sale.profiles?.email || 'N/A',
       }));

@@ -68,10 +68,15 @@ export default function UserSales() {
         .from('user_sales')
         .select('id, external_id, product_id, name, size, price, image_url, payout, created_at, status, status_notes, tracking_number, carrier, tracking_url, label_url, sku, delivered_at, payout_date, is_manual, sale_type')
         .eq('user_id', userId)
-        .eq('sale_type', 'operational') // Only show operational sales to users
         .order('created_at', { ascending: false });
       if (error) throw error;
-      setSales(data || []);
+      
+      // Filter operational sales if sale_type column exists, otherwise show all (backward compatibility)
+      const filteredData = (data || []).filter(sale => {
+        return !sale.sale_type || sale.sale_type === 'operational';
+      });
+      
+      setSales(filteredData);
     } catch (err) {
       setError('Error loading your sales.');
     }

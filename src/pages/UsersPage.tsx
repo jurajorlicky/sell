@@ -139,11 +139,15 @@ export default function UsersPage() {
         .from('user_sales')
         .select('id, product_id, name, size, price, payout, created_at, status, image_url, sku, external_id, is_manual, sale_type, tracking_url, label_url, contract_url, delivered_at, payout_date')
         .eq('user_id', userId)
-        .eq('sale_type', 'operational') // Only show operational sales
         .order('created_at', { ascending: false });
+      
+      // Filter operational sales if sale_type column exists, otherwise show all (backward compatibility)
+      const filteredSales = (salesData || []).filter(sale => {
+        return !sale.sale_type || sale.sale_type === 'operational';
+      });
 
       if (salesError) throw salesError;
-      setUserSales(salesData || []);
+      setUserSales(filteredSales);
 
       // Load user products
       const { data: productsData, error: productsError } = await supabase

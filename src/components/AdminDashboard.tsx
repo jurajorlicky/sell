@@ -62,7 +62,7 @@ export default function AdminDashboard() {
         supabase.from('profiles').select('id', { count: 'exact' }),
         supabase.from('products').select('id', { count: 'exact' }),
         supabase.from('user_products').select('id, price, payout', { count: 'exact' }),
-        supabase.from('user_sales').select('id, price, payout', { count: 'exact' }).eq('sale_type', 'operational')
+        supabase.from('user_sales').select('id, price, payout, sale_type', { count: 'exact' })
       ];
 
       const results = await Promise.allSettled(promises);
@@ -72,14 +72,15 @@ export default function AdminDashboard() {
       const totalUsers = usersRes.status === 'fulfilled' ? (usersRes.value.count || 0) : 0;
       const totalProducts = productsRes.status === 'fulfilled' ? (productsRes.value.count || 0) : 0;
       const totalListings = listingsRes.status === 'fulfilled' ? (listingsRes.value.count || 0) : 0;
-      const totalSales = salesRes.status === 'fulfilled' ? (salesRes.value.count || 0) : 0;
-
-      const totalRevenue = salesRes.status === 'fulfilled' && salesRes.value.data 
-        ? salesRes.value.data.reduce((sum: number, sale: any) => sum + (sale.price || 0), 0) 
-        : 0;
-      const totalPayout = salesRes.status === 'fulfilled' && salesRes.value.data 
-        ? salesRes.value.data.reduce((sum: number, sale: any) => sum + (sale.payout || 0), 0) 
-        : 0;
+      
+      // Filter operational sales if sale_type column exists, otherwise count all (backward compatibility)
+      const operationalSales = salesRes.status === 'fulfilled' && salesRes.value.data 
+        ? salesRes.value.data.filter((sale: any) => !sale.sale_type || sale.sale_type === 'operational')
+        : [];
+      
+      const totalSales = operationalSales.length;
+      const totalRevenue = operationalSales.reduce((sum: number, sale: any) => sum + (sale.price || 0), 0);
+      const totalPayout = operationalSales.reduce((sum: number, sale: any) => sum + (sale.payout || 0), 0);
 
       setStats({
         totalUsers,
