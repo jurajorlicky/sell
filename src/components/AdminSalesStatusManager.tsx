@@ -705,8 +705,13 @@ export default function AdminSalesStatusManager({
       
       logger.info('Sale updated successfully');
 
-      onStatusUpdate(selectedStatus);
-      onExternalIdUpdate(externalId);
+      // Only call callbacks if status or externalId changed (not for invoice date only)
+      if (selectedStatus !== currentStatus) {
+        onStatusUpdate(selectedStatus);
+      }
+      if (externalId !== currentExternalId) {
+        onExternalIdUpdate(externalId);
+      }
       setSuccess(true);
       setEmailSuccess(false);
 
