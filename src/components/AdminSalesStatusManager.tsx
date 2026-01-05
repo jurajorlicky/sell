@@ -68,6 +68,7 @@ export default function AdminSalesStatusManager({
 
   const [deliveredAt, setDeliveredAt] = useState(currentDeliveredAt ? isoToLocalDateString(currentDeliveredAt) : '');
   const [saleDate, setSaleDate] = useState(currentCreatedAt ? isoToLocalDateString(currentCreatedAt) : '');
+  const [invoiceDate, setInvoiceDate] = useState(''); // Date for invoice sale (used in PDF contract)
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -97,6 +98,27 @@ export default function AdminSalesStatusManager({
           if (data.label_url) setLabelUrl(data.label_url);
           if (data.contract_url) setContractUrl(data.contract_url);
           if (data.created_at) setSaleDate(isoToLocalDateString(data.created_at));
+          
+          // Load invoice sale date (find invoice sale with same external_id or user_id + product_id)
+          // Invoice sale has sale_type = 'invoice' and same external_id
+          if (data.external_id) {
+            const { data: invoiceSale } = await supabase
+              .from('user_sales')
+              .select('created_at')
+              .eq('external_id', data.external_id)
+              .eq('sale_type', 'invoice')
+              .maybeSingle();
+            
+            if (invoiceSale?.created_at) {
+              setInvoiceDate(isoToLocalDateString(invoiceSale.created_at));
+            } else {
+              // If no invoice sale found, use operational sale date as default
+              setInvoiceDate(data.created_at ? isoToLocalDateString(data.created_at) : '');
+            }
+          } else {
+            // Fallback: use operational sale date
+            setInvoiceDate(data.created_at ? isoToLocalDateString(data.created_at) : '');
+          }
           
           // Store sale data for email notifications and PDF generation
           setSaleData({
@@ -464,6 +486,9 @@ export default function AdminSalesStatusManager({
     const currentSaleDateStr = currentCreatedAt ? isoToLocalDateString(currentCreatedAt) : '';
     const currentDeliveredAtStr = currentDeliveredAt ? isoToLocalDateString(currentDeliveredAt) : '';
     
+    // Check if invoice date changed (we'll handle it separately, but include in hasChanges check)
+    const currentInvoiceDateStr = invoiceDate || (currentCreatedAt ? isoToLocalDateString(currentCreatedAt) : '');
+    
     const hasChanges = 
       selectedStatus !== currentStatus || 
       externalId !== currentExternalId || 
@@ -471,6 +496,7 @@ export default function AdminSalesStatusManager({
       labelUrl !== currentLabelUrl ||
       deliveredAt !== currentDeliveredAtStr ||
       saleDate !== currentSaleDateStr ||
+      invoiceDate !== currentInvoiceDateStr ||
       (notes.trim() !== '');
 
     if (!hasChanges) {
@@ -553,6 +579,36 @@ export default function AdminSalesStatusManager({
         .eq('id', saleId);
 
       if (updateError) throw updateError;
+      
+      // Handle invoiceDate - update invoice sale if changed
+      // Find invoice sale by external_id and update its created_at
+      if (externalId) {
+        const currentInvoiceDateStr = invoiceDate || (currentCreatedAt ? isoToLocalDateString(currentCreatedAt) : '');
+        const previousInvoiceDate = currentCreatedAt ? isoToLocalDateString(currentCreatedAt) : '';
+        
+        if (invoiceDate && invoiceDate !== previousInvoiceDate) {
+          // Update invoice sale date separately
+          const [year, month, day] = invoiceDate.split('-').map(Number);
+          const invoiceDateObj = new Date(year, month - 1, day, 12, 0, 0);
+          
+          const { error: invoiceUpdateError } = await supabase
+            .from('user_sales')
+            .update({ created_at: invoiceDateObj.toISOString() })
+            .eq('external_id', externalId)
+            .eq('sale_type', 'invoice');
+          
+          if (invoiceUpdateError) {
+            logger.warn('Failed to update invoice sale date', invoiceUpdateError);
+          } else {
+            logger.debug('Updated invoice sale date', {
+              externalId,
+              invoiceDate,
+              isoDate: invoiceDateObj.toISOString()
+            });
+          }
+        }
+      }
+      
       logger.info('Sale updated successfully');
 
       onStatusUpdate(selectedStatus);
@@ -746,6 +802,20 @@ export default function AdminSalesStatusManager({
         />
         <p className="text-xs text-gray-600 mt-2">
           Date when the sale was created.
+        </p>
+        
+        <label className="block text-sm font-semibold text-gray-900 mb-3 mt-4">
+          <FaFileContract className="inline mr-2 text-gray-700" />
+          Contract Date (for PDF/Invoice)
+        </label>
+        <input
+          type="date"
+          value={invoiceDate}
+          onChange={(e) => setInvoiceDate(e.target.value)}
+          className="block w-full px-4 py-3 bg-white border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-gray-900"
+        />
+        <p className="text-xs text-gray-600 mt-2">
+          Date to display in the contract PDF. This will be saved to the invoice sale record.
         </p>
       </div>
 
