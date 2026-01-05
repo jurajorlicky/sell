@@ -285,6 +285,7 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated }: Crea
       // Create sale with custom date
       const saleDateObj = new Date(saleDate + 'T00:00:00');
       const saleDateISO = saleDateObj.toISOString();
+      const currentDateISO = new Date().toISOString(); // Current date for operational sale
 
       // Create base sale data
       const baseSaleData = {
@@ -298,16 +299,17 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated }: Crea
         external_id: externalId || null,
         image_url: imageUrl || null,
         status: 'accepted',
-        created_at: saleDateISO, // Set custom date
         is_manual: true // Mark as manual sale
       };
 
-      // Create two sales: one for operational use and one for invoicing
+      // Create two sales:
+      // - Invoice sale: uses selected date (for invoicing)
+      // - Operational sale: uses current date (for system tracking/status)
       const { data: salesData, error: saleError } = await supabase
         .from('user_sales')
         .insert([
-          { ...baseSaleData, sale_type: 'operational' },
-          { ...baseSaleData, sale_type: 'invoice' }
+          { ...baseSaleData, sale_type: 'operational', created_at: currentDateISO }, // Current date for tracking
+          { ...baseSaleData, sale_type: 'invoice', created_at: saleDateISO } // Selected date for invoice
         ])
         .select();
 
