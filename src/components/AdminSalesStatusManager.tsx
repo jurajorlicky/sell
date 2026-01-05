@@ -801,11 +801,18 @@ export default function AdminSalesStatusManager({
     }
   };
 
+  // Check if there are any changes to save
+  const currentSaleDateStr = currentCreatedAt ? isoToLocalDateString(currentCreatedAt) : '';
+  const currentDeliveredAtStr = currentDeliveredAt ? isoToLocalDateString(currentDeliveredAt) : '';
+  
   const hasChanges = 
     selectedStatus !== currentStatus || 
     externalId !== currentExternalId || 
     trackingUrl !== currentTrackingUrl ||
     labelUrl !== currentLabelUrl ||
+    deliveredAt !== currentDeliveredAtStr ||
+    saleDate !== currentSaleDateStr ||
+    invoiceDate !== originalInvoiceDate ||
     notes.trim() !== originalNotes.trim();
 
   return (
