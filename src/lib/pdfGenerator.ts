@@ -33,16 +33,24 @@ export interface PurchaseAgreementData {
 export async function generatePurchaseAgreement(data: PurchaseAgreementData): Promise<Blob> {
   return new Promise(async (resolve, reject) => {
     try {
-      const doc = new jsPDF();
+      const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+        compress: true
+      });
+      
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
       const margin = 20;
       let yPos = margin;
 
       // Helper function to add text with word wrap
+      // jsPDF's splitTextToSize should handle UTF-8 characters correctly
       const addText = (text: string, x: number, y: number, maxWidth: number, fontSize: number = 10, align: 'left' | 'center' | 'right' = 'left', fontStyle: 'normal' | 'bold' | 'italic' = 'normal') => {
         doc.setFontSize(fontSize);
         doc.setFont('helvetica', fontStyle);
+        // splitTextToSize handles UTF-8 characters including Czech diacritics
         const lines = doc.splitTextToSize(text, maxWidth);
         doc.text(lines, x, y, { align });
         return y + (lines.length * fontSize * 0.35);

@@ -76,12 +76,23 @@ export default function SalesPage() {
         `)
         .order('created_at', { ascending: false });
 
-      // Filter operational sales if sale_type column exists, otherwise show all
-      const filteredData = data?.filter(sale => {
-        // If sale_type doesn't exist in database, show all sales (backward compatibility)
-        // If sale_type exists, only show operational sales
-        return !sale.sale_type || sale.sale_type === 'operational';
-      }) || [];
+      // Filter operational sales and remove duplicates
+      // Remove duplicates by external_id (keep only operational sale per external_id)
+      const seenExternalIds = new Set<string>();
+      const filteredData = (data || []).filter(sale => {
+        // Only show operational sales (or sales without sale_type for backward compatibility)
+        if (sale.sale_type && sale.sale_type !== 'operational') {
+          return false;
+        }
+        // Remove duplicates - if external_id exists, keep only first occurrence (operational sale)
+        if (sale.external_id) {
+          if (seenExternalIds.has(sale.external_id)) {
+            return false; // Duplicate - already have this external_id
+          }
+          seenExternalIds.add(sale.external_id);
+        }
+        return true;
+      });
 
       if (error) throw error;
 
