@@ -41,6 +41,7 @@ interface Sale {
   delivered_at?: string;
   payout_date?: string;
   is_manual?: boolean;
+  sale_type?: 'operational' | 'invoice';
   profiles?: {
     email: string;
   };
@@ -71,8 +72,9 @@ export default function SalesPage() {
         .select(`
           id, product_id, name, size, price, payout, created_at, status, image_url, external_id, sku, status_notes,
           tracking_number, carrier, tracking_url, label_url, contract_url, delivered_at, payout_date, is_manual,
-          profiles(email)
+          sale_type, profiles(email)
         `)
+        .eq('sale_type', 'operational') // Only show operational sales in the main list
         .order('created_at', { ascending: false });
 
       if (error) throw error;

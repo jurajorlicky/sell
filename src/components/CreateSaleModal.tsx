@@ -286,26 +286,35 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated }: Crea
       const saleDateObj = new Date(saleDate + 'T00:00:00');
       const saleDateISO = saleDateObj.toISOString();
 
-      const { data: saleData, error: saleError } = await supabase
+      // Create base sale data
+      const baseSaleData = {
+        user_id: selectedUserId,
+        product_id: selectedProduct.id,
+        name: productName,
+        size: size,
+        price: priceNum,
+        payout: payoutNum,
+        sku: sku || null,
+        external_id: externalId || null,
+        image_url: imageUrl || null,
+        status: 'accepted',
+        created_at: saleDateISO, // Set custom date
+        is_manual: true // Mark as manual sale
+      };
+
+      // Create two sales: one for operational use and one for invoicing
+      const { data: salesData, error: saleError } = await supabase
         .from('user_sales')
-        .insert({
-          user_id: selectedUserId,
-          product_id: selectedProduct.id,
-          name: productName,
-          size: size,
-          price: priceNum,
-          payout: payoutNum,
-          sku: sku || null,
-          external_id: externalId || null,
-          image_url: imageUrl || null,
-          status: 'accepted',
-          created_at: saleDateISO, // Set custom date
-          is_manual: true // Mark as manual sale
-        })
-        .select()
-        .single();
+        .insert([
+          { ...baseSaleData, sale_type: 'operational' },
+          { ...baseSaleData, sale_type: 'invoice' }
+        ])
+        .select();
 
       if (saleError) throw saleError;
+      
+      // Use the operational sale for further processing
+      const saleData = salesData?.[0];
 
       // Send email notification
       if (selectedUser?.email) {

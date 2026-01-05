@@ -60,6 +60,7 @@ interface UserSale {
   sku?: string;
   external_id?: string;
   is_manual?: boolean;
+  sale_type?: 'operational' | 'invoice';
   tracking_url?: string;
   label_url?: string;
   contract_url?: string;
@@ -133,11 +134,12 @@ export default function UsersPage() {
     try {
       setLoadingUserData(true);
       
-      // Load user sales
+      // Load user sales (only operational sales for display)
       const { data: salesData, error: salesError } = await supabase
         .from('user_sales')
-        .select('id, product_id, name, size, price, payout, created_at, status, image_url, sku, external_id, is_manual, tracking_url, label_url, contract_url, delivered_at, payout_date')
+        .select('id, product_id, name, size, price, payout, created_at, status, image_url, sku, external_id, is_manual, sale_type, tracking_url, label_url, contract_url, delivered_at, payout_date')
         .eq('user_id', userId)
+        .eq('sale_type', 'operational') // Only show operational sales
         .order('created_at', { ascending: false });
 
       if (salesError) throw salesError;

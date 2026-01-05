@@ -69,8 +69,8 @@ export default function ListedProductsPage() {
     setShowModal(false);
 
     try {
-      // Vkladáš predaj
-      const { error: insertError } = await supabase.from('user_sales').insert({
+      // Create base sale data
+      const baseSaleData = {
         user_id: selectedProduct.user_id,
         product_id: selectedProduct.product_id,
         name: selectedProduct.name,
@@ -81,7 +81,13 @@ export default function ListedProductsPage() {
         image_url: selectedProduct.image_url,
         status: 'accepted',
         external_id: externalId
-      });
+      };
+
+      // Create two sales: one for operational use and one for invoicing
+      const { error: insertError } = await supabase.from('user_sales').insert([
+        { ...baseSaleData, sale_type: 'operational' },
+        { ...baseSaleData, sale_type: 'invoice' }
+      ]);
       if (insertError) throw insertError;
 
       // Mažeš ponuku

@@ -62,7 +62,7 @@ export default function AdminDashboard() {
         supabase.from('profiles').select('id', { count: 'exact' }),
         supabase.from('products').select('id', { count: 'exact' }),
         supabase.from('user_products').select('id, price, payout', { count: 'exact' }),
-        supabase.from('user_sales').select('id, price, payout', { count: 'exact' })
+        supabase.from('user_sales').select('id, price, payout', { count: 'exact' }).eq('sale_type', 'operational')
       ];
 
       const results = await Promise.allSettled(promises);

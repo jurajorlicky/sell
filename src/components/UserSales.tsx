@@ -25,6 +25,7 @@ interface UserSale {
   delivered_at?: string;
   payout_date?: string;
   is_manual?: boolean;
+  sale_type?: 'operational' | 'invoice';
 }
 
 export default function UserSales() {
@@ -65,8 +66,9 @@ export default function UserSales() {
     try {
       const { data, error } = await supabase
         .from('user_sales')
-        .select('id, external_id, product_id, name, size, price, image_url, payout, created_at, status, status_notes, tracking_number, carrier, tracking_url, label_url, sku, delivered_at, payout_date, is_manual')
+        .select('id, external_id, product_id, name, size, price, image_url, payout, created_at, status, status_notes, tracking_number, carrier, tracking_url, label_url, sku, delivered_at, payout_date, is_manual, sale_type')
         .eq('user_id', userId)
+        .eq('sale_type', 'operational') // Only show operational sales to users
         .order('created_at', { ascending: false });
       if (error) throw error;
       setSales(data || []);
