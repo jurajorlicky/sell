@@ -5,6 +5,7 @@ import {
   FaList,
   FaShoppingCart,
   FaUsers,
+  FaFileInvoice,
   FaCog
 } from 'react-icons/fa';
 
@@ -22,6 +23,7 @@ const navTabs: NavTab[] = [
   { id: 'listed-products', label: 'Offers', icon: FaList, color: 'from-orange-500 to-amber-500', path: '/admin/listed-products' },
   { id: 'sales', label: 'Sales', icon: FaShoppingCart, color: 'from-green-500 to-emerald-500', path: '/admin/sales' },
   { id: 'users', label: 'Users', icon: FaUsers, color: 'from-indigo-500 to-blue-500', path: '/admin/users' },
+  { id: 'invoices', label: 'Invoices', icon: FaFileInvoice, color: 'from-pink-500 to-rose-500', path: '/admin/invoices' },
   { id: 'settings', label: 'Settings', icon: FaCog, color: 'from-gray-500 to-slate-500', path: '/admin/settings' },
 ];
 

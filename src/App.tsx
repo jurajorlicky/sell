@@ -34,6 +34,7 @@ import ProductsPage from "./pages/ProductsPage";
 import UsersPage from "./pages/UsersPage";
 import ListedProductsPage from "./pages/ListedProductsPage";
 import SalesPage from "./pages/SalesPage";
+import InvoicesPage from "./pages/InvoicesPage";
 import SettingsPage from "./pages/SettingsPage";
 
 export default function App() {
@@ -364,6 +365,10 @@ export default function App() {
       <Route
         path="/admin/users"
         element={user && isAdmin ? <UsersPage /> : <Navigate to="/dashboard" replace />}
+      />
+      <Route
+        path="/admin/invoices"
+        element={user && isAdmin ? <InvoicesPage /> : <Navigate to="/dashboard" replace />}
       />
       <Route
         path="/admin/listed-products"
