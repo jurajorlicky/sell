@@ -53,19 +53,15 @@ export default function AdminSalesStatusManager({
   const [trackingUrl, setTrackingUrl] = useState(currentTrackingUrl);
   const [labelUrl, setLabelUrl] = useState(currentLabelUrl);
   // Helper function to convert ISO date string to local date string (YYYY-MM-DD) for date input
+  // Simply extracts the date part without any timezone conversion to avoid date shift
   const isoToLocalDateString = (isoString: string): string => {
     if (!isoString) return '';
-    // Extract date part and parse as local date to avoid timezone shift
+    // Simply extract the date part (YYYY-MM-DD) - no conversion needed
+    // The date input expects YYYY-MM-DD format, so we just extract it directly
     const dateMatch = isoString.match(/^(\d{4}-\d{2}-\d{2})/);
     if (dateMatch) {
-      const [year, month, day] = dateMatch[1].split('-').map(Number);
-      // Create date in local timezone
-      const localDate = new Date(year, month - 1, day);
-      // Format as YYYY-MM-DD for date input
-      const yearStr = localDate.getFullYear();
-      const monthStr = String(localDate.getMonth() + 1).padStart(2, '0');
-      const dayStr = String(localDate.getDate()).padStart(2, '0');
-      return `${yearStr}-${monthStr}-${dayStr}`;
+      // Return the date part as-is - this is what was originally selected/saved
+      return dateMatch[1];
     }
     return isoString.split('T')[0];
   };
