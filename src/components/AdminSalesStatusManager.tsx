@@ -90,7 +90,7 @@ export default function AdminSalesStatusManager({
         logger.debug('Loading existing sale data', { saleId });
         const { data, error } = await supabase
           .from('user_sales')
-          .select('status_notes, tracking_url, label_url, name, user_id, sku, price, payout, external_id, created_at, contract_url, size, is_manual, image_url, product_id, profiles(email)')
+          .select('status_notes, tracking_url, label_url, name, user_id, sku, price, payout, external_id, created_at, contract_url, size, is_manual, image_url, product_id, invoice_date, profiles(email)')
           .eq('id', saleId)
           .single();
 
@@ -103,25 +103,13 @@ export default function AdminSalesStatusManager({
           if (data.contract_url) setContractUrl(data.contract_url);
           if (data.created_at) setSaleDate(isoToLocalDateString(data.created_at));
           
-          // Load invoice sale date (find invoice sale with same external_id or user_id + product_id)
-          // Invoice sale has sale_type = 'invoice' and same external_id
+          // Load invoice_date from the same sale record
+          // If invoice_date doesn't exist, use created_at as fallback
           let loadedInvoiceDate = '';
-          if (data.external_id) {
-            const { data: invoiceSale } = await supabase
-              .from('user_sales')
-              .select('created_at')
-              .eq('external_id', data.external_id)
-              .eq('sale_type', 'invoice')
-              .maybeSingle();
-            
-            if (invoiceSale?.created_at) {
-              loadedInvoiceDate = isoToLocalDateString(invoiceSale.created_at);
-            } else {
-              // If no invoice sale found, use operational sale date as default
-              loadedInvoiceDate = data.created_at ? isoToLocalDateString(data.created_at) : '';
-            }
+          if (data.invoice_date) {
+            loadedInvoiceDate = isoToLocalDateString(data.invoice_date);
           } else {
-            // Fallback: use operational sale date
+            // Fallback: use created_at if invoice_date is not set
             loadedInvoiceDate = data.created_at ? isoToLocalDateString(data.created_at) : '';
           }
           setInvoiceDate(loadedInvoiceDate);

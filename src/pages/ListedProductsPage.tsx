@@ -69,8 +69,8 @@ export default function ListedProductsPage() {
     setShowModal(false);
 
     try {
-      // Create base sale data
-      const baseSaleData = {
+      // Create single sale with invoice_date set to product creation date
+      const saleData = {
         user_id: selectedProduct.user_id,
         product_id: selectedProduct.product_id,
         name: selectedProduct.name,
@@ -80,14 +80,11 @@ export default function ListedProductsPage() {
         payout: selectedProduct.payout,
         image_url: selectedProduct.image_url,
         status: 'accepted',
-        external_id: externalId
+        external_id: externalId,
+        invoice_date: selectedProduct.created_at // Use product creation date as invoice date
       };
 
-      // Create two sales: one for operational use and one for invoicing
-      const { error: insertError } = await supabase.from('user_sales').insert([
-        { ...baseSaleData, sale_type: 'operational' },
-        { ...baseSaleData, sale_type: 'invoice' }
-      ]);
+      const { error: insertError } = await supabase.from('user_sales').insert([saleData]);
       if (insertError) throw insertError;
 
       // Mažeš ponuku

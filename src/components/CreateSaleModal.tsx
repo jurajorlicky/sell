@@ -282,13 +282,13 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated }: Crea
         return;
       }
 
-      // Create sale with custom date
+      // Create sale with invoice date
       const saleDateObj = new Date(saleDate + 'T00:00:00');
-      const saleDateISO = saleDateObj.toISOString();
-      const currentDateISO = new Date().toISOString(); // Current date for operational sale
+      const invoiceDateISO = saleDateObj.toISOString();
+      const currentDateISO = new Date().toISOString(); // Current date for created_at
 
-      // Create base sale data
-      const baseSaleData = {
+      // Create single sale with invoice_date for PDF
+      const saleData = {
         user_id: selectedUserId,
         product_id: selectedProduct.id,
         name: productName,
@@ -299,24 +299,18 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated }: Crea
         external_id: externalId || null,
         image_url: imageUrl || null,
         status: 'accepted',
-        is_manual: true // Mark as manual sale
+        is_manual: true, // Mark as manual sale
+        created_at: currentDateISO, // Current date for tracking
+        invoice_date: invoiceDateISO // Selected date for invoice/PDF
       };
 
-      // Create two sales:
-      // - Invoice sale: uses selected date (for invoicing)
-      // - Operational sale: uses current date (for system tracking/status)
-      const { data: salesData, error: saleError } = await supabase
+      const { data: insertedSale, error: saleError } = await supabase
         .from('user_sales')
-        .insert([
-          { ...baseSaleData, sale_type: 'operational', created_at: currentDateISO }, // Current date for tracking
-          { ...baseSaleData, sale_type: 'invoice', created_at: saleDateISO } // Selected date for invoice
-        ])
-        .select();
+        .insert([saleData])
+        .select()
+        .single();
 
       if (saleError) throw saleError;
-      
-      // Use the operational sale for further processing
-      const saleData = salesData?.[0];
 
       // Send email notification
       if (selectedUser?.email) {
@@ -327,7 +321,7 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated }: Crea
             size: size,
             price: priceNum,
             payout: payoutNum,
-            external_id: externalId || saleData.id,
+            external_id: externalId || insertedSale.id,
             image_url: imageUrl || undefined,
             sku: sku
           });
@@ -337,7 +331,7 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated }: Crea
         }
       }
 
-      logger.info('Sale created successfully', { saleId: saleData.id });
+      logger.info('Sale created successfully', { saleId: insertedSale.id });
       
       // Reset form
       resetForm();
