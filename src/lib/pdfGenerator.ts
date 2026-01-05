@@ -181,8 +181,8 @@ export async function generatePurchaseAgreement(data: PurchaseAgreementData): Pr
       doc.setFont('helvetica', 'normal');
       doc.text(data.productName, col1X, yPos);
       doc.text(data.size, col2X, yPos);
-      // Use payout for manual sales, price for regular sales
-      const displayAmount = data.isManual && data.payout !== undefined ? data.payout : data.price;
+      // Always use payout value (what consignor receives), fallback to price if payout not available
+      const displayAmount = data.payout !== undefined ? data.payout : data.price;
       doc.text(displayAmount.toFixed(2), col3X, yPos);
       yPos += rowHeight + 5;
 
