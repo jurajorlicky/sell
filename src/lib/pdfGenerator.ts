@@ -182,9 +182,8 @@ export async function generatePurchaseAgreement(data: PurchaseAgreementData): Pr
       doc.text(data.productName, col1X, yPos);
       doc.text(data.size, col2X, yPos);
       // Always use payout value (what consignor receives), fallback to price if payout not available
-      // Round to 2 decimal places: if decimal part >= 0.50, round up, otherwise round down
-      let displayAmount = data.payout !== undefined ? data.payout : data.price;
-      displayAmount = Math.round(displayAmount * 100) / 100;
+      // Display the value as-is (already rounded in calculatePayout if needed)
+      const displayAmount = data.payout !== undefined ? data.payout : data.price;
       doc.text(displayAmount.toFixed(2), col3X, yPos);
       yPos += rowHeight + 5;
 
