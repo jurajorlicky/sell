@@ -63,7 +63,10 @@ export async function getFees(): Promise<AdminSettings> {
 
 export function calculatePayout(price: number, feePercent: number, feeFixed: number): number {
   const result = price * (1 - feePercent) - feeFixed;
-  return Math.max(0, result); // Ensure payout is never negative
+  const nonNegative = Math.max(0, result); // Ensure payout is never negative
+  // Round to 2 decimal places: if decimal part >= 0.50, round up, otherwise round down
+  const rounded = Math.round(nonNegative * 100) / 100;
+  return rounded;
 }
 
 // Clear cache function for manual refresh
