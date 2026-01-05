@@ -167,9 +167,8 @@ export async function generatePurchaseAgreement(data: PurchaseAgreementData): Pr
       doc.setFont('helvetica', 'bold');
       doc.text('THE GOODS', col1X, yPos);
       doc.text('SIZE', col2X, yPos);
-      // Use "Payout" label for manual sales, "PRICE IN €" for regular sales
-      const priceLabel = data.isManual ? 'PAYOUT IN €' : 'PRICE IN €';
-      doc.text(priceLabel, col3X, yPos);
+      // Always use "PRICE IN €" label, but use payout value for manual sales
+      doc.text('PRICE IN €', col3X, yPos);
       yPos += rowHeight;
 
       // Table line

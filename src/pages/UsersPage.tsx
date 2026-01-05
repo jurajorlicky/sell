@@ -401,33 +401,41 @@ export default function UsersPage() {
   };
 
   const formatDate = (dateString: string) => {
-    // Handle date strings that might be in different formats
-    // Extract date part and parse as local date to avoid timezone shift
-    let date: Date;
-    
     if (!dateString) {
       return 'N/A';
     }
     
-    // Extract date part (YYYY-MM-DD) from ISO string or use as is
+    // Always extract just the date part (YYYY-MM-DD) and parse as local date
+    // This completely avoids timezone issues
     const dateMatch = dateString.match(/^(\d{4}-\d{2}-\d{2})/);
     if (dateMatch) {
-      // Extract date part and parse as local date to avoid timezone shift
       const [year, month, day] = dateMatch[1].split('-').map(Number);
-      date = new Date(year, month - 1, day);
+      // Create date in local timezone (no time component)
+      const date = new Date(year, month - 1, day);
       
-      // If there's time in the string, extract it too
+      // Extract time if present for display
       const timeMatch = dateString.match(/T(\d{2}):(\d{2}):?(\d{2})?/);
       if (timeMatch) {
         const hours = parseInt(timeMatch[1], 10);
         const minutes = parseInt(timeMatch[2], 10);
+        // Set time on the local date
         date.setHours(hours, minutes, 0, 0);
+      } else {
+        // If no time, set to noon to avoid any timezone edge cases
+        date.setHours(12, 0, 0, 0);
       }
-    } else {
-      // Try to parse as is
-      date = new Date(dateString);
+      
+      return date.toLocaleDateString('sk-SK', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
     }
     
+    // Fallback: try to parse as is
+    const date = new Date(dateString);
     return date.toLocaleDateString('sk-SK', {
       day: '2-digit',
       month: '2-digit',
