@@ -589,41 +589,88 @@ export default function AdminSalesStatusManager({
           // Update invoice sale date separately
           const [year, month, day] = invoiceDate.split('-').map(Number);
           const invoiceDateObj = new Date(year, month - 1, day, 12, 0, 0);
+          const invoiceDateISO = invoiceDateObj.toISOString();
+          
+          logger.debug('Attempting to update invoice sale date', {
+            invoiceDate,
+            originalInvoiceDate,
+            externalId,
+            userId: saleData?.user_id,
+            productId: saleData?.product_id,
+            isoDate: invoiceDateISO
+          });
           
           // Try to find invoice sale by external_id first, then by user_id + product_id
           let updateQuery = supabase
             .from('user_sales')
-            .update({ created_at: invoiceDateObj.toISOString() })
+            .update({ created_at: invoiceDateISO })
             .eq('sale_type', 'invoice');
           
           if (externalId) {
             updateQuery = updateQuery.eq('external_id', externalId);
+            logger.debug('Updating invoice sale by external_id', { externalId });
           } else if (saleData?.user_id && saleData?.product_id) {
             // Fallback: find by user_id and product_id
             updateQuery = updateQuery
               .eq('user_id', saleData.user_id)
               .eq('product_id', saleData.product_id);
+            logger.debug('Updating invoice sale by user_id + product_id', { 
+              userId: saleData.user_id, 
+              productId: saleData.product_id 
+            });
           } else {
-            logger.warn('Cannot update invoice sale date: missing external_id, user_id, or product_id');
+            logger.warn('Cannot update invoice sale date: missing external_id, user_id, or product_id', {
+              externalId,
+              userId: saleData?.user_id,
+              productId: saleData?.product_id
+            });
             throw new Error('Cannot update invoice sale date: missing required identifiers');
           }
           
-          const { error: invoiceUpdateError, data: invoiceUpdateData } = await updateQuery;
+          const { error: invoiceUpdateError, data: invoiceUpdateData, count } = await updateQuery.select();
           
           if (invoiceUpdateError) {
-            logger.warn('Failed to update invoice sale date', invoiceUpdateError);
+            logger.error('Failed to update invoice sale date', invoiceUpdateError);
             throw invoiceUpdateError; // Throw error so user knows it failed
           } else {
-            logger.debug('Updated invoice sale date', {
+            logger.info('Updated invoice sale date successfully', {
               externalId,
               invoiceDate,
-              isoDate: invoiceDateObj.toISOString(),
-              updatedRows: invoiceUpdateData
+              originalInvoiceDate,
+              isoDate: invoiceDateISO,
+              updatedCount: count || (invoiceUpdateData ? invoiceUpdateData.length : 0),
+              updatedData: invoiceUpdateData
             });
             // Update original invoice date after successful save
             setOriginalInvoiceDate(invoiceDate);
+            
+            // Reload invoice date from database to ensure we have the correct value
+            const reloadExternalId = externalId || saleData?.external_id;
+            if (reloadExternalId) {
+              const { data: reloadedInvoiceSale } = await supabase
+                .from('user_sales')
+                .select('created_at')
+                .eq('external_id', reloadExternalId)
+                .eq('sale_type', 'invoice')
+                .maybeSingle();
+              
+              if (reloadedInvoiceSale?.created_at) {
+                const reloadedDate = isoToLocalDateString(reloadedInvoiceSale.created_at);
+                setInvoiceDate(reloadedDate);
+                setOriginalInvoiceDate(reloadedDate);
+                logger.debug('Reloaded invoice date from database', {
+                  reloadedDate,
+                  isoDate: reloadedInvoiceSale.created_at
+                });
+              }
+            }
           }
         }
+      } else {
+        logger.debug('Invoice date unchanged, skipping update', {
+          invoiceDate,
+          originalInvoiceDate
+        });
       }
       
       logger.info('Sale updated successfully');
