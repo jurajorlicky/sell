@@ -401,7 +401,21 @@ export default function UsersPage() {
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+    // Handle date strings that might be in different formats
+    // If it's just a date (YYYY-MM-DD), append time to avoid timezone issues
+    let date: Date;
+    if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      // Date only format - parse as local date to avoid timezone shift
+      const [year, month, day] = dateString.split('-').map(Number);
+      date = new Date(year, month - 1, day);
+    } else if (dateString.includes('T')) {
+      // ISO format with time
+      date = new Date(dateString);
+    } else {
+      // Try to parse as is
+      date = new Date(dateString);
+    }
+    
     return date.toLocaleDateString('sk-SK', {
       day: '2-digit',
       month: '2-digit',

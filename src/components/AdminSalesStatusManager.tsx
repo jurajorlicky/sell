@@ -60,7 +60,7 @@ export default function AdminSalesStatusManager({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [emailSuccess, setEmailSuccess] = useState(false);
-  const [saleData, setSaleData] = useState<{ name: string; user_email: string; sku?: string; price: number; payout: number; external_id?: string; user_id?: string; created_at?: string; size?: string; image_url?: string } | null>(null);
+  const [saleData, setSaleData] = useState<{ name: string; user_email: string; sku?: string; price: number; payout: number; external_id?: string; user_id?: string; created_at?: string; size?: string; image_url?: string; is_manual?: boolean } | null>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [generatingContract, setGeneratingContract] = useState(false);
   const [contractUrl, setContractUrl] = useState<string | null>(null);
@@ -877,6 +877,8 @@ export default function AdminSalesStatusManager({
                     productName: saleData.name,
                     size: saleData.size || '',
                     price: saleData.price,
+                    isManual: saleData.is_manual || false,
+                    payout: saleData.payout,
                     // Buyer (Company - AirKicks)
                     buyerName: 'Juraj Orlický ml.',
                     buyerCIN: '55702660',

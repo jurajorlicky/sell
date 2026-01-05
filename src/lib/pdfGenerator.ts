@@ -7,6 +7,8 @@ export interface PurchaseAgreementData {
   productName: string;
   size: string;
   price: number;
+  isManual?: boolean; // If true, use payout instead of price and show "Payout" label
+  payout?: number; // Payout amount for manual sales
   // Buyer (Company - AirKicks)
   buyerName: string;
   buyerCIN?: string;
@@ -165,7 +167,9 @@ export async function generatePurchaseAgreement(data: PurchaseAgreementData): Pr
       doc.setFont('helvetica', 'bold');
       doc.text('THE GOODS', col1X, yPos);
       doc.text('SIZE', col2X, yPos);
-      doc.text('PRICE IN €', col3X, yPos);
+      // Use "Payout" label for manual sales, "PRICE IN €" for regular sales
+      const priceLabel = data.isManual ? 'PAYOUT IN €' : 'PRICE IN €';
+      doc.text(priceLabel, col3X, yPos);
       yPos += rowHeight;
 
       // Table line
@@ -178,7 +182,9 @@ export async function generatePurchaseAgreement(data: PurchaseAgreementData): Pr
       doc.setFont('helvetica', 'normal');
       doc.text(data.productName, col1X, yPos);
       doc.text(data.size, col2X, yPos);
-      doc.text(data.price.toFixed(2), col3X, yPos);
+      // Use payout for manual sales, price for regular sales
+      const displayAmount = data.isManual && data.payout !== undefined ? data.payout : data.price;
+      doc.text(displayAmount.toFixed(2), col3X, yPos);
       yPos += rowHeight + 5;
 
       // Terms
