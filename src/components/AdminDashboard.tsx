@@ -355,7 +355,7 @@ export default function AdminDashboard() {
           </div>
 
           {/* Revenue Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 lg:gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 lg:gap-6">
             <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-6 border border-gray-200">
               <div className="flex items-center justify-between mb-2 sm:mb-3 lg:mb-4">
                 <h3 className="text-sm sm:text-base lg:text-xl font-bold text-gray-900">Total Revenue</h3>
@@ -380,6 +380,19 @@ export default function AdminDashboard() {
                 {formatCurrency(stats.totalPayout)}
               </p>
               <p className="text-gray-600 text-[10px] sm:text-xs lg:text-sm mt-1 sm:mt-2">Total payouts for sellers</p>
+            </div>
+
+            <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-6 border border-gray-200 shadow-lg">
+              <div className="flex items-center justify-between mb-2 sm:mb-3 lg:mb-4">
+                <h3 className="text-sm sm:text-base lg:text-xl font-bold text-white">Estimated Profit</h3>
+                <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 rounded-lg sm:rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
+                  <FaChartLine className="text-white text-sm sm:text-base lg:text-lg" />
+                </div>
+              </div>
+              <p className="text-lg sm:text-2xl lg:text-4xl font-bold text-white truncate">
+                {formatCurrency(stats.totalRevenue - stats.totalPayout)}
+              </p>
+              <p className="text-white/90 text-[10px] sm:text-xs lg:text-sm mt-1 sm:mt-2">Revenue minus payouts</p>
             </div>
           </div>
 
