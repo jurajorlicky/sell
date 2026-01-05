@@ -71,6 +71,7 @@ export default function AdminSalesStatusManager({
   const [invoiceDate, setInvoiceDate] = useState(''); // Date for invoice sale (used in PDF contract)
   const [originalInvoiceDate, setOriginalInvoiceDate] = useState(''); // Store original invoice date for comparison
   const [notes, setNotes] = useState('');
+  const [originalNotes, setOriginalNotes] = useState(''); // Store original notes for comparison
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -94,7 +95,9 @@ export default function AdminSalesStatusManager({
           .single();
 
         if (!error && data) {
-          if (data.status_notes) setNotes(data.status_notes);
+          const loadedNotes = data.status_notes || '';
+          setNotes(loadedNotes);
+          setOriginalNotes(loadedNotes); // Store original notes for comparison
           if (data.tracking_url) setTrackingUrl(data.tracking_url);
           if (data.label_url) setLabelUrl(data.label_url);
           if (data.contract_url) setContractUrl(data.contract_url);
@@ -499,7 +502,7 @@ export default function AdminSalesStatusManager({
       deliveredAt !== currentDeliveredAtStr ||
       saleDate !== currentSaleDateStr ||
       invoiceDate !== originalInvoiceDate ||
-      (notes.trim() !== '');
+      notes.trim() !== originalNotes.trim();
 
     if (!hasChanges) {
       logger.debug('No changes detected', {
@@ -571,8 +574,9 @@ export default function AdminSalesStatusManager({
           updateData.delivered_at = null;
         }
       }
-      if (notes.trim()) {
-        updateData.status_notes = notes.trim();
+      // Always update notes if they changed (even if empty - to clear notes)
+      if (notes.trim() !== originalNotes.trim()) {
+        updateData.status_notes = notes.trim() || null;
       }
 
       const { error: updateError } = await supabase
@@ -705,6 +709,9 @@ export default function AdminSalesStatusManager({
       
       logger.info('Sale updated successfully');
 
+      // Update original notes after successful save
+      setOriginalNotes(notes.trim());
+
       // Only call callbacks if status or externalId changed (not for invoice date only)
       if (selectedStatus !== currentStatus) {
         onStatusUpdate(selectedStatus);
@@ -810,7 +817,7 @@ export default function AdminSalesStatusManager({
     externalId !== currentExternalId || 
     trackingUrl !== currentTrackingUrl ||
     labelUrl !== currentLabelUrl ||
-    notes.trim();
+    notes.trim() !== originalNotes.trim();
 
   return (
     <div className="space-y-6">
