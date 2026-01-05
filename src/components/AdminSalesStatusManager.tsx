@@ -95,7 +95,8 @@ export default function AdminSalesStatusManager({
             user_id: data.user_id,
             created_at: data.created_at,
             size: data.size || '',
-            image_url: data.image_url || undefined
+            image_url: data.image_url || undefined,
+            is_manual: data.is_manual || false
           });
 
           // Load user profile for PDF generation

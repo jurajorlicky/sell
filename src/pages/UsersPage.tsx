@@ -402,15 +402,27 @@ export default function UsersPage() {
 
   const formatDate = (dateString: string) => {
     // Handle date strings that might be in different formats
-    // If it's just a date (YYYY-MM-DD), append time to avoid timezone issues
+    // Extract date part and parse as local date to avoid timezone shift
     let date: Date;
-    if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      // Date only format - parse as local date to avoid timezone shift
-      const [year, month, day] = dateString.split('-').map(Number);
+    
+    if (!dateString) {
+      return 'N/A';
+    }
+    
+    // Extract date part (YYYY-MM-DD) from ISO string or use as is
+    const dateMatch = dateString.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (dateMatch) {
+      // Extract date part and parse as local date to avoid timezone shift
+      const [year, month, day] = dateMatch[1].split('-').map(Number);
       date = new Date(year, month - 1, day);
-    } else if (dateString.includes('T')) {
-      // ISO format with time
-      date = new Date(dateString);
+      
+      // If there's time in the string, extract it too
+      const timeMatch = dateString.match(/T(\d{2}):(\d{2}):?(\d{2})?/);
+      if (timeMatch) {
+        const hours = parseInt(timeMatch[1], 10);
+        const minutes = parseInt(timeMatch[2], 10);
+        date.setHours(hours, minutes, 0, 0);
+      }
     } else {
       // Try to parse as is
       date = new Date(dateString);
