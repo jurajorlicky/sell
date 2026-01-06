@@ -284,5 +284,27 @@ Ak máte akékoľvek otázky alebo problémy:
 
 ---
 
+## Bezpečnosť a ochrana údajov
+
+### Secure spojenie (HTTPS)
+
+Aplikácia používa **HTTPS** (secure spojenie), čo znamená:
+
+- ✅ **Šifrovaná komunikácia** - všetky vaše údaje (heslá, osobné údaje, bankové údaje) sa odosielajú šifrované
+- ✅ **Ochrana pred odpočúvaním** - nikto nemôže zachytiť a prečítať vaše údaje počas prenosu
+- ✅ **Overenie servera** - prehliadač overuje, že komunikujete so správnym serverom
+
+**Ako to rozpoznať:**
+- V adrese je `https://` (nie `http://`)
+- V prehliadači vidíte ikonu zámku 🔒 alebo text "Secure"
+- Adresný riadok môže byť zelený (v niektorých prehliadačoch)
+
+**Prečo je to dôležité?**
+- Vaše heslo a osobné údaje sú chránené
+- Bankové údaje (IBAN) sa odosielajú bezpečne
+- Nemusíte sa obávať, že by niekto zachytil vaše údaje
+
+---
+
 **Posledná aktualizácia:** 2024
 
