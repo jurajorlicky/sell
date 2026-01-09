@@ -984,9 +984,14 @@ export default function AdminSalesStatusManager({
                   setError(null);
                   
                   // Format seller address
-                  const sellerAddress = [
+                  // Combine address and popisne_cislo without comma (ulica číslo)
+                  const streetAndNumber = [
                     userProfile.address || '',
-                    userProfile.popisne_cislo || '',
+                    userProfile.popisne_cislo || ''
+                  ].filter(Boolean).join(' ');
+                  
+                  const sellerAddress = [
+                    streetAndNumber,
                     userProfile.psc ? `${userProfile.psc} ${userProfile.mesto || ''}` : userProfile.mesto || '',
                     userProfile.krajina || 'Slovakia'
                   ].filter(Boolean).join(', ');
