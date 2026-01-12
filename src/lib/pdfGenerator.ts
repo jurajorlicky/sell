@@ -48,16 +48,50 @@ export async function generatePurchaseAgreement(data: PurchaseAgreementData): Pr
       const margin = 20;
       let yPos = margin;
 
+      // Helper function to fix UTF-8 character issues in jsPDF
+      // jsPDF has known issues with some UTF-8 characters, especially Czech diacritics
+      // This function replaces problematic characters with their ASCII equivalents
+      const fixTextForPDF = (text: string): string => {
+        if (!text) return text;
+        
+        // Map of Czech characters to ASCII equivalents
+        const charMap: { [key: string]: string } = {
+          'á': 'a', 'Á': 'A',
+          'č': 'c', 'Č': 'C',
+          'ď': 'd', 'Ď': 'D',
+          'é': 'e', 'É': 'E',
+          'ě': 'e', 'Ě': 'E',
+          'í': 'i', 'Í': 'I',
+          'ň': 'n', 'Ň': 'N',
+          'ó': 'o', 'Ó': 'O',
+          'ř': 'r', 'Ř': 'R',
+          'š': 's', 'Š': 'S',
+          'ť': 't', 'Ť': 'T',
+          'ú': 'u', 'Ú': 'U',
+          'ů': 'u', 'Ů': 'U',
+          'ý': 'y', 'Ý': 'Y',
+          'ž': 'z', 'Ž': 'Z'
+        };
+        
+        // Replace each problematic character
+        let result = text;
+        for (const [char, replacement] of Object.entries(charMap)) {
+          result = result.replace(new RegExp(char, 'g'), replacement);
+        }
+        
+        return result;
+      };
+
       // Helper function to add text with word wrap
-      // Properly handles UTF-8 characters including Czech diacritics
+      // Fixes UTF-8 character issues by replacing diacritics with ASCII equivalents
       const addText = (text: string, x: number, y: number, maxWidth: number, fontSize: number = 10, align: 'left' | 'center' | 'right' = 'left', fontStyle: 'normal' | 'bold' | 'italic' = 'normal') => {
         doc.setFontSize(fontSize);
         doc.setFont('helvetica', fontStyle);
-        // Ensure text is properly encoded as UTF-8 string
-        const utf8Text = text;
-        // splitTextToSize properly handles UTF-8 characters in jsPDF 3.0+
-        const lines = doc.splitTextToSize(utf8Text, maxWidth);
-        // Use text() method - jsPDF 3.0+ handles UTF-8 correctly
+        // Fix problematic UTF-8 characters for jsPDF compatibility
+        const fixedText = fixTextForPDF(text);
+        // splitTextToSize properly handles text in jsPDF 3.0+
+        const lines = doc.splitTextToSize(fixedText, maxWidth);
+        // Use text() method
         doc.text(lines, x, y, { align });
         return y + (lines.length * fontSize * 0.35);
       };

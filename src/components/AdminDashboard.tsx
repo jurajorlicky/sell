@@ -1,15 +1,19 @@
 import { useEffect, useState, useCallback } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import AdminNavigation from './AdminNavigation';
 import { 
+  FaChartBar, 
   FaUsers, 
   FaShoppingBag, 
   FaEye, 
   FaChartLine, 
-  FaSignOutAlt,
+  FaCog, 
+  FaSignOutAlt, 
+  FaArrowLeft,
   FaUserShield,
   FaPlus,
   FaEuroSign,
+  FaList,
   FaShoppingCart,
   FaChevronDown,
   FaChevronUp
@@ -38,6 +42,7 @@ interface RecentActivity {
 }
 
 export default function AdminDashboard() {
+  const location = useLocation();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<DashboardStats>({
     totalUsers: 0,
@@ -62,7 +67,7 @@ export default function AdminDashboard() {
         supabase.from('profiles').select('id', { count: 'exact' }),
         supabase.from('products').select('id', { count: 'exact' }),
         supabase.from('user_products').select('id, price, payout', { count: 'exact' }),
-        supabase.from('user_sales').select('id, price, payout, sale_type', { count: 'exact' })
+        supabase.from('user_sales').select('id, price, payout', { count: 'exact' })
       ];
 
       const results = await Promise.allSettled(promises);
@@ -72,15 +77,14 @@ export default function AdminDashboard() {
       const totalUsers = usersRes.status === 'fulfilled' ? (usersRes.value.count || 0) : 0;
       const totalProducts = productsRes.status === 'fulfilled' ? (productsRes.value.count || 0) : 0;
       const totalListings = listingsRes.status === 'fulfilled' ? (listingsRes.value.count || 0) : 0;
-      
-      // Filter operational sales if sale_type column exists, otherwise count all (backward compatibility)
-      const operationalSales = salesRes.status === 'fulfilled' && salesRes.value.data 
-        ? salesRes.value.data.filter((sale: any) => !sale.sale_type || sale.sale_type === 'operational')
-        : [];
-      
-      const totalSales = operationalSales.length;
-      const totalRevenue = operationalSales.reduce((sum: number, sale: any) => sum + (sale.price || 0), 0);
-      const totalPayout = operationalSales.reduce((sum: number, sale: any) => sum + (sale.payout || 0), 0);
+      const totalSales = salesRes.status === 'fulfilled' ? (salesRes.value.count || 0) : 0;
+
+      const totalRevenue = salesRes.status === 'fulfilled' && salesRes.value.data 
+        ? salesRes.value.data.reduce((sum: number, sale: any) => sum + (sale.price || 0), 0) 
+        : 0;
+      const totalPayout = salesRes.status === 'fulfilled' && salesRes.value.data 
+        ? salesRes.value.data.reduce((sum: number, sale: any) => sum + (sale.payout || 0), 0) 
+        : 0;
 
       setStats({
         totalUsers,
@@ -167,7 +171,7 @@ export default function AdminDashboard() {
           activities.push({
             id: `user-${user.id}`,
             type: 'user_registered',
-            action: 'New user registered',
+            action: 'Nový používateľ sa zaregistroval',
             created_at: user.created_at,
             icon: FaUsers,
             userEmail: user.email
@@ -181,7 +185,7 @@ export default function AdminDashboard() {
           activities.push({
             id: `product-${product.id}`,
             type: 'product_added',
-            action: 'New product in catalog',
+            action: 'Nový produkt v katalógu',
             created_at: product.created_at,
             icon: FaShoppingBag,
             productName: product.name
@@ -195,7 +199,7 @@ export default function AdminDashboard() {
           activities.push({
             id: `listing-${listing.id}`,
             type: 'listing_added',
-            action: 'Product added to offer',
+            action: 'Produkt bol pridaný do ponuky',
             created_at: listing.created_at,
             icon: FaPlus,
             productName: listing.name,
@@ -212,7 +216,7 @@ export default function AdminDashboard() {
             activities.push({
               id: `sale-completed-${sale.id}`,
               type: 'sale_completed',
-              action: 'Sale completed',
+              action: 'Predaj bol dokončený',
               created_at: sale.created_at,
               icon: FaChartLine,
               productName: sale.name,
@@ -224,7 +228,7 @@ export default function AdminDashboard() {
             activities.push({
               id: `sale-${sale.id}`,
               type: 'sale_created',
-              action: 'New sale created',
+              action: 'Nový predaj bol vytvorený',
               created_at: sale.created_at,
               icon: FaShoppingCart,
               productName: sale.name,
@@ -287,7 +291,7 @@ export default function AdminDashboard() {
                 <h1 className="text-lg sm:text-2xl font-bold text-gray-900">
                   Admin Dashboard
                 </h1>
-                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">System management and data analysis</p>
+                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">Správa systému a analýza dát</p>
               </div>
             </div>
             
@@ -297,7 +301,7 @@ export default function AdminDashboard() {
                 className="inline-flex items-center px-2 py-2 sm:px-4 bg-black text-white font-semibold rounded-xl hover:bg-gray-800 transition-all duration-200 shadow-lg transform hover:scale-105"
               >
                 <FaSignOutAlt className="text-sm sm:mr-2" />
-                <span className="hidden sm:inline">Sign Out</span>
+                <span className="hidden sm:inline">Odhlásiť</span>
               </button>
             </div>
           </div>
@@ -305,48 +309,78 @@ export default function AdminDashboard() {
       </header>
 
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
-        {/* Navigation */}
-        <AdminNavigation />
+        {/* Navigation Tabs */}
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm mb-8 overflow-hidden">
+          <div className="flex overflow-x-auto">
+            {[
+              { id: 'overview', label: 'Prehľad', icon: FaChartBar, path: '/admin' },
+              { id: 'products', label: 'Produkty', icon: FaShoppingBag, path: '/admin/products' },
+              { id: 'listed-products', label: 'Ponuky', icon: FaList, path: '/admin/listed-products' },
+              { id: 'sales', label: 'Predaje', icon: FaShoppingCart, path: '/admin/sales' },
+              { id: 'users', label: 'Užívatelia', icon: FaUsers, path: '/admin/users' },
+              { id: 'settings', label: 'Nastavenia', icon: FaCog, path: '/admin/settings' },
+            ].map((tab) => {
+              const isActive = location.pathname === tab.path;
+              return (
+                <Link
+                  key={tab.id}
+                  to={tab.path}
+                  className={`relative flex items-center px-4 sm:px-6 py-3 sm:py-4 font-semibold transition-all duration-300 min-w-max ${
+                    isActive ? 'text-black' : 'text-gray-600 hover:text-black hover:bg-gray-50'
+                  }`}
+                >
+                  <tab.icon className={`text-base sm:text-sm mr-2 ${isActive ? 'text-black' : 'text-gray-600'}`} />
+                  <span className={`text-sm sm:text-base ${isActive ? 'text-black font-bold' : 'text-gray-600'}`}>
+                    {tab.label}
+                  </span>
+                  {isActive && (
+                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-black rounded-full"></div>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
 
         {/* Overview Dashboard */}
         <div className="space-y-8">
           {/* Stats Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
             {[
               { 
-                title: 'Users', 
+                title: 'Používatelia', 
                 value: stats.totalUsers, 
                 icon: FaUsers, 
                 color: 'from-green-500 to-emerald-500'
               },
               { 
-                title: 'Products', 
+                title: 'Produkty', 
                 value: stats.totalProducts, 
                 icon: FaShoppingBag, 
                 color: 'from-purple-500 to-violet-500'
               },
               { 
-                title: 'Active Offers', 
+                title: 'Aktívne ponuky', 
                 value: stats.totalListings, 
                 icon: FaEye, 
                 color: 'from-orange-500 to-amber-500'
               },
               { 
-                title: 'Sales', 
+                title: 'Predaje', 
                 value: stats.totalSales, 
                 icon: FaChartLine, 
                 color: 'from-blue-500 to-cyan-500'
               },
             ].map((stat, index) => (
               <div key={index} className="relative group">
-                <div className="bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-3 lg:p-6 border border-gray-200 hover:border-gray-300 transition-all duration-300 transform hover:scale-105 hover:shadow-lg">
+                <div className="bg-white rounded-2xl p-4 sm:p-6 border border-gray-200 hover:border-gray-300 transition-all duration-300 transform hover:scale-105 hover:shadow-lg">
                   <div className="flex items-center justify-between">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-gray-600 text-[10px] sm:text-xs lg:text-sm font-medium truncate">{stat.title}</p>
-                      <p className="text-base sm:text-lg lg:text-3xl font-bold text-gray-900 mt-1 sm:mt-2">{stat.value.toLocaleString()}</p>
+                    <div>
+                      <p className="text-gray-600 text-xs sm:text-sm font-medium">{stat.title}</p>
+                      <p className="text-2xl sm:text-3xl font-bold text-gray-900 mt-2">{stat.value.toLocaleString()}</p>
                     </div>
-                    <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-16 lg:h-16 rounded-lg sm:rounded-xl lg:rounded-2xl bg-black flex items-center justify-center shadow-lg flex-shrink-0 ml-1 sm:ml-2">
-                      <stat.icon className="text-white text-sm sm:text-base lg:text-2xl" />
+                    <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-black flex items-center justify-center shadow-lg">
+                      <stat.icon className="text-white text-2xl" />
                     </div>
                   </div>
                 </div>
@@ -355,44 +389,31 @@ export default function AdminDashboard() {
           </div>
 
           {/* Revenue Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 lg:gap-6">
-            <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-6 border border-gray-200">
-              <div className="flex items-center justify-between mb-2 sm:mb-3 lg:mb-4">
-                <h3 className="text-sm sm:text-base lg:text-xl font-bold text-gray-900">Total Revenue</h3>
-                <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 rounded-lg sm:rounded-xl bg-black flex items-center justify-center flex-shrink-0">
-                  <FaEuroSign className="text-white text-sm sm:text-base lg:text-lg" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+            <div className="bg-white rounded-2xl p-4 sm:p-6 border border-gray-200">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg sm:text-xl font-bold text-gray-900">Celkové tržby</h3>
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-black flex items-center justify-center">
+                  <FaEuroSign className="text-white text-lg" />
                 </div>
               </div>
-              <p className="text-lg sm:text-2xl lg:text-4xl font-bold text-gray-900 truncate">
+              <p className="text-2xl sm:text-4xl font-bold text-gray-900">
                 {formatCurrency(stats.totalRevenue)}
               </p>
-              <p className="text-gray-600 text-[10px] sm:text-xs lg:text-sm mt-1 sm:mt-2">Total revenue from all sales</p>
+              <p className="text-gray-600 text-xs sm:text-sm mt-2">Celkové tržby zo všetkých predajov</p>
             </div>
 
-            <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-6 border border-gray-200">
-              <div className="flex items-center justify-between mb-2 sm:mb-3 lg:mb-4">
-                <h3 className="text-sm sm:text-base lg:text-xl font-bold text-gray-900">Total Payouts</h3>
-                <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 rounded-lg sm:rounded-xl bg-black flex items-center justify-center flex-shrink-0">
-                  <FaChartLine className="text-white text-sm sm:text-base lg:text-lg" />
+            <div className="bg-white rounded-2xl p-4 sm:p-6 border border-gray-200">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg sm:text-xl font-bold text-gray-900">Celkové výplaty</h3>
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-black flex items-center justify-center">
+                  <FaChartLine className="text-white text-lg" />
                 </div>
               </div>
-              <p className="text-lg sm:text-2xl lg:text-4xl font-bold text-gray-900 truncate">
+              <p className="text-2xl sm:text-4xl font-bold text-gray-900">
                 {formatCurrency(stats.totalPayout)}
               </p>
-              <p className="text-gray-600 text-[10px] sm:text-xs lg:text-sm mt-1 sm:mt-2">Total payouts for sellers</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-6 border border-gray-200 shadow-lg">
-              <div className="flex items-center justify-between mb-2 sm:mb-3 lg:mb-4">
-                <h3 className="text-sm sm:text-base lg:text-xl font-bold text-white">Estimated Profit</h3>
-                <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 rounded-lg sm:rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
-                  <FaChartLine className="text-white text-sm sm:text-base lg:text-lg" />
-                </div>
-              </div>
-              <p className="text-lg sm:text-2xl lg:text-4xl font-bold text-white truncate">
-                {formatCurrency(stats.totalRevenue - stats.totalPayout)}
-              </p>
-              <p className="text-white/90 text-[10px] sm:text-xs lg:text-sm mt-1 sm:mt-2">Revenue minus payouts</p>
+              <p className="text-gray-600 text-xs sm:text-sm mt-2">Celkové výplaty pre predajcov</p>
             </div>
           </div>
 
@@ -400,36 +421,36 @@ export default function AdminDashboard() {
           <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
             <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg sm:text-xl font-bold text-gray-900">Recent Activity</h3>
+                <h3 className="text-lg sm:text-xl font-bold text-gray-900">Nedávna aktivita</h3>
                 <div className="flex items-center space-x-2">
                   <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
                   <span className="text-xs sm:text-sm text-gray-600">Live</span>
                 </div>
               </div>
             </div>
-            <div className="p-2 sm:p-3 lg:p-6">
+            <div className="p-4 sm:p-6">
               {recentActivities.length > 0 ? (
                 <>
-                  <div className="space-y-2 sm:space-y-3 lg:space-y-4">
+                  <div className="space-y-4">
                     {(showAllActivities ? allActivities : recentActivities).map((activity) => {
                       const IconComponent = activity.icon;
                       return (
-                        <div key={activity.id} className="flex items-start space-x-2 sm:space-x-3 lg:space-x-4 p-1.5 sm:p-2 lg:p-3 rounded-lg sm:rounded-xl hover:bg-gray-50 transition-colors">
-                          <div className="w-7 h-7 sm:w-8 sm:h-8 lg:w-10 lg:h-10 rounded-lg sm:rounded-xl bg-black flex items-center justify-center flex-shrink-0">
-                            <IconComponent className="text-xs sm:text-sm text-white" />
+                        <div key={activity.id} className="flex items-start space-x-3 sm:space-x-4 p-2 sm:p-3 rounded-xl hover:bg-gray-50 transition-colors">
+                          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-black flex items-center justify-center flex-shrink-0">
+                            <IconComponent className="text-sm text-white" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-gray-900 text-[10px] sm:text-xs lg:text-sm font-medium break-words">{activity.action}</p>
+                            <p className="text-gray-900 text-xs sm:text-sm font-medium">{activity.action}</p>
                             {activity.productName && (
-                              <p className="text-gray-700 text-[10px] sm:text-xs lg:text-sm mt-0.5 sm:mt-1 font-semibold truncate">{activity.productName}</p>
+                              <p className="text-gray-700 text-xs sm:text-sm mt-1 font-semibold">{activity.productName}</p>
                             )}
                             {activity.price && (
-                              <p className="text-gray-600 text-[10px] sm:text-xs mt-0.5">{formatCurrency(activity.price)}</p>
+                              <p className="text-gray-600 text-xs mt-1">{formatCurrency(activity.price)}</p>
                             )}
                             {activity.userEmail && (
-                              <p className="text-gray-500 text-[10px] sm:text-xs mt-0.5 truncate">From: {activity.userEmail}</p>
+                              <p className="text-gray-500 text-xs mt-1">Od: {activity.userEmail}</p>
                             )}
-                            <p className="text-gray-500 text-[10px] sm:text-xs mt-0.5">{formatTimeAgo(activity.created_at)}</p>
+                            <p className="text-gray-500 text-xs mt-1">{formatTimeAgo(activity.created_at)}</p>
                           </div>
                         </div>
                       );
@@ -441,7 +462,7 @@ export default function AdminDashboard() {
                         onClick={() => setShowAllActivities(!showAllActivities)}
                         className="w-full flex items-center justify-center space-x-2 px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-xl transition-colors"
                       >
-                        <span>{showAllActivities ? 'Hide' : recentActivities.length < allActivities.length ? `Show all (${allActivities.length})` : `Show history (${allActivities.length})`}</span>
+                        <span>{showAllActivities ? 'Skryť' : recentActivities.length < allActivities.length ? `Zobraziť všetko (${allActivities.length})` : `Zobraziť históriu (${allActivities.length})`}</span>
                         {showAllActivities ? (
                           <FaChevronUp className="text-xs" />
                         ) : (
@@ -453,8 +474,8 @@ export default function AdminDashboard() {
                 </>
               ) : (
                 <div className="text-center py-8">
-                  <p className="text-gray-600 text-sm">No recent activity</p>
-                  <p className="text-gray-500 text-xs mt-2">Activities from the last 24 hours will be displayed here</p>
+                  <p className="text-gray-600 text-sm">Žiadna nedávna aktivita</p>
+                  <p className="text-gray-500 text-xs mt-2">Aktivity za posledných 24 hodín sa zobrazia tu</p>
                 </div>
               )}
             </div>
