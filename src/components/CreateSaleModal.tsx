@@ -8,6 +8,8 @@ interface CreateSaleModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSaleCreated: () => void;
+  preSelectedUserId?: string; // Optional: pre-select a user by ID
+  preSelectedUserEmail?: string; // Optional: pre-select a user by email
 }
 
 interface User {
@@ -24,7 +26,7 @@ interface Product {
   sku?: string;
 }
 
-export default function CreateSaleModal({ isOpen, onClose, onSaleCreated }: CreateSaleModalProps) {
+export default function CreateSaleModal({ isOpen, onClose, onSaleCreated, preSelectedUserId, preSelectedUserEmail }: CreateSaleModalProps) {
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -69,6 +71,22 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated }: Crea
       setSaleDate(dateString);
     }
   }, [isOpen]);
+
+  // Pre-select user when users are loaded and preSelectedUserId/preSelectedUserEmail is provided
+  useEffect(() => {
+    if (isOpen && allUsers.length > 0 && (preSelectedUserId || preSelectedUserEmail) && !selectedUserId) {
+      let user: User | undefined;
+      if (preSelectedUserId) {
+        user = allUsers.find(u => u.id === preSelectedUserId);
+      } else if (preSelectedUserEmail) {
+        user = allUsers.find(u => u.email === preSelectedUserEmail);
+      }
+      
+      if (user) {
+        handleUserSelect(user);
+      }
+    }
+  }, [isOpen, allUsers, preSelectedUserId, preSelectedUserEmail, selectedUserId]);
 
   // Close suggestions when clicking outside
   useEffect(() => {

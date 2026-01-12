@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import SalesStatusBadge from '../components/SalesStatusBadge';
 import AdminSalesStatusManager from '../components/AdminSalesStatusManager';
+import CreateSaleModal from '../components/CreateSaleModal';
 import AdminNavigation from '../components/AdminNavigation';
 import { 
   FaSignOutAlt, 
@@ -24,7 +25,8 @@ import {
   FaBox,
   FaSignature,
   FaTrash,
-  FaChartBar
+  FaChartBar,
+  FaPlus
 } from 'react-icons/fa';
 
 interface UserProfile {
@@ -105,6 +107,7 @@ export default function UsersPage() {
   const [userOperations, setUserOperations] = useState<any[]>([]);
   const [loadingOperations, setLoadingOperations] = useState(false);
   const [selectedSaleForStatus, setSelectedSaleForStatus] = useState<UserSale | null>(null);
+  const [showCreateSaleModal, setShowCreateSaleModal] = useState(false);
 
   const loadUsers = useCallback(async () => {
     try {
@@ -944,7 +947,17 @@ export default function UsersPage() {
                     {/* Sales Tab */}
                     {activeTab === 'sales' && (
                       <div>
-                        <h4 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Predaje ({userSales.length})</h4>
+                        <div className="flex items-center justify-between mb-3 sm:mb-4">
+                          <h4 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900">Predaje ({userSales.length})</h4>
+                          <button
+                            onClick={() => setShowCreateSaleModal(true)}
+                            className="inline-flex items-center px-2 py-1.5 sm:px-3 sm:py-2 bg-black text-white text-xs sm:text-sm font-semibold rounded-lg sm:rounded-xl hover:bg-gray-800 transition-all duration-200 shadow-sm transform hover:scale-105"
+                            title="Vytvoriť nový predaj"
+                          >
+                            <FaPlus className="text-xs sm:text-sm sm:mr-1.5" />
+                            <span className="hidden sm:inline">Nový predaj</span>
+                          </button>
+                        </div>
                         {userSales.length > 0 ? (
                           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                             {userSales.map((sale) => (
@@ -1186,6 +1199,23 @@ export default function UsersPage() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* Create Sale Modal */}
+        {selectedUser && (
+          <CreateSaleModal
+            isOpen={showCreateSaleModal}
+            onClose={() => setShowCreateSaleModal(false)}
+            onSaleCreated={async () => {
+              setShowCreateSaleModal(false);
+              // Reload user details to get updated sales
+              if (selectedUser) {
+                await loadUserDetails(selectedUser.id);
+              }
+            }}
+            preSelectedUserId={selectedUser.id}
+            preSelectedUserEmail={selectedUser.email}
+          />
         )}
       </div>
     </div>
