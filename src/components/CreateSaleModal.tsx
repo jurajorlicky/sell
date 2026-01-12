@@ -687,22 +687,6 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated, preSel
               />
             </div>
 
-            {/* Send Email Toggle */}
-            {selectedUser?.email && (
-              <div className="flex items-center space-x-3 p-4 bg-gray-50 rounded-xl border border-gray-200">
-                <input
-                  type="checkbox"
-                  id="sendEmail"
-                  checked={sendEmail}
-                  onChange={(e) => setSendEmail(e.target.checked)}
-                  className="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 focus:ring-2"
-                />
-                <label htmlFor="sendEmail" className="text-sm font-medium text-gray-900 cursor-pointer">
-                  Send email notification to {selectedUser.email}
-                </label>
-              </div>
-            )}
-
             {/* Product Image (display only) */}
             {selectedProductId && imageUrl && (
               <div>
@@ -719,6 +703,22 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated, preSel
                     }}
                   />
                 </div>
+              </div>
+            )}
+
+            {/* Send Email Toggle - moved to bottom */}
+            {selectedUser?.email && (
+              <div className="flex items-center space-x-3 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                <input
+                  type="checkbox"
+                  id="sendEmail"
+                  checked={sendEmail}
+                  onChange={(e) => setSendEmail(e.target.checked)}
+                  className="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 focus:ring-2"
+                />
+                <label htmlFor="sendEmail" className="text-sm font-medium text-gray-900 cursor-pointer">
+                  Send email notification to {selectedUser.email}
+                </label>
               </div>
             )}
 

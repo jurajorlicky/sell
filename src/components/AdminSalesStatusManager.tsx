@@ -1038,7 +1038,7 @@ export default function AdminSalesStatusManager({
                     isManual: saleData.is_manual || false,
                     payout: saleData.payout,
                     // Buyer (Company - AirKicks)
-                    buyerName: 'Juraj Orlický ml.',
+                    buyerName: 'Juraj Orlicky ml.',
                     buyerCIN: '55702660',
                     buyerAddress: buyerAddress,
                     buyerEmail: 'info@airkicks.eu',

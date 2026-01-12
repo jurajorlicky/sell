@@ -1202,21 +1202,19 @@ export default function UsersPage() {
         )}
 
         {/* Create Sale Modal */}
-        {selectedUser && (
-          <CreateSaleModal
-            isOpen={showCreateSaleModal}
-            onClose={() => setShowCreateSaleModal(false)}
-            onSaleCreated={async () => {
-              setShowCreateSaleModal(false);
-              // Reload user details to get updated sales
-              if (selectedUser) {
-                await loadUserDetails(selectedUser.id);
-              }
-            }}
-            preSelectedUserId={selectedUser.id}
-            preSelectedUserEmail={selectedUser.email}
-          />
-        )}
+        <CreateSaleModal
+          isOpen={showCreateSaleModal && !!selectedUser}
+          onClose={() => setShowCreateSaleModal(false)}
+          onSaleCreated={async () => {
+            setShowCreateSaleModal(false);
+            // Reload user details to get updated sales
+            if (selectedUser) {
+              await loadUserDetails(selectedUser.id);
+            }
+          }}
+          preSelectedUserId={selectedUser?.id}
+          preSelectedUserEmail={selectedUser?.email}
+        />
       </div>
     </div>
   );
