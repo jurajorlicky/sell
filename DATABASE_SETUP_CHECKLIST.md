@@ -441,3 +441,4 @@ ORDER BY tablename, indexname;
 
 **Posledná aktualizácia:** 2024
 
+

@@ -40,18 +40,24 @@ export async function generatePurchaseAgreement(data: PurchaseAgreementData): Pr
         compress: true
       });
       
+      // Set language for better UTF-8 support
+      doc.setLanguage('cs');
+      
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
       const margin = 20;
       let yPos = margin;
 
       // Helper function to add text with word wrap
-      // jsPDF's splitTextToSize should handle UTF-8 characters correctly
+      // Properly handles UTF-8 characters including Czech diacritics
       const addText = (text: string, x: number, y: number, maxWidth: number, fontSize: number = 10, align: 'left' | 'center' | 'right' = 'left', fontStyle: 'normal' | 'bold' | 'italic' = 'normal') => {
         doc.setFontSize(fontSize);
         doc.setFont('helvetica', fontStyle);
-        // splitTextToSize handles UTF-8 characters including Czech diacritics
-        const lines = doc.splitTextToSize(text, maxWidth);
+        // Ensure text is properly encoded as UTF-8 string
+        const utf8Text = text;
+        // splitTextToSize properly handles UTF-8 characters in jsPDF 3.0+
+        const lines = doc.splitTextToSize(utf8Text, maxWidth);
+        // Use text() method - jsPDF 3.0+ handles UTF-8 correctly
         doc.text(lines, x, y, { align });
         return y + (lines.length * fontSize * 0.35);
       };

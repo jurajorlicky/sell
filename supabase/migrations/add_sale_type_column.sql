@@ -18,3 +18,4 @@ END $$;
 CREATE INDEX IF NOT EXISTS idx_user_sales_sale_type ON user_sales(sale_type);
 CREATE INDEX IF NOT EXISTS idx_user_sales_user_id_sale_type ON user_sales(user_id, sale_type);
 
+

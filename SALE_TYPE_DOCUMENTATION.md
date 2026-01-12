@@ -31,3 +31,4 @@ Run the migration file `supabase/migrations/add_sale_type_column.sql` to add the
 - Add export functionality for invoice sales
 - Add separate status tracking for invoice sales if needed
 
+

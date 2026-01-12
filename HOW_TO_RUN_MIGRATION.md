@@ -51,3 +51,4 @@ GROUP BY sale_type;
 
 This should show all existing sales with `sale_type = 'operational'`.
 
+

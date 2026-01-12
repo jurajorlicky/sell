@@ -18,3 +18,4 @@ END $$;
 -- Add index for better query performance
 CREATE INDEX IF NOT EXISTS idx_user_sales_invoice_date ON user_sales(invoice_date);
 
+
