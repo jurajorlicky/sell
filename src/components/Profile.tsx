@@ -1067,6 +1067,7 @@ export default function Profile() {
                     >
                       <option value="Slovakia">Slovakia</option>
                       <option value="Czech Republic">Czech Republic</option>
+                      <option value="Poland">Poland</option>
                       <option value="Hungary">Hungary</option>
                       <option value="Romania">Romania</option>
                     </select>
