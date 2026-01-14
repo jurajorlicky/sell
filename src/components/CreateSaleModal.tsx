@@ -62,19 +62,39 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated, preSel
 
   useEffect(() => {
     if (isOpen) {
-      loadUsers();
-      loadProducts();
-      resetForm();
+      // Reset form fields (but keep user if pre-selected)
+      if (!preSelectedUserId && !preSelectedUserEmail) {
+        resetForm();
+      } else {
+        // Reset only non-user fields
+        setProductSearch('');
+        setSelectedProductId('');
+        setSelectedProduct(null);
+        setProductName('');
+        setSize('');
+        setPrice('');
+        setPayout('');
+        setSku('');
+        setImageUrl('');
+        setExternalId('');
+        setAvailableSizes([]);
+        setShowProductSuggestions(false);
+      }
+      
       // Set default date to today
       const today = new Date();
       const dateString = today.toISOString().split('T')[0];
       setSaleDate(dateString);
+      
+      // Load users and products
+      loadUsers();
+      loadProducts();
     }
-  }, [isOpen]);
+  }, [isOpen, preSelectedUserId, preSelectedUserEmail]);
 
   // Pre-select user when users are loaded and preSelectedUserId/preSelectedUserEmail is provided
   useEffect(() => {
-    if (isOpen && allUsers.length > 0 && (preSelectedUserId || preSelectedUserEmail) && !selectedUserId) {
+    if (isOpen && allUsers.length > 0 && (preSelectedUserId || preSelectedUserEmail)) {
       let user: User | undefined;
       if (preSelectedUserId) {
         user = allUsers.find(u => u.id === preSelectedUserId);
@@ -82,11 +102,15 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated, preSel
         user = allUsers.find(u => u.email === preSelectedUserEmail);
       }
       
+      // Always select user if found (force selection when pre-selected)
       if (user) {
-        handleUserSelect(user);
+        setSelectedUserId(user.id);
+        setSelectedUser(user);
+        setUserEmailSearch(user.email);
+        setShowUserSuggestions(false);
       }
     }
-  }, [isOpen, allUsers, preSelectedUserId, preSelectedUserEmail, selectedUserId]);
+  }, [isOpen, allUsers, preSelectedUserId, preSelectedUserEmail]);
 
   // Close suggestions when clicking outside
   useEffect(() => {
@@ -370,7 +394,7 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated, preSel
 
   return (
     <div 
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-[70]"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           onClose();
@@ -706,7 +730,7 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated, preSel
               </div>
             )}
 
-            {/* Send Email Toggle - moved to bottom */}
+            {/* Send Email Toggle - at the very bottom before buttons */}
             {selectedUser?.email && (
               <div className="flex items-center space-x-3 p-4 bg-gray-50 rounded-xl border border-gray-200">
                 <input

@@ -1203,7 +1203,7 @@ export default function UsersPage() {
 
         {/* Create Sale Modal */}
         <CreateSaleModal
-          isOpen={showCreateSaleModal && !!selectedUser}
+          isOpen={showCreateSaleModal}
           onClose={() => setShowCreateSaleModal(false)}
           onSaleCreated={async () => {
             setShowCreateSaleModal(false);
