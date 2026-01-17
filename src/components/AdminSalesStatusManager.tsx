@@ -985,11 +985,15 @@ export default function AdminSalesStatusManager({
                   
                   // Format seller address
                   // Format: "Ulica číslo, PSC Mesto, Krajina"
-                  // Combine address and popisne_cislo without comma (ulica číslo)
-                  const streetAndNumber = [
-                    userProfile.address || '',
-                    userProfile.popisne_cislo || ''
-                  ].filter(Boolean).join(' ');
+                  // Combine address and popisne_cislo without duplication (ulica číslo)
+                  const addressBase = (userProfile.address || '').trim();
+                  const houseNumber = (userProfile.popisne_cislo || '').trim();
+                  const addressHasNumber =
+                    houseNumber.length > 0 &&
+                    addressBase.toLowerCase().includes(houseNumber.toLowerCase());
+                  const streetAndNumber = [addressBase, addressHasNumber ? '' : houseNumber]
+                    .filter(Boolean)
+                    .join(' ');
                   
                   // Build address parts: ulica číslo, PSC Mesto, Krajina
                   const addressParts = [];
