@@ -4,6 +4,7 @@ import SalesStatusBadge from '../components/SalesStatusBadge';
 import AdminSalesStatusManager from '../components/AdminSalesStatusManager';
 import CreateSaleModal from '../components/CreateSaleModal';
 import AdminNavigation from '../components/AdminNavigation';
+import { formatDate } from '../lib/utils';
 import {
   FaSearch,
   FaSignOutAlt,
@@ -16,7 +17,8 @@ import {
   FaFilter,
   FaTimes,
   FaTruck,
-  FaPlus
+  FaPlus,
+  FaDownload
 } from 'react-icons/fa';
 
 interface Sale {
@@ -132,16 +134,6 @@ export default function SalesPage() {
     loadSales();
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('sk-SK', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
-  };
-
-
   useEffect(() => {
     loadSales();
   }, []);
@@ -199,6 +191,36 @@ export default function SalesPage() {
   };
 
   const hasActiveFilters = statusFilter || dateFrom || dateTo || userEmailFilter || searchTerm || quickFilter;
+
+  const exportToCSV = () => {
+    if (filteredSales.length === 0) return;
+    
+    const headers = ['ID', 'External ID', 'Product', 'Size', 'SKU', 'Price', 'Payout', 'Status', 'User Email', 'Date'];
+    const rows = filteredSales.map(sale => [
+      sale.id,
+      sale.external_id || '',
+      sale.name,
+      sale.size,
+      sale.sku || '',
+      sale.price,
+      sale.payout,
+      sale.status,
+      sale.user_email || '',
+      sale.created_at ? new Date(sale.created_at).toISOString().split('T')[0] : ''
+    ]);
+    
+    const csvContent = [headers, ...rows]
+      .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `sales_export_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   // Calculate statistics
   const totalRevenue = sales.reduce((sum, sale) => sum + sale.price, 0);
@@ -419,6 +441,14 @@ export default function SalesPage() {
                     <span className="ml-1 w-2 h-2 bg-green-500 rounded-full"></span>
                   )}
                 </button>
+                <button
+                  onClick={exportToCSV}
+                  disabled={filteredSales.length === 0}
+                  className="inline-flex items-center px-3 py-2 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-all duration-200 disabled:opacity-50"
+                  title="Export to CSV"
+                >
+                  <FaDownload className="text-gray-600 text-sm" />
+                </button>
                 {hasActiveFilters && (
                   <button
                     onClick={clearFilters}
@@ -562,6 +592,7 @@ export default function SalesPage() {
                     <div className="flex items-start space-x-2 sm:space-x-3 lg:space-x-4 mb-2 sm:mb-3 lg:mb-4">
                       <div className="h-14 w-14 sm:h-16 sm:w-16 lg:h-20 lg:w-20 flex-shrink-0 overflow-hidden rounded-lg sm:rounded-xl border border-gray-200 bg-white">
                           <img
+                            loading="lazy"
                             className="h-full w-full object-contain p-2"
                             src={sale.image_url || '/default-image.png'}
                             alt={sale.name}
@@ -696,7 +727,7 @@ export default function SalesPage() {
                     <div className="flex items-center justify-between mb-2 sm:mb-3 lg:mb-4">
                       <div className="text-[10px] sm:text-xs text-gray-600">
                         <p className="truncate">{sale.user_email}</p>
-                        <p className="mt-0.5 sm:mt-1">{formatDate(sale.created_at)}</p>
+                        <p className="mt-0.5 sm:mt-1">{formatDate(sale.created_at, false)}</p>
                       </div>
                     </div>
 
@@ -742,6 +773,7 @@ export default function SalesPage() {
               <div className="bg-gray-50 rounded-xl p-3 sm:p-4 mb-3 sm:mb-4 lg:mb-6 border border-gray-200">
                 <div className="flex items-center space-x-3 sm:space-x-4">
                   <img 
+                    loading="lazy"
                     src={selectedSaleForStatus.image_url || '/default-image.png'} 
                     alt={selectedSaleForStatus.name}
                     className="h-12 w-12 sm:h-16 sm:w-16 rounded-lg object-cover"

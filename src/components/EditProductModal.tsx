@@ -304,6 +304,7 @@ export default function EditProductModal({
                 <div className="h-16 w-16 sm:h-20 sm:w-20 flex-shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-white">
                   {product.image_url && (
                     <img 
+                      loading="lazy"
                       src={product.image_url} 
                       alt={product.name}
                       className="h-full w-full object-contain p-2"

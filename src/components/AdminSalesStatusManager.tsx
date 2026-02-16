@@ -167,22 +167,20 @@ export default function AdminSalesStatusManager({
   }, [saleId]);
 
   const handleFileUpload = async (file: File) => {
-    console.log('handleFileUpload called', { file, fileName: file?.name, fileType: file?.type, fileSize: file?.size });
-    
     if (!file) {
-      console.error('No file provided');
+      logger.error('No file provided');
       setError('No file selected');
       return;
     }
     
     if (file.type !== 'application/pdf') {
-      console.warn('Invalid file type', { fileType: file.type });
+      logger.warn('Invalid file type', { fileType: file.type });
       setError('Please upload a PDF file. Selected type: ' + file.type);
       return;
     }
 
     if (file.size > 10 * 1024 * 1024) { // 10MB limit
-      console.warn('File too large', { fileSize: file.size });
+      logger.warn('File too large', { fileSize: file.size });
       setError('File is too large. Maximum size is 10MB');
       return;
     }
@@ -191,7 +189,6 @@ export default function AdminSalesStatusManager({
       setUploading(true);
       setError(null);
       logger.info('Uploading label PDF', { saleId, fileName: file.name, fileSize: file.size });
-      console.log('Starting upload process', { saleId, fileName: file.name, fileSize: file.size });
 
       // Delete old file if exists
       if (labelUrl) {
@@ -227,8 +224,6 @@ export default function AdminSalesStatusManager({
       const fileExt = file.name.split('.').pop() || 'pdf';
       const fileName = `${saleId}-${Date.now()}.${fileExt}`;
       const filePath = `sales/${fileName}`;
-
-      console.log('Attempting to upload file', { filePath, bucket: 'labels' });
       
       // Try to upload directly - if bucket doesn't exist, we'll get an error
       // Note: listBuckets() might not work due to permissions, so we try upload first
@@ -239,11 +234,9 @@ export default function AdminSalesStatusManager({
           upsert: true // Allow overwriting if file exists
         });
 
-      console.log('Upload result', { uploadData, uploadError });
-
       if (uploadError) {
         logger.error('Upload error details', { uploadError, filePath });
-        console.error('Upload failed', { 
+        logger.error('Upload failed', { 
           error: uploadError, 
           message: uploadError.message,
           errorDetails: JSON.stringify(uploadError, null, 2)
@@ -260,23 +253,17 @@ export default function AdminSalesStatusManager({
           throw new Error(`Upload error: ${uploadError.message || JSON.stringify(uploadError)}`);
         }
       }
-      
-      console.log('File uploaded successfully', { uploadData });
 
       // Get public URL
       const { data: urlData } = supabase.storage
         .from('labels')
         .getPublicUrl(filePath);
 
-      console.log('Public URL generated', { urlData });
-
       const newLabelUrl = urlData.publicUrl;
       setLabelUrl(newLabelUrl);
       logger.info('Label uploaded successfully', { newLabelUrl, filePath });
-      console.log('Label URL set in state', { newLabelUrl });
 
       // Update database
-      console.log('Updating database with label_url', { saleId, newLabelUrl });
       const { error: updateError } = await supabase
         .from('user_sales')
         .update({ label_url: newLabelUrl, updated_at: new Date().toISOString() })
@@ -284,11 +271,10 @@ export default function AdminSalesStatusManager({
 
       if (updateError) {
         logger.error('Database update error', updateError);
-        console.error('Database update failed', updateError);
+        logger.error('Database update failed', updateError);
         throw new Error('Error saving URL to database: ' + updateError.message);
       }
       logger.info('Label URL saved to database');
-      console.log('Database updated successfully');
       
       // Show success message
       setError(null);
@@ -296,7 +282,7 @@ export default function AdminSalesStatusManager({
       
     } catch (err: any) {
       logger.error('Error uploading label', err);
-      console.error('Upload error caught', { 
+      logger.error('Upload error caught', { 
         error: err, 
         message: err.message, 
         stack: err.stack,
@@ -306,7 +292,6 @@ export default function AdminSalesStatusManager({
       setError(errorMessage);
     } finally {
       setUploading(false);
-      console.log('Upload process finished');
     }
   };
 
@@ -389,11 +374,11 @@ export default function AdminSalesStatusManager({
               .from('labels')
               .remove([filePath]);
             if (deleteError) {
-              console.warn('Failed to delete label from storage:', deleteError);
+              logger.warn('Failed to delete label from storage:', deleteError);
             }
           }
         } catch (err) {
-          console.warn('Error deleting label from storage:', err);
+          logger.warn('Error deleting label from storage:', err);
         }
       }
 
@@ -405,10 +390,10 @@ export default function AdminSalesStatusManager({
             .from('contracts')
             .remove([filePath]);
           if (deleteError) {
-            console.warn('Failed to delete contract from storage:', deleteError);
+            logger.warn('Failed to delete contract from storage:', deleteError);
           }
         } catch (err) {
-          console.warn('Error deleting contract from storage:', err);
+          logger.warn('Error deleting contract from storage:', err);
         }
       }
 
@@ -696,7 +681,7 @@ export default function AdminSalesStatusManager({
             email: saleData.user_email,
             saleId: saleId
           });
-          console.error('Email error details:', emailError);
+          logger.error('Email error details:', emailError);
           // Show error to user but don't fail the save
           setError(`Warning: Email notification could not be sent: ${emailError?.message || 'Unknown error'}. Sale was saved successfully.`);
         }
@@ -1154,13 +1139,11 @@ export default function AdminSalesStatusManager({
                 type="file"
                 accept="application/pdf"
                 onChange={(e) => {
-                  console.log('File input changed', { files: e.target.files, fileCount: e.target.files?.length });
                   const file = e.target.files?.[0];
-                  console.log('Selected file', { file, fileName: file?.name, fileType: file?.type, fileSize: file?.size });
                   if (file) {
                     handleFileUpload(file);
                   } else {
-                    console.warn('No file selected');
+                    logger.warn('No file selected');
                     setError('No file selected');
                   }
                   // Reset input to allow selecting same file again

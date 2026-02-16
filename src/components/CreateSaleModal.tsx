@@ -544,6 +544,7 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated, preSel
                         >
                           {product.image_url && (
                             <img 
+                              loading="lazy"
                               src={product.image_url} 
                               alt={product.name}
                               className="w-10 h-10 object-contain"
@@ -719,6 +720,7 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated, preSel
                 </label>
                 <div className="mt-2">
                   <img 
+                    loading="lazy"
                     src={imageUrl} 
                     alt={productName}
                     className="w-32 h-32 object-contain border border-gray-200 rounded-lg bg-gray-50"

@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
+import { formatDate, formatCurrency } from '../lib/utils';
 import SalesStatusBadge from '../components/SalesStatusBadge';
 import AdminSalesStatusManager from '../components/AdminSalesStatusManager';
 import CreateSaleModal from '../components/CreateSaleModal';
@@ -400,68 +401,14 @@ export default function UsersPage() {
       }
 
       // Success - close modal and reload users
-      alert(`User "${selectedUser.email}" has been deleted successfully.`);
       closeModal();
       await loadUsers();
     } catch (err: any) {
       console.error('Error deleting user:', err);
       setError('Error deleting user: ' + (err.message || err));
-      alert('Error deleting user: ' + (err.message || err));
     } finally {
       setDeletingUser(false);
     }
-  };
-
-  const formatDate = (dateString: string) => {
-    if (!dateString) {
-      return 'N/A';
-    }
-    
-    // Always extract just the date part (YYYY-MM-DD) and parse as local date
-    // This completely avoids timezone issues
-    const dateMatch = dateString.match(/^(\d{4}-\d{2}-\d{2})/);
-    if (dateMatch) {
-      const [year, month, day] = dateMatch[1].split('-').map(Number);
-      // Create date in local timezone (no time component)
-      const date = new Date(year, month - 1, day);
-      
-      // Extract time if present for display
-      const timeMatch = dateString.match(/T(\d{2}):(\d{2}):?(\d{2})?/);
-      if (timeMatch) {
-        const hours = parseInt(timeMatch[1], 10);
-        const minutes = parseInt(timeMatch[2], 10);
-        // Set time on the local date
-        date.setHours(hours, minutes, 0, 0);
-      } else {
-        // If no time, set to noon to avoid any timezone edge cases
-        date.setHours(12, 0, 0, 0);
-      }
-      
-      return date.toLocaleDateString('sk-SK', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-    }
-    
-    // Fallback: try to parse as is
-    const date = new Date(dateString);
-    return date.toLocaleDateString('sk-SK', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const formatCurrency = (amount: number): string => {
-    return new Intl.NumberFormat('sk-SK', {
-      style: 'currency',
-      currency: 'EUR'
-    }).format(amount);
   };
 
   useEffect(() => {
@@ -933,6 +880,7 @@ export default function UsersPage() {
                               {selectedUser.signature_url ? (
                                 <div className="border border-gray-300 rounded-xl p-2 sm:p-3 bg-white">
                                   <img 
+                                    loading="lazy"
                                     src={selectedUser.signature_url} 
                                     alt="Signature" 
                                     className="max-w-full h-20 sm:h-24 object-contain"
@@ -972,6 +920,7 @@ export default function UsersPage() {
                                 <div className="flex items-start space-x-3 mb-3">
                                   <div className="h-16 w-16 sm:h-20 sm:w-20 flex-shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-white p-1.5">
                                     <img
+                                      loading="lazy"
                                       className="h-full w-full object-contain"
                                       src={sale.image_url || '/default-image.png'}
                                       alt={sale.name}
@@ -1050,6 +999,7 @@ export default function UsersPage() {
                                 <div className="flex items-start space-x-3 mb-3">
                                   <div className="h-16 w-16 sm:h-20 sm:w-20 flex-shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-white p-1.5">
                                     <img
+                                      loading="lazy"
                                       className="h-full w-full object-contain"
                                       src={product.image_url || '/default-image.png'}
                                       alt={product.name}

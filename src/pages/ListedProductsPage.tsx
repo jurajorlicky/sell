@@ -4,7 +4,7 @@ import { sendNewSaleEmail } from '../lib/email';
 import AdminNavigation from '../components/AdminNavigation';
 import {
   FaSearch, FaSignOutAlt, FaSync, FaCheck,
-  FaFilter, FaTimes, FaList
+  FaFilter, FaTimes, FaList, FaExclamationTriangle
 } from 'react-icons/fa';
 
 interface UserProduct {
@@ -35,6 +35,7 @@ export default function ListedProductsPage() {
   const [showModal, setShowModal] = useState(false);
   const [externalId, setExternalId] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<UserProduct | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Hlavný JOIN na profiles(email)
   const loadProducts = useCallback(async () => {
@@ -67,6 +68,7 @@ export default function ListedProductsPage() {
     if (!selectedProduct || !externalId) return;
     setRefreshing(true);
     setShowModal(false);
+    setError(null);
 
     try {
       // Create single sale with invoice_date set to product creation date
@@ -114,7 +116,7 @@ export default function ListedProductsPage() {
 
       await loadProducts();
     } catch (err: any) {
-      alert('Error processing: ' + err.message);
+      setError('Error processing: ' + err.message);
     } finally {
       setRefreshing(false);
     }
@@ -196,6 +198,25 @@ export default function ListedProductsPage() {
       <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-3 sm:py-6 lg:py-8">
         {/* Navigation */}
         <AdminNavigation />
+
+        {error && (
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4 backdrop-blur-sm">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <FaExclamationTriangle className="h-5 w-5 text-red-600" />
+                <p className="ml-3 text-sm text-red-800">{error}</p>
+              </div>
+              <button
+                onClick={() => setError(null)}
+                className="text-red-600 hover:text-red-800"
+              >
+                <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="bg-white rounded-2xl border border-gray-200 shadow-2xl overflow-hidden">
           <div className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 border-b border-gray-200 bg-white flex flex-col sm:flex-row sm:justify-between sm:items-center space-y-2 sm:space-y-0 gap-2 sm:gap-0">
@@ -310,6 +331,7 @@ export default function ListedProductsPage() {
                     <div className="flex items-start space-x-2 sm:space-x-3 lg:space-x-4 mb-2 sm:mb-3 lg:mb-4">
                       <div className="h-14 w-14 sm:h-16 sm:w-16 lg:h-20 lg:w-20 flex-shrink-0 overflow-hidden rounded-lg sm:rounded-xl border border-gray-200 bg-white">
                         <img
+                          loading="lazy"
                           className="h-full w-full object-contain p-1 sm:p-1.5 lg:p-2"
                           src={product.image_url || '/default-image.png'}
                           alt={product.name}

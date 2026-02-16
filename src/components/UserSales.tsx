@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import SalesStatusBadge from './SalesStatusBadge';
 import SalesStatusTimeline from './SalesStatusTimeline';
+import { formatDate } from '../lib/utils';
 import { FaArrowLeft, FaSignOutAlt, FaShoppingCart, FaUser, FaExclamationTriangle, FaEye, FaFilePdf, FaLink, FaTruck, FaBox, FaStickyNote, FaSearch, FaFilter, FaTimes, FaClock } from 'react-icons/fa';
 
 interface UserSale {
@@ -87,17 +88,6 @@ export default function UserSales() {
       await supabase.auth.signOut();
       navigate('/');
     } catch {}
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('sk-SK', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
   };
 
   const handleRetry = () => {
@@ -496,6 +486,7 @@ export default function UserSales() {
                     <div className="flex items-start space-x-4 mb-4">
                       <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-white">
                         <img
+                          loading="lazy"
                           className="h-full w-full object-contain p-2"
                           src={sale.image_url || '/default-image.png'}
                           alt={sale.name}
@@ -703,6 +694,7 @@ export default function UserSales() {
                   <div className="flex items-start space-x-3 sm:space-x-4">
                     <div className="h-16 w-16 sm:h-20 sm:w-20 flex-shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-white">
                       <img
+                        loading="lazy"
                         src={selectedSaleForTimeline.image_url || '/default-image.png'}
                         alt={selectedSaleForTimeline.name}
                         className="h-full w-full object-contain p-1 sm:p-2"

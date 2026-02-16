@@ -1,7 +1,8 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { getFees } from '../lib/fees';
+import { logger } from '../lib/logger';
 import AddProductModal from './AddProductModal';
 import EditProductModal from './EditProductModal';
 import {
@@ -138,7 +139,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
           clearTimeout(timeoutId);
           
           if ((consignorError && consignorError.code !== 'PGRST116') || (eshopError && eshopError.code !== 'PGRST116')) {
-            console.warn(`Failed to fetch market price for ${product.product_id}-${product.size}:`, consignorError?.message || eshopError?.message);
+            logger.warn(`Failed to fetch market price for ${product.product_id}-${product.size}:`, consignorError?.message || eshopError?.message);
             return null;
           }
 
@@ -206,7 +207,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
                   isUserFirstInLine = samePriceConsignors[0].user_id === product.user_id;
                 }
               } catch (err) {
-                console.warn('Error checking if user is first in line:', err);
+                logger.warn('Error checking if user is first in line:', err);
                 // Fallback: if user is owner, they're first
                 isUserFirstInLine = finalOwner === product.user_id;
               }
@@ -230,7 +231,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
         } catch (err: any) {
           clearTimeout(timeoutId);
           if (err.name !== 'AbortError') {
-            console.warn(`Error fetching market price for ${product.product_id}-${product.size}:`, err.message || err);
+            logger.warn(`Error fetching market price for ${product.product_id}-${product.size}:`, err.message || err);
           }
           return null;
         }
@@ -359,7 +360,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
               isUserFirstInLine = samePriceConsignors[0].user_id === product.user_id;
             }
           } catch (err) {
-            console.warn('Error checking if user is first in line:', err);
+            logger.warn('Error checking if user is first in line:', err);
             // Fallback: if user is owner, they're first
             isUserFirstInLine = finalOwner === product.user_id;
           }
@@ -378,7 +379,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
         }));
       }
     } catch (err: any) {
-      console.warn(`Error fetching market price for new product:`, err.message || err);
+      logger.warn(`Error fetching market price for new product:`, err.message || err);
     }
   }, []);
 
@@ -410,7 +411,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
       getFees().then(feesResult => {
         if (feesResult) setFees(feesResult);
       }).catch(err => {
-        console.warn('Failed to load fees:', err);
+        logger.warn('Failed to load fees:', err);
       });
       
     } catch (err: any) {
@@ -479,7 +480,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
   const isPriceLower = (price1: number, price2: number) => price1 < price2 - PRICE_EPSILON;
   const isPriceHigher = (price1: number, price2: number) => price1 > price2 + PRICE_EPSILON;
 
-  const getPriceDisplay = (product: Product) => {
+  const getPriceDisplay = useCallback((product: Product) => {
     const key = `${product.product_id}-${product.size}`;
     const marketData = marketPrices[key];
 
@@ -610,7 +611,11 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
       ),
       desc: `(Lowest price: ${comparisonPrice} € - ${hasConsignorPrice ? 'Consignor' : 'Eshop'})`
     };
-  };
+  }, [marketPrices, user]);
+
+  // Memoize stats to avoid recalculation on every render
+  const totalPayout = useMemo(() => products.reduce((sum, p) => sum + (p.payout ?? 0), 0), [products]);
+  const averagePrice = useMemo(() => products.length > 0 ? (products.reduce((sum, p) => sum + p.price, 0) / products.length).toFixed(2) : '0.00', [products]);
 
   // ------------------- RENDER ---------------------
   if (loading) {
@@ -660,8 +665,6 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
       </div>
     );
   }
-
-  const totalPayout = products.reduce((sum, product) => sum + product.payout, 0);
 
   return (
     <div className="min-h-screen bg-white">
@@ -794,9 +797,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
               <div className="ml-3 sm:ml-4">
                 <p className="text-xs sm:text-sm font-medium text-slate-600">Average Price</p>
                 <p className="text-xl sm:text-2xl font-bold text-slate-900">
-                  {products.length > 0
-                    ? (products.reduce((sum, p) => sum + p.price, 0) / products.length).toFixed(2)
-                    : '0.00'} €
+                  {averagePrice} €
                 </p>
               </div>
             </div>
@@ -852,6 +853,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
                             <div className="flex items-center">
                               <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm">
                                 <img
+                                  loading="lazy"
                                   className="h-full w-full object-contain p-2"
                                   src={product?.image_url || '/default-image.png'}
                                   alt={product?.name || 'No image'}

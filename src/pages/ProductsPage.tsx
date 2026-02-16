@@ -206,6 +206,7 @@ export default function ProductsPage() {
                         <div className="flex items-start space-x-2 sm:space-x-3">
                           <div className="h-14 w-14 sm:h-16 sm:w-16 flex-shrink-0 overflow-hidden rounded-lg sm:rounded-xl border border-gray-200 bg-white p-1 sm:p-1.5 shadow-sm">
                             <img
+                              loading="lazy"
                               className="h-full w-full object-contain"
                               src={product.image_url || '/default-image.png'}
                               alt={product.name}
@@ -246,6 +247,7 @@ export default function ProductsPage() {
                             <td className="px-3 sm:px-6 py-4">
                               <div className="h-16 w-16 sm:h-20 sm:w-20 flex-shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-white p-2 shadow-sm">
                                 <img
+                                  loading="lazy"
                                   className="h-full w-full object-contain"
                                   src={product.image_url || '/default-image.png'}
                                   alt={product.name}

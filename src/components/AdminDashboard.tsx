@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { formatCurrency, formatTimeAgo } from '../lib/utils';
 import { 
   FaChartBar, 
   FaUsers, 
@@ -111,27 +112,6 @@ export default function AdminDashboard() {
     } catch (err: any) {
       console.error('Error signing out:', err.message);
     }
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('sk-SK', {
-      style: 'currency',
-      currency: 'EUR'
-    }).format(amount);
-  };
-
-  const formatTimeAgo = (dateString: string) => {
-    const now = new Date();
-    const date = new Date(dateString);
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return 'just now';
-    if (diffMins < 60) return `${diffMins} ${diffMins === 1 ? 'minute' : 'minutes'} ago`;
-    if (diffHours < 24) return `${diffHours} ${diffHours === 1 ? 'hour' : 'hours'} ago`;
-    return `${diffDays} ${diffDays === 1 ? 'day' : 'days'} ago`;
   };
 
   const loadRecentActivities = useCallback(async () => {

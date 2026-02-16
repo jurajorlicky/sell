@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import SalesStatusBadge from './SalesStatusBadge';
+import { formatDate } from '../lib/utils';
 import { FaClock, FaUser, FaStickyNote, FaChevronDown, FaChevronUp } from 'react-icons/fa';
 
 interface SalesStatusHistoryItem {
@@ -49,17 +50,6 @@ export default function SalesStatusTimeline({ saleId, currentStatus }: SalesStat
       fetchStatusHistory();
     }
   }, [saleId]);
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('sk-SK', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
 
   if (loading) {
     return (

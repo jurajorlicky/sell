@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import AdminNavigation from '../components/AdminNavigation';
+import { formatDate as formatDateFull, formatDateShort, formatCurrency } from '../lib/utils';
 import {
   FaSearch,
   FaSignOutAlt,
@@ -95,22 +96,6 @@ export default function InvoicesPage() {
   const handleRetry = () => {
     setError(null);
     loadInvoices();
-  };
-
-  const formatDate = (dateString: string) => {
-    if (!dateString) return 'N/A';
-    const date = new Date(dateString);
-    const day = date.getDate().toString().padStart(2, '0');
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const year = date.getFullYear();
-    return `${day}.${month}.${year}`;
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'EUR'
-    }).format(amount);
   };
 
   useEffect(() => {
@@ -367,7 +352,7 @@ export default function InvoicesPage() {
                   filteredInvoices.map((invoice) => (
                     <tr key={invoice.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-3 sm:px-4 py-3 whitespace-nowrap text-xs sm:text-sm text-gray-900">
-                        {formatDate(invoice.invoice_date)}
+                        {formatDateShort(invoice.invoice_date)}
                       </td>
                       <td className="px-3 sm:px-4 py-3 whitespace-nowrap text-xs sm:text-sm text-gray-900 font-mono">
                         {invoice.external_id || invoice.id.slice(0, 8)}
@@ -376,6 +361,7 @@ export default function InvoicesPage() {
                         <div className="flex items-center space-x-2 sm:space-x-3">
                           {invoice.image_url && (
                             <img
+                              loading="lazy"
                               src={invoice.image_url}
                               alt={invoice.name}
                               className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg object-cover flex-shrink-0"

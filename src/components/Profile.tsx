@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useNavigate, Link } from 'react-router-dom';
 import { FaArrowLeft, FaChartLine, FaEdit, FaTrash, FaSignOutAlt, FaUser, FaEnvelope, FaPhone, FaMapMarkerAlt, FaBuilding, FaCreditCard, FaSignature, FaUpload, FaTimes } from 'react-icons/fa';
 import type { User } from '@supabase/supabase-js';
+import { logger } from '../lib/logger';
 
 interface IProfile {
   first_name: string;
@@ -160,7 +161,7 @@ export default function Profile() {
                       setSignatureUrl(data.signedUrl);
                     }
                   })
-                  .catch(err => console.warn('Error refreshing signature URL:', err));
+                  .catch(err => logger.warn('Error refreshing signature URL:', err));
               }
             }
           } else if (isMounted) {
@@ -169,10 +170,10 @@ export default function Profile() {
           }
 
           if (profileError && profileError.code !== 'PGRST116') {
-            console.warn('Profile error:', profileError.message);
+            logger.warn('Profile error:', profileError.message);
           }
         } catch (profileErr: any) {
-          console.warn('Profile loading failed:', profileErr.message);
+          logger.warn('Profile loading failed:', profileErr.message);
           if (isMounted) {
             setProfile((prev) => ({ ...prev, email: user.email || '' }));
           }
@@ -182,7 +183,7 @@ export default function Profile() {
         if (timeoutId) {
           clearTimeout(timeoutId);
         }
-        console.error('Error loading user data:', error.message);
+        logger.error('Error loading user data:', error.message);
         if (isMounted) {
           setError('Could not load profile. Please try again.');
         }
@@ -208,7 +209,7 @@ export default function Profile() {
       await supabase.auth.signOut();
       navigate('/');
     } catch (error: any) {
-      console.error('Error signing out:', error.message);
+      logger.error('Error signing out:', error.message);
       setError('Error signing out.');
     }
   };
@@ -283,7 +284,7 @@ export default function Profile() {
       setShowModal(false);
     } catch (err: any) {
       setError('Unexpected error saving profile: ' + err.message);
-      console.error(err);
+      logger.error('Error saving profile', err);
     }
   };
 
@@ -369,7 +370,7 @@ export default function Profile() {
             .from('signatures')
             .remove([oldFilePath]);
         } catch (deleteErr) {
-          console.warn('Error deleting old signature:', deleteErr);
+          logger.warn('Error deleting old signature:', deleteErr);
           // Continue anyway
         }
       }
@@ -395,7 +396,7 @@ export default function Profile() {
           });
 
         if (uploadError) {
-          console.error('Upload error:', uploadError);
+          logger.error('Upload error:', uploadError);
           throw new Error('Error uploading signature: ' + uploadError.message);
         }
 
@@ -404,15 +405,11 @@ export default function Profile() {
           .from('signatures')
           .getPublicUrl(filePath);
 
-        console.log('URL data:', urlData);
-        console.log('File path:', filePath);
-
         if (!urlData?.publicUrl) {
           throw new Error('Failed to get signature URL');
         }
 
         const newSignatureUrl = urlData.publicUrl;
-        console.log('New signature URL:', newSignatureUrl);
         
         // Save to profile using upsert to ensure it's saved
         const { data: updateData, error: updateError } = await supabase
@@ -425,7 +422,7 @@ export default function Profile() {
           });
 
         if (updateError) {
-          console.error('Update error:', updateError);
+          logger.error('Update error:', updateError);
           throw new Error('Error saving signature to profile: ' + updateError.message);
         }
 
@@ -436,7 +433,7 @@ export default function Profile() {
         setUploadingSignature(false);
       }, 'image/png', 0.95);
     } catch (err: any) {
-      console.error('Error saving signature:', err);
+      logger.error('Error saving signature:', err);
       setError('Error saving signature: ' + (err.message || 'Unknown error'));
       setUploadingSignature(false);
     }
@@ -456,7 +453,7 @@ export default function Profile() {
         .remove([filePath]);
 
       if (deleteError) {
-        console.warn('Error deleting signature file:', deleteError);
+        logger.warn('Error deleting signature file:', deleteError);
       }
 
       // Remove from profile
@@ -517,7 +514,7 @@ export default function Profile() {
       setSuccessMessage('Profile has been deleted successfully.');
     } catch (error: any) {
       setError('Unexpected error deleting profile: ' + error.message);
-      console.error(error);
+      logger.error('Error deleting profile', error);
     }
   };
 
@@ -848,7 +845,7 @@ export default function Profile() {
                         className="max-w-full h-24 object-contain"
                         onError={(e) => {
                           const target = e.target as HTMLImageElement;
-                          console.error('Error loading signature image:', signatureUrl);
+                          logger.error('Error loading signature image:', signatureUrl);
                           target.style.display = 'none';
                           const parent = target.parentElement;
                           if (parent) {
@@ -856,7 +853,6 @@ export default function Profile() {
                           }
                         }}
                         onLoad={() => {
-                          console.log('Signature image loaded successfully:', signatureUrl);
                         }}
                       />
                     </div>
@@ -1151,7 +1147,7 @@ export default function Profile() {
                           className="max-w-full h-24 object-contain border border-slate-200 rounded"
                           onError={(e) => {
                             const target = e.target as HTMLImageElement;
-                            console.error('Error loading signature image in modal:', signatureUrl);
+                            logger.error('Error loading signature image in modal:', signatureUrl);
                             target.style.display = 'none';
                             const parent = target.parentElement;
                             if (parent) {
@@ -1159,7 +1155,6 @@ export default function Profile() {
                             }
                           }}
                           onLoad={() => {
-                            console.log('Signature image loaded successfully in modal:', signatureUrl);
                           }}
                         />
                       </div>

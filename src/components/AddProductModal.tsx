@@ -355,6 +355,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
                       >
                         <div className="h-12 w-12 sm:h-16 sm:w-16 flex-shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-white">
                           <img
+                            loading="lazy"
                             src={product.image_url || '/default-image.png'}
                             alt={product.product_name}
                             className="h-full w-full object-contain p-2"
@@ -376,6 +377,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
                     <div className="flex items-center space-x-3 sm:space-x-4">
                       <div className="h-12 w-12 sm:h-16 sm:w-16 flex-shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-white">
                         <img
+                          loading="lazy"
                           src={selectedProduct.image_url || '/default-image.png'}
                           alt={selectedProduct.product_name}
                           className="h-full w-full object-contain p-2"

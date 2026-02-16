@@ -190,12 +190,12 @@ export default function App() {
   // Global error handler
   useEffect(() => {
     const handleError = (event: ErrorEvent) => {
-      console.error('Global error:', event.error);
+      logger.error('Global error', event.error);
       setAppError(event.error);
     };
     
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
-      console.error('Unhandled rejection:', event.reason);
+      logger.error('Unhandled rejection', event.reason);
       setAppError(new Error(event.reason?.message || 'Unhandled promise rejection'));
     };
     

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { logger } from '../lib/logger';
 
 export default function AuthForm() {
   const [email, setEmail] = useState('');
@@ -28,19 +29,11 @@ export default function AuthForm() {
           throw new Error(`Signup: ${signUpError.message} - ${JSON.stringify(signUpError)}`);
         }
         
-        console.log('SignUp response:', { 
-          hasUser: !!data.user, 
-          hasSession: !!data.session, 
-          emailConfirmed: data?.user?.email_confirmed_at,
-          userEmail: data?.user?.email
-        });
-        
         // Show email verification message if user was created
         // Most common case: no session means email confirmation is required
         if (data.user) {
           if (!data.session) {
             // No session = email confirmation required
-            console.log('No session after signup - email confirmation required');
             setRegisteredEmail(email);
             setShowEmailVerification(true);
             setEmail('');
@@ -49,20 +42,17 @@ export default function AuthForm() {
             // Has session - might be auto-confirmed, but check email_confirmed_at
             const emailConfirmed = data.user.email_confirmed_at !== null;
             if (!emailConfirmed) {
-              console.log('Session exists but email not confirmed - showing verification message');
               setRegisteredEmail(email);
               setShowEmailVerification(true);
               setEmail('');
               setPassword('');
             } else {
               // Email confirmed and has session - navigate to dashboard
-              console.log('Email confirmed and session exists - navigating to dashboard');
               navigate('/dashboard');
             }
           }
         } else {
           // Fallback - shouldn't happen
-          console.log('No user in response, navigating to dashboard');
           navigate('/dashboard');
         }
       } else {
@@ -76,7 +66,7 @@ export default function AuthForm() {
         navigate('/dashboard');
       }
     } catch (err: any) {
-      console.error('Auth error:', err);
+      logger.error('Auth error', err);
       setError(err.message || JSON.stringify(err));
     } finally {
       setLoading(false);
