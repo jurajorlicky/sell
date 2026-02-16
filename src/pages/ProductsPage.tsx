@@ -6,8 +6,7 @@ import {
   FaSignOutAlt, 
   FaSync,
   FaShoppingBag,
-  FaExclamationTriangle,
-  FaBan
+  FaExclamationTriangle
 } from 'react-icons/fa';
 
 interface Product {
