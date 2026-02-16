@@ -501,24 +501,31 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
     const isEshop = owner === null;
     const isUserOwner = owner === user?.id;
     
-    // Compare with lowest price overall (eshop or consignor)
-    // marketPrice is already the lowest of eshop and consignor prices
     const comparisonPrice = marketPrice;
     const hasConsignorPrice = lowest_consignor_price !== null;
     const hasEshopPrice = lowest_eshop_price !== null;
 
-    // Check if user's price matches the market price
+    // If no other consignors exist, just show market price neutrally
+    if (!hasConsignorPrice) {
+      return {
+        color: 'text-slate-700',
+        badge: (
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 ml-2">
+            Market: {formatCurrency(marketPrice)}
+          </span>
+        ),
+        desc: ''
+      };
+    }
+
     const priceMatchesMarket = isPriceEqual(product.price, comparisonPrice);
     
-    // If owner is null (eshop) but user's price matches market price AND there's a consignor price,
-    // it means user has the lowest consignor price that matches eshop price
     const userHasLowestConsignorMatchingEshop = isEshop && 
                                                 priceMatchesMarket && 
                                                 hasConsignorPrice && 
                                                 lowest_consignor_price !== null &&
                                                 isPriceEqual(product.price, lowest_consignor_price as number);
 
-    // Use stored is_user_first_in_line or fallback to isUserOwner
     const isUserFirstInLine = is_user_first_in_line !== undefined ? is_user_first_in_line : isUserOwner;
 
     // 1. Lowest - user is owner OR user has lowest consignor price matching market (green)
@@ -547,20 +554,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
       };
     }
 
-    // 3. Below eshop (green) - only if no consignor price exists
-    if (isEshop && !hasConsignorPrice && isPriceLower(product.price, marketPrice)) {
-      return {
-        color: 'text-green-600 font-bold',
-        badge: (
-          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 ml-2">
-            Below Eshop
-          </span>
-        ),
-        desc: `(${formatCurrency(marketPrice - product.price)} below eshop)`
-      };
-    }
-
-    // 4. Higher than lowest price - determine if it's eshop or consignor
+    // 3. Higher than lowest price - determine if it's eshop or consignor
     if (isPriceHigher(product.price, comparisonPrice)) {
       // Determine which is lower: eshop or consignor
       let higherThanWhat = '';
