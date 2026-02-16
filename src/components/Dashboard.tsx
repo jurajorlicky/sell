@@ -93,39 +93,41 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
         const timeoutId = setTimeout(() => controller.abort(), 3000);
 
         try {
-          // Get lowest consignor price EXCLUDING current user's product
-          // This is for comparison - to see if user has the lowest among competitors
-          // Also get all consignors with the same lowest price to check if user is first in line
-          const { data: consignorPriceExcludingUser, error: consignorErrorExcluding } = await supabase
-            .from('product_price_view')
-            .select('final_price, owner')
+          const nowISO = new Date().toISOString();
+
+          // Get lowest consignor price EXCLUDING current user (from user_products)
+          const { data: rawConsignorExcluding } = await supabase
+            .from('user_products')
+            .select('price, user_id')
             .eq('product_id', product.product_id)
             .eq('size', product.size)
-            .in('final_status', ['Skladom', 'Skladom Expres'])
-            .not('owner', 'is', null)
-            .neq('owner', product.user_id) // Exclude current user's product
-            .order('final_price', { ascending: true })
+            .neq('user_id', product.user_id)
+            .or('expires_at.is.null,expires_at.gt.' + nowISO)
+            .order('price', { ascending: true })
             .limit(1)
             .maybeSingle();
 
-
-          // Get lowest consignor price INCLUDING current user's product
-          // This is for determining the absolute lowest market price
-          const { data: consignorPriceIncludingUser, error: consignorErrorIncluding } = await supabase
-            .from('product_price_view')
-            .select('final_price, owner')
+          // Get lowest consignor price INCLUDING current user (from user_products)
+          const { data: rawConsignorIncluding } = await supabase
+            .from('user_products')
+            .select('price, user_id')
             .eq('product_id', product.product_id)
             .eq('size', product.size)
-            .in('final_status', ['Skladom', 'Skladom Expres'])
-            .not('owner', 'is', null)
-            .order('final_price', { ascending: true })
+            .or('expires_at.is.null,expires_at.gt.' + nowISO)
+            .order('price', { ascending: true })
             .limit(1)
             .maybeSingle();
 
-          const consignorPrice = consignorPriceIncludingUser; // Use including for market price
-          const consignorError = consignorErrorIncluding || consignorErrorExcluding;
+          // Map to expected format { final_price, owner }
+          const consignorPriceExcludingUser = rawConsignorExcluding
+            ? { final_price: rawConsignorExcluding.price, owner: rawConsignorExcluding.user_id }
+            : null;
+          const consignorPriceIncludingUser = rawConsignorIncluding
+            ? { final_price: rawConsignorIncluding.price, owner: rawConsignorIncluding.user_id }
+            : null;
+          const consignorPrice = consignorPriceIncludingUser;
 
-          // Get eshop price
+          // Get eshop price (from product_price_view)
           const { data: eshopPrice, error: eshopError } = await supabase
             .from('product_price_view')
             .select('final_price, owner')
@@ -139,17 +141,14 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
 
           clearTimeout(timeoutId);
           
-          if ((consignorError && consignorError.code !== 'PGRST116') || (eshopError && eshopError.code !== 'PGRST116')) {
-            logger.warn(`Failed to fetch market price for ${product.product_id}-${product.size}:`, consignorError?.message || eshopError?.message);
+          if (eshopError && eshopError.code !== 'PGRST116') {
+            logger.warn(`Failed to fetch market price for ${product.product_id}-${product.size}:`, eshopError?.message);
             return null;
           }
 
-          // Determine the lowest price overall (eshop or consignor)
-          // But prioritize user's own product if they have the lowest consignor price
           let priceData = null;
           let finalOwner = null;
           
-          // Check if user has the lowest consignor price
           const userHasLowestConsignor = consignorPriceIncludingUser && 
                                          consignorPriceIncludingUser.owner === product.user_id;
           
@@ -253,35 +252,40 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
   // Fetch market price for a single product
   const fetchSingleMarketPrice = useCallback(async (product: Product) => {
     try {
-      // Get lowest consignor price INCLUDING current user's product
-      const { data: consignorPriceIncludingUser, error: consignorErrorIncluding } = await supabase
-        .from('product_price_view')
-        .select('final_price, owner')
+      const nowISO = new Date().toISOString();
+
+      // Get lowest consignor price INCLUDING current user (from user_products)
+      const { data: rawConsignorIncluding } = await supabase
+        .from('user_products')
+        .select('price, user_id')
         .eq('product_id', product.product_id)
         .eq('size', product.size)
-        .in('final_status', ['Skladom', 'Skladom Expres'])
-        .not('owner', 'is', null)
-        .order('final_price', { ascending: true })
+        .or('expires_at.is.null,expires_at.gt.' + nowISO)
+        .order('price', { ascending: true })
         .limit(1)
         .maybeSingle();
 
-      // Get lowest consignor price EXCLUDING current user's product
-      const { data: consignorPriceExcludingUser, error: consignorErrorExcluding } = await supabase
-        .from('product_price_view')
-        .select('final_price, owner')
+      // Get lowest consignor price EXCLUDING current user (from user_products)
+      const { data: rawConsignorExcluding } = await supabase
+        .from('user_products')
+        .select('price, user_id')
         .eq('product_id', product.product_id)
         .eq('size', product.size)
-        .in('final_status', ['Skladom', 'Skladom Expres'])
-        .not('owner', 'is', null)
-        .neq('owner', product.user_id) // Exclude current user's product
-        .order('final_price', { ascending: true })
+        .neq('user_id', product.user_id)
+        .or('expires_at.is.null,expires_at.gt.' + nowISO)
+        .order('price', { ascending: true })
         .limit(1)
         .maybeSingle();
 
+      const consignorPriceIncludingUser = rawConsignorIncluding
+        ? { final_price: rawConsignorIncluding.price, owner: rawConsignorIncluding.user_id }
+        : null;
+      const consignorPriceExcludingUser = rawConsignorExcluding
+        ? { final_price: rawConsignorExcluding.price, owner: rawConsignorExcluding.user_id }
+        : null;
       const consignorPrice = consignorPriceIncludingUser;
-      const consignorError = consignorErrorIncluding || consignorErrorExcluding;
 
-      // Get eshop price
+      // Get eshop price (from product_price_view)
       const { data: eshopPrice, error: eshopError } = await supabase
         .from('product_price_view')
         .select('final_price, owner')
@@ -293,12 +297,9 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
         .limit(1)
         .maybeSingle();
 
-      // Determine the lowest price overall (eshop or consignor)
-      // But prioritize user's own product if they have the lowest consignor price
       let finalPrice = null;
       let finalOwner = null;
       
-      // Check if user has the lowest consignor price
       const userHasLowestConsignor = consignorPrice && 
                                      consignorPrice.owner === product.user_id;
       
