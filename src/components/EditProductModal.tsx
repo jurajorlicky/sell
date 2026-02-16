@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { getFees, calculatePayout } from '../lib/fees';
+import { formatCurrency } from '../lib/utils';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import { FaTimes, FaCheck } from 'react-icons/fa';
 import { Product } from '../lib/types';
 
@@ -281,11 +283,17 @@ export default function EditProductModal({
     }
   };
 
+  const handleClose = useCallback(() => onClose(), [onClose]);
+  useEscapeKey(handleClose, isOpen);
+
   if (!isOpen || !product) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-50 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden">
+    <div
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-50 overflow-y-auto"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between p-4 sm:p-6 border-b border-slate-200">
           <h2 className="text-lg sm:text-2xl font-bold text-slate-900">Edit Product</h2>
           <button
@@ -379,7 +387,7 @@ export default function EditProductModal({
                       <p className="text-xs sm:text-sm font-medium text-green-800">Your payout</p>
                       <p className="text-xs text-green-600">After fees ({fees.fee_percent * 100}% + {fees.fee_fixed}€)</p>
                     </div>
-                    <p className="text-base sm:text-lg font-bold text-green-900">{computedPayoutValue.toFixed(2)} €</p>
+                    <p className="text-base sm:text-lg font-bold text-green-900">{formatCurrency(computedPayoutValue)}</p>
                   </div>
                 </div>
               )}

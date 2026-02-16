@@ -31,10 +31,9 @@ export default function AdminNavigation() {
   const location = useLocation();
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 shadow-2xl mb-4 sm:mb-6 lg:mb-8 overflow-hidden">
-      <div className="flex justify-around sm:justify-start overflow-x-auto">
+    <nav className="bg-white rounded-2xl border border-gray-200 shadow-sm mb-4 sm:mb-6 lg:mb-8 overflow-hidden" aria-label="Admin navigation">
+      <div className="flex justify-around sm:justify-start overflow-x-auto" role="tablist">
         {navTabs.map((tab) => {
-          // More robust pathname matching - exact match or starts with path
           const isActive = location.pathname === tab.path || 
             (tab.path !== '/admin' && location.pathname.startsWith(tab.path));
           const IconComponent = tab.icon;
@@ -42,6 +41,9 @@ export default function AdminNavigation() {
             <Link
               key={tab.id}
               to={tab.path}
+              role="tab"
+              aria-selected={isActive}
+              aria-current={isActive ? 'page' : undefined}
               className={`relative flex items-center justify-center sm:justify-start px-2 sm:px-3 md:px-4 lg:px-6 py-2.5 sm:py-3 md:py-4 font-semibold transition-all duration-300 flex-1 sm:flex-initial min-w-0 sm:min-w-max ${
                 isActive 
                   ? 'text-gray-900' 
@@ -67,7 +69,7 @@ export default function AdminNavigation() {
           );
         })}
       </div>
-    </div>
+    </nav>
   );
 }
 

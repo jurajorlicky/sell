@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { getFees, calculatePayout } from '../lib/fees';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import { FaTimes, FaUpload, FaFileExcel, FaCheck, FaExclamationTriangle, FaDownload, FaSpinner } from 'react-icons/fa';
 import * as XLSX from 'xlsx';
 
@@ -61,10 +62,12 @@ export default function BulkProductImportModal({ isOpen, onClose, userId, userEm
     setProgress(0);
   }, []);
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     resetState();
     onClose();
-  };
+  }, [resetState, onClose]);
+
+  useEscapeKey(handleClose, isOpen);
 
   const handleFileSelect = async (selectedFile: File) => {
     setError(null);
@@ -329,8 +332,11 @@ export default function BulkProductImportModal({ isOpen, onClose, userId, userEm
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-[80] overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col">
+    <div
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-[80] overflow-y-auto"
+      onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}
+    >
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 flex-shrink-0">
           <div>

@@ -1,7 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { sendNewSaleEmail } from '../lib/email';
 import { logger } from '../lib/logger';
+import { useEscapeKey } from '../hooks/useEscapeKey';
+import { useToast } from './Toast';
 import { FaTimes, FaSave, FaUser, FaBox, FaSearch } from 'react-icons/fa';
 
 interface CreateSaleModalProps {
@@ -27,6 +29,7 @@ interface Product {
 }
 
 export default function CreateSaleModal({ isOpen, onClose, onSaleCreated, preSelectedUserId, preSelectedUserEmail }: CreateSaleModalProps) {
+  const { showToast } = useToast();
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -326,12 +329,11 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated, preSel
         return;
       }
 
-      // Create sale with invoice date
-      const saleDateObj = new Date(saleDate + 'T00:00:00');
-      const invoiceDateISO = saleDateObj.toISOString();
-      const currentDateISO = new Date().toISOString(); // Current date for created_at
+      // Use selected date for both created_at and invoice_date
+      // Use noon UTC to avoid timezone shifting the date by one day
+      const saleDateISO = saleDate + 'T12:00:00.000Z';
 
-      // Create single sale with invoice_date for PDF
+      // Create single sale with proper dates
       const saleData = {
         user_id: selectedUserId,
         product_id: selectedProduct.id,
@@ -343,9 +345,9 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated, preSel
         external_id: externalId || null,
         image_url: imageUrl || null,
         status: 'accepted',
-        is_manual: true, // Mark as manual sale
-        created_at: currentDateISO, // Current date for tracking
-        invoice_date: invoiceDateISO // Selected date for invoice/PDF
+        is_manual: true,
+        created_at: saleDateISO,
+        invoice_date: saleDateISO
       };
 
       const { data: insertedSale, error: saleError } = await supabase
@@ -377,6 +379,8 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated, preSel
 
       logger.info('Sale created successfully', { saleId: insertedSale.id });
       
+      showToast(`Sale created: ${productName}`, 'success');
+      
       // Reset form
       resetForm();
       
@@ -389,6 +393,9 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated, preSel
       setSaving(false);
     }
   };
+
+  const handleCloseModal = useCallback(() => onClose(), [onClose]);
+  useEscapeKey(handleCloseModal, isOpen);
 
   if (!isOpen) return null;
 

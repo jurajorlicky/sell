@@ -1,10 +1,12 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import SalesStatusBadge from '../components/SalesStatusBadge';
 import AdminSalesStatusManager from '../components/AdminSalesStatusManager';
 import CreateSaleModal from '../components/CreateSaleModal';
 import AdminNavigation from '../components/AdminNavigation';
-import { formatDate } from '../lib/utils';
+import Pagination from '../components/Pagination';
+import { formatDate, formatCurrency } from '../lib/utils';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import {
   FaSearch,
   FaSignOutAlt,
@@ -18,7 +20,9 @@ import {
   FaTimes,
   FaTruck,
   FaPlus,
-  FaDownload
+  FaDownload,
+  FaSortAmountDown,
+  FaSortAmountUp
 } from 'react-icons/fa';
 
 interface Sale {
@@ -63,6 +67,13 @@ export default function SalesPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedSaleForStatus, setSelectedSaleForStatus] = useState<Sale | null>(null);
   const [showCreateSaleModal, setShowCreateSaleModal] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(24);
+  const [sortField, setSortField] = useState<'created_at' | 'price' | 'payout' | 'name'>('created_at');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  const handleCloseStatusModal = useCallback(() => setSelectedSaleForStatus(null), []);
+  useEscapeKey(handleCloseStatusModal, !!selectedSaleForStatus);
 
   const loadSales = useCallback(async () => {
     try {
@@ -191,6 +202,42 @@ export default function SalesPage() {
   };
 
   const hasActiveFilters = statusFilter || dateFrom || dateTo || userEmailFilter || searchTerm || quickFilter;
+
+  // Sort filtered sales
+  const sortedSales = useMemo(() => {
+    const sorted = [...filteredSales];
+    sorted.sort((a, b) => {
+      let cmp = 0;
+      switch (sortField) {
+        case 'price': cmp = a.price - b.price; break;
+        case 'payout': cmp = a.payout - b.payout; break;
+        case 'name': cmp = a.name.localeCompare(b.name); break;
+        case 'created_at':
+        default: cmp = new Date(a.created_at).getTime() - new Date(b.created_at).getTime(); break;
+      }
+      return sortDirection === 'desc' ? -cmp : cmp;
+    });
+    return sorted;
+  }, [filteredSales, sortField, sortDirection]);
+
+  // Paginate
+  const paginatedSales = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return sortedSales.slice(start, start + itemsPerPage);
+  }, [sortedSales, currentPage, itemsPerPage]);
+
+  // Reset to page 1 when filters change
+  const resetPage = useCallback(() => setCurrentPage(1), []);
+
+  const toggleSort = (field: typeof sortField) => {
+    if (sortField === field) {
+      setSortDirection(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('desc');
+    }
+    setCurrentPage(1);
+  };
 
   const exportToCSV = () => {
     if (filteredSales.length === 0) return;
@@ -354,7 +401,7 @@ export default function SalesPage() {
                 <p className="text-[10px] sm:text-xs lg:text-sm font-medium text-gray-600">Total Sales</p>
                 <p className="text-base sm:text-lg lg:text-2xl font-bold text-gray-900">{sales.length}</p>
                 {todaySales > 0 && (
-                  <p className="text-xs text-green-600 mt-1">+{todaySales} dnes</p>
+                  <p className="text-xs text-green-600 mt-1">+{todaySales} today</p>
                 )}
               </div>
             </div>
@@ -371,7 +418,7 @@ export default function SalesPage() {
               </div>
               <div className="ml-2 sm:ml-3 lg:ml-4">
                 <p className="text-[10px] sm:text-xs lg:text-sm font-medium text-gray-600">Total Revenue</p>
-                <p className="text-base sm:text-lg lg:text-2xl font-bold text-gray-900 truncate">{totalRevenue.toFixed(2)} €</p>
+                <p className="text-base sm:text-lg lg:text-2xl font-bold text-gray-900 truncate">{formatCurrency(totalRevenue)}</p>
               </div>
             </div>
           </div>
@@ -388,7 +435,7 @@ export default function SalesPage() {
               <div className="ml-2 sm:ml-3 lg:ml-4">
                 <p className="text-[10px] sm:text-xs lg:text-sm font-medium text-gray-600">Waiting for Payout</p>
                 <p className="text-base sm:text-lg lg:text-2xl font-bold text-gray-900">{waitingForPayout}</p>
-                <p className="text-[10px] sm:text-xs text-blue-600 mt-0.5 sm:mt-1 truncate">{waitingPayoutAmount.toFixed(2)} €</p>
+                <p className="text-[10px] sm:text-xs text-blue-600 mt-0.5 sm:mt-1 truncate">{formatCurrency(waitingPayoutAmount)}</p>
               </div>
             </div>
           </div>
@@ -411,7 +458,7 @@ export default function SalesPage() {
         </div>
 
         {/* Sales Cards */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-2xl overflow-hidden">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
           <div className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 border-b border-gray-200 bg-white">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
               <div>
@@ -569,20 +616,43 @@ export default function SalesPage() {
             </div>
           )}
 
+          {/* Sort Controls */}
+          <div className="px-3 sm:px-4 lg:px-6 py-2 border-b border-gray-100 flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-medium text-gray-500">Sort by:</span>
+            {([['created_at', 'Date'], ['price', 'Price'], ['payout', 'Payout'], ['name', 'Name']] as const).map(([field, label]) => (
+              <button
+                key={field}
+                onClick={() => toggleSort(field)}
+                className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg transition-colors ${
+                  sortField === field ? 'bg-black text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {label}
+                {sortField === field && (sortDirection === 'desc' ? <FaSortAmountDown className="text-[10px]" /> : <FaSortAmountUp className="text-[10px]" />)}
+              </button>
+            ))}
+          </div>
+
           <div className="p-3 sm:p-4 lg:p-6">
-            {filteredSales.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                  <FaShoppingCart className="text-gray-600 text-2xl" />
+            {sortedSales.length === 0 ? (
+              <div className="text-center py-16">
+                <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <FaShoppingCart className="text-gray-400 text-2xl" />
                 </div>
-                <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">No sales</h3>
-                <p className="text-sm sm:text-base text-gray-600">
-                  {searchTerm ? 'No sales found for your search term' : 'No sales yet'}
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">No sales found</h3>
+                <p className="text-sm text-gray-500 mb-4">
+                  {hasActiveFilters ? 'Try adjusting your filters or search term.' : 'No sales have been created yet.'}
                 </p>
+                {hasActiveFilters && (
+                  <button onClick={clearFilters} className="text-sm font-medium text-indigo-600 hover:text-indigo-700">
+                    Clear all filters
+                  </button>
+                )}
               </div>
             ) : (
+              <>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 lg:gap-6">
-                {filteredSales.map((sale) => (
+                {paginatedSales.map((sale) => (
                   <div
                     key={sale.id}
                     className="bg-white border border-gray-200 rounded-xl p-2.5 sm:p-3 lg:p-5 hover:shadow-lg transition-all duration-200 cursor-pointer"
@@ -628,11 +698,11 @@ export default function SalesPage() {
                     <div className="grid grid-cols-2 gap-1.5 sm:gap-2 lg:gap-3 mb-2 sm:mb-3 lg:mb-4 pb-2 sm:pb-3 lg:pb-4 border-b border-gray-200">
                       <div>
                         <p className="text-[10px] sm:text-xs text-gray-600 mb-0.5">Price</p>
-                        <p className="text-xs sm:text-sm font-semibold text-gray-900">{sale.price.toFixed(2)} €</p>
+                        <p className="text-xs sm:text-sm font-semibold text-gray-900">{formatCurrency(sale.price)}</p>
                       </div>
                       <div>
                         <p className="text-[10px] sm:text-xs text-gray-600 mb-0.5">Payout</p>
-                        <p className="text-xs sm:text-sm font-semibold text-green-600">{sale.payout.toFixed(2)} €</p>
+                        <p className="text-xs sm:text-sm font-semibold text-green-600">{formatCurrency(sale.payout)}</p>
                           </div>
                           </div>
 
@@ -745,14 +815,26 @@ export default function SalesPage() {
                   </div>
                 ))}
               </div>
+
+              <Pagination
+                currentPage={currentPage}
+                totalItems={sortedSales.length}
+                itemsPerPage={itemsPerPage}
+                onPageChange={setCurrentPage}
+                onItemsPerPageChange={(n) => { setItemsPerPage(n); setCurrentPage(1); }}
+              />
+              </>
             )}
           </div>
         </div>
 
         {/* Sales Status Management Modal */}
         {selectedSaleForStatus && (
-          <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black bg-opacity-50">
-            <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl max-w-2xl w-full border-t sm:border border-gray-200 max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col">
+          <div
+            className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm"
+            onClick={(e) => { if (e.target === e.currentTarget) setSelectedSaleForStatus(null); }}
+          >
+            <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl max-w-2xl w-full border-t sm:border border-gray-200 max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
               {/* Sticky Header */}
               <div className="flex items-center justify-between p-3 sm:p-4 lg:p-6 border-b border-gray-200 bg-white flex-shrink-0">
                 <h2 className="text-base sm:text-lg lg:text-xl text-gray-900 font-semibold flex-1 pr-2">Sales Status Management</h2>
@@ -781,7 +863,7 @@ export default function SalesPage() {
                   <div>
                     <h3 className="text-gray-900 font-semibold text-base sm:text-lg">{selectedSaleForStatus.name}</h3>
                     <p className="text-gray-700 text-sm">Size: {selectedSaleForStatus.size}</p>
-                    <p className="text-gray-700 text-sm">Price: {selectedSaleForStatus.price} €</p>
+                    <p className="text-gray-700 text-sm">Price: {formatCurrency(selectedSaleForStatus.price)}</p>
                     <p className="text-gray-700 text-sm">User: {selectedSaleForStatus.user_email}</p>
                     <p className="text-gray-700 text-sm">External ID: {selectedSaleForStatus.external_id || 'N/A'}</p>
                   </div>

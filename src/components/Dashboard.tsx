@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { getFees } from '../lib/fees';
 import { logger } from '../lib/logger';
+import { formatCurrency } from '../lib/utils';
 import AddProductModal from './AddProductModal';
 import EditProductModal from './EditProductModal';
 import {
@@ -555,7 +556,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
             Below Eshop
           </span>
         ),
-        desc: `(${(marketPrice - product.price).toFixed(2)} € below eshop)`
+        desc: `(${formatCurrency(marketPrice - product.price)} below eshop)`
       };
     }
 
@@ -597,7 +598,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
             Higher
           </span>
         ),
-        desc: `(+${higherBy.toFixed(2)} € above ${higherThanWhat})`
+        desc: `(+${formatCurrency(higherBy)} above ${higherThanWhat})`
       };
     }
 
@@ -781,7 +782,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
               </div>
               <div className="ml-3 sm:ml-4">
                 <p className="text-xs sm:text-sm font-medium text-slate-600">Total Payout</p>
-                <p className="text-xl sm:text-2xl font-bold text-slate-900">{totalPayout.toFixed(2)} €</p>
+                <p className="text-xl sm:text-2xl font-bold text-slate-900">{formatCurrency(totalPayout)}</p>
               </div>
             </div>
           </div>
@@ -890,7 +891,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
                             )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-900">
-                            {(product.payout ?? 0).toFixed(2)} €
+                            {formatCurrency(product.payout ?? 0)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm">
                             {product.expires_at ? (
@@ -982,7 +983,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
                             <div className="flex items-center justify-between">
                               <span className="text-xs text-slate-600">Payout:</span>
                               <span className="text-sm font-semibold text-green-600">
-                                {(product.payout ?? 0).toFixed(2)} €
+                                {formatCurrency(product.payout ?? 0)}
                               </span>
                             </div>
                             

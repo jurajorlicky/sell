@@ -1,6 +1,7 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import AdminNavigation from '../components/AdminNavigation';
+import Pagination from '../components/Pagination';
 import { formatDate as formatDateFull, formatDateShort, formatCurrency } from '../lib/utils';
 import {
   FaSearch,
@@ -12,7 +13,9 @@ import {
   FaFilter,
   FaTimes,
   FaDownload,
-  FaExclamationTriangle
+  FaExclamationTriangle,
+  FaSortAmountDown,
+  FaSortAmountUp
 } from 'react-icons/fa';
 
 interface Invoice {
@@ -46,6 +49,10 @@ export default function InvoicesPage() {
   const [userEmailFilter, setUserEmailFilter] = useState<string>('');
   const [showFilters, setShowFilters] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(24);
+  const [sortField, setSortField] = useState<'invoice_date' | 'price' | 'payout' | 'name'>('invoice_date');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
   const loadInvoices = useCallback(async () => {
     try {
@@ -146,6 +153,42 @@ export default function InvoicesPage() {
 
     return true;
   });
+
+  const sortedInvoices = useMemo(() => {
+    const sorted = [...filteredInvoices];
+    sorted.sort((a, b) => {
+      let cmp = 0;
+      switch (sortField) {
+        case 'price': cmp = a.price - b.price; break;
+        case 'payout': cmp = a.payout - b.payout; break;
+        case 'name': cmp = a.name.localeCompare(b.name); break;
+        case 'invoice_date':
+        default: cmp = new Date(a.invoice_date).getTime() - new Date(b.invoice_date).getTime(); break;
+      }
+      return sortDirection === 'desc' ? -cmp : cmp;
+    });
+    return sorted;
+  }, [filteredInvoices, sortField, sortDirection]);
+
+  const paginatedInvoices = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return sortedInvoices.slice(start, start + itemsPerPage);
+  }, [sortedInvoices, currentPage, itemsPerPage]);
+
+  const toggleSort = (field: typeof sortField) => {
+    if (sortField === field) {
+      setSortDirection(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('desc');
+    }
+    setCurrentPage(1);
+  };
+
+  const SortIcon = ({ field }: { field: typeof sortField }) => {
+    if (sortField !== field) return null;
+    return sortDirection === 'desc' ? <FaSortAmountDown className="inline ml-1 text-[10px]" /> : <FaSortAmountUp className="inline ml-1 text-[10px]" />;
+  };
 
   if (loading) {
     return (
@@ -312,44 +355,60 @@ export default function InvoicesPage() {
         {/* Invoices Table */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full min-w-[700px]">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-3 sm:px-4 py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 uppercase tracking-wider">
-                    Invoice Date
+                  <th
+                    className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                    onClick={() => toggleSort('invoice_date')}
+                  >
+                    Invoice Date <SortIcon field="invoice_date" />
                   </th>
-                  <th className="px-3 sm:px-4 py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 uppercase tracking-wider">
+                  <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                     ID
                   </th>
-                  <th className="px-3 sm:px-4 py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 uppercase tracking-wider">
-                    Product
+                  <th
+                    className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                    onClick={() => toggleSort('name')}
+                  >
+                    Product <SortIcon field="name" />
                   </th>
-                  <th className="px-3 sm:px-4 py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 uppercase tracking-wider">
+                  <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                     User
                   </th>
-                  <th className="px-3 sm:px-4 py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 uppercase tracking-wider">
-                    Price
+                  <th
+                    className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                    onClick={() => toggleSort('price')}
+                  >
+                    Price <SortIcon field="price" />
                   </th>
-                  <th className="px-3 sm:px-4 py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 uppercase tracking-wider">
-                    Payout
+                  <th
+                    className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                    onClick={() => toggleSort('payout')}
+                  >
+                    Payout <SortIcon field="payout" />
                   </th>
-                  <th className="px-3 sm:px-4 py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 uppercase tracking-wider">
+                  <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-3 sm:px-4 py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 uppercase tracking-wider">
+                  <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                     Contract
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredInvoices.length === 0 ? (
+                {sortedInvoices.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
-                      {invoices.length === 0 ? 'No invoices found' : 'No invoices match your filters'}
+                    <td colSpan={8} className="px-4 py-16 text-center">
+                      <FaFileInvoice className="text-gray-300 text-3xl mx-auto mb-3" />
+                      <p className="text-gray-900 font-semibold mb-1">No invoices found</p>
+                      <p className="text-gray-500 text-sm">
+                        {invoices.length === 0 ? 'No invoices have been created yet.' : 'Try adjusting your filters.'}
+                      </p>
                     </td>
                   </tr>
                 ) : (
-                  filteredInvoices.map((invoice) => (
+                  paginatedInvoices.map((invoice) => (
                     <tr key={invoice.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-3 sm:px-4 py-3 whitespace-nowrap text-xs sm:text-sm text-gray-900">
                         {formatDateShort(invoice.invoice_date)}
@@ -422,14 +481,10 @@ export default function InvoicesPage() {
             </table>
           </div>
 
-          {/* Summary */}
-          {filteredInvoices.length > 0 && (
-            <div className="bg-gray-50 px-3 sm:px-4 py-3 border-t border-gray-200">
+          {/* Pagination + Summary */}
+          {sortedInvoices.length > 0 && (
+            <div className="bg-gray-50 px-3 sm:px-4 py-3 border-t border-gray-200 space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 text-xs sm:text-sm">
-                <div className="text-gray-600">
-                  Showing <span className="font-semibold text-gray-900">{filteredInvoices.length}</span> of{' '}
-                  <span className="font-semibold text-gray-900">{invoices.length}</span> invoices
-                </div>
                 <div className="flex items-center space-x-4 text-gray-600">
                   <div>
                     Total Revenue: <span className="font-semibold text-gray-900">
@@ -443,6 +498,13 @@ export default function InvoicesPage() {
                   </div>
                 </div>
               </div>
+              <Pagination
+                currentPage={currentPage}
+                totalItems={sortedInvoices.length}
+                itemsPerPage={itemsPerPage}
+                onPageChange={setCurrentPage}
+                onItemsPerPageChange={(n) => { setItemsPerPage(n); setCurrentPage(1); }}
+              />
             </div>
           )}
         </div>

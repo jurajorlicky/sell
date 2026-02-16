@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { sendNewSaleEmail } from '../lib/email';
+import { formatCurrency } from '../lib/utils';
 import AdminNavigation from '../components/AdminNavigation';
 import {
   FaSearch, FaSignOutAlt, FaSync, FaCheck,
@@ -357,11 +358,11 @@ export default function ListedProductsPage() {
                     <div className="grid grid-cols-2 gap-1.5 sm:gap-2 lg:gap-3 mb-2 sm:mb-3 lg:mb-4 pb-2 sm:pb-3 lg:pb-4 border-b border-gray-200">
                       <div>
                         <p className="text-[10px] sm:text-xs text-gray-600 mb-0.5">Price</p>
-                        <p className="text-xs sm:text-sm font-semibold text-gray-900">{product.price.toFixed(2)} €</p>
+                        <p className="text-xs sm:text-sm font-semibold text-gray-900">{formatCurrency(product.price)}</p>
                       </div>
                       <div>
                         <p className="text-[10px] sm:text-xs text-gray-600 mb-0.5">Payout</p>
-                        <p className="text-xs sm:text-sm font-semibold text-green-600">{product.payout.toFixed(2)} €</p>
+                        <p className="text-xs sm:text-sm font-semibold text-green-600">{formatCurrency(product.payout)}</p>
                       </div>
                     </div>
 

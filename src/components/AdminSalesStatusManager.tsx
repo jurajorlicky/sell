@@ -5,6 +5,7 @@ import SalesStatusTimeline from './SalesStatusTimeline';
 import { sendStatusChangeEmail, sendTrackingEmail } from '../lib/email';
 import { logger } from '../lib/logger';
 import { generatePurchaseAgreement, uploadContractToStorage } from '../lib/pdfGenerator';
+import { useToast } from './Toast';
 import { FaSave, FaStickyNote, FaTruck, FaBox, FaLink, FaTimes, FaPlus, FaEdit, FaFilePdf, FaUpload, FaTrash, FaClock, FaFileContract } from 'react-icons/fa';
 
 interface AdminSalesStatusManagerProps {
@@ -48,6 +49,7 @@ export default function AdminSalesStatusManager({
   onClose,
   onDelete
 }: AdminSalesStatusManagerProps) {
+  const { showToast } = useToast();
   const [selectedStatus, setSelectedStatus] = useState(currentStatus);
   const [externalId, setExternalId] = useState(currentExternalId);
   const [trackingUrl, setTrackingUrl] = useState(currentTrackingUrl);
@@ -276,9 +278,9 @@ export default function AdminSalesStatusManager({
       }
       logger.info('Label URL saved to database');
       
-      // Show success message
       setError(null);
       setSuccess(true);
+      showToast('Label uploaded successfully', 'success');
       
     } catch (err: any) {
       logger.error('Error uploading label', err);
@@ -608,6 +610,7 @@ export default function AdminSalesStatusManager({
         onExternalIdUpdate(externalId);
       }
       setSuccess(true);
+      showToast('Changes saved successfully', 'success');
       setEmailSuccess(false);
 
       // Send email notifications if enabled
@@ -1059,6 +1062,7 @@ export default function AdminSalesStatusManager({
                   
                   setContractUrl(url);
                   setSuccess(true);
+                  showToast('Contract PDF generated', 'success');
                   logger.info('Contract PDF generated successfully', { saleId, url });
                 } catch (err: any) {
                   logger.error('Error generating contract', err);

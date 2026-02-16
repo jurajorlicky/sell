@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import SalesStatusBadge from './SalesStatusBadge';
 import SalesStatusTimeline from './SalesStatusTimeline';
-import { formatDate } from '../lib/utils';
+import { formatDate, formatCurrency } from '../lib/utils';
 import { FaArrowLeft, FaSignOutAlt, FaShoppingCart, FaUser, FaExclamationTriangle, FaEye, FaFilePdf, FaLink, FaTruck, FaBox, FaStickyNote, FaSearch, FaFilter, FaTimes, FaClock } from 'react-icons/fa';
 
 interface UserSale {
@@ -282,7 +282,7 @@ export default function UserSales() {
               </div>
               <div className="ml-3 sm:ml-4">
                 <p className="text-xs sm:text-sm font-medium text-gray-600">Total Payout</p>
-                <p className="text-xl sm:text-2xl font-bold text-gray-900">{totalPayout.toFixed(2)} €</p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-900">{formatCurrency(totalPayout)}</p>
               </div>
             </div>
           </div>
@@ -296,7 +296,7 @@ export default function UserSales() {
               <div className="ml-3 sm:ml-4">
                 <p className="text-xs sm:text-sm font-medium text-gray-600">Waiting for Payout</p>
                 <p className="text-xl sm:text-2xl font-bold text-gray-900">{waitingForPayout}</p>
-                <p className="text-xs text-blue-600 mt-1">{waitingPayoutAmount.toFixed(2)} €</p>
+                <p className="text-xs text-blue-600 mt-1">{formatCurrency(waitingPayoutAmount)}</p>
               </div>
             </div>
           </div>
@@ -522,11 +522,11 @@ export default function UserSales() {
                     <div className="grid grid-cols-2 gap-3 mb-4 pb-4 border-b border-gray-200">
                       <div>
                         <p className="text-xs text-gray-600 mb-1">Price</p>
-                        <p className="text-sm font-semibold text-gray-900">{sale.price.toFixed(2)} €</p>
+                        <p className="text-sm font-semibold text-gray-900">{formatCurrency(sale.price)}</p>
                       </div>
                       <div>
                         <p className="text-xs text-gray-600 mb-1">Payout</p>
-                        <p className="text-sm font-semibold text-green-600">{sale.payout.toFixed(2)} €</p>
+                        <p className="text-sm font-semibold text-green-600">{formatCurrency(sale.payout)}</p>
                           </div>
                           </div>
                           
@@ -723,11 +723,11 @@ export default function UserSales() {
                         </div>
                         <div>
                           <span className="text-gray-600">Price:</span>
-                          <span className="ml-2 font-semibold text-gray-900">{selectedSaleForTimeline.price.toFixed(2)} €</span>
+                          <span className="ml-2 font-semibold text-gray-900">{formatCurrency(selectedSaleForTimeline.price)}</span>
                     </div>
                     <div>
                           <span className="text-gray-600">Payout:</span>
-                          <span className="ml-2 font-semibold text-green-600">{selectedSaleForTimeline.payout.toFixed(2)} €</span>
+                          <span className="ml-2 font-semibold text-green-600">{formatCurrency(selectedSaleForTimeline.payout)}</span>
                         </div>
                         {selectedSaleForTimeline.external_id && (
                           <div className="col-span-1 sm:col-span-2">

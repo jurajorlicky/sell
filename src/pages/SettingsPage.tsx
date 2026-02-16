@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
+import { formatCurrency } from '../lib/utils';
 import AdminNavigation from '../components/AdminNavigation';
 import {
   FaSignOutAlt,
@@ -400,7 +401,7 @@ export default function SettingsPage() {
                     return (
                       <div key={price} className="bg-white rounded-lg p-2 sm:p-3">
                         <div className="text-xs sm:text-sm text-gray-600">Sale Price: <span className="text-gray-900 font-semibold">{price} €</span></div>
-                        <div className="text-xs sm:text-sm text-gray-600">Payout: <span className="text-green-600 font-semibold">{Math.max(0, payout).toFixed(2)} €</span></div>
+                        <div className="text-xs sm:text-sm text-gray-600">Payout: <span className="text-green-600 font-semibold">{formatCurrency(Math.max(0, payout))}</span></div>
                       </div>
                     );
                   })}

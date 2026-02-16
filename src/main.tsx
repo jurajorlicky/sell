@@ -2,6 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import App from './App'
+import { ToastProvider } from './components/Toast'
 import './assets/index.css'
 
 // Error boundary component
@@ -36,7 +37,7 @@ class ErrorBoundary extends React.Component<
         }}>
           <h1 style={{ color: '#ef4444', marginBottom: '16px' }}>Application error</h1>
           <p style={{ color: '#64748b', marginBottom: '16px' }}>
-            Nastala neočakávaná chyba. Skúste obnoviť stránku.
+            An unexpected error occurred. Please refresh the page.
           </p>
           <button 
             onClick={() => window.location.reload()}
@@ -49,7 +50,7 @@ class ErrorBoundary extends React.Component<
               cursor: 'pointer'
             }}
           >
-            Obnoviť stránku
+            Refresh page
           </button>
         </div>
       );
@@ -72,7 +73,9 @@ root.render(
   <React.StrictMode>
     <ErrorBoundary>
       <BrowserRouter>
-        <App />
+        <ToastProvider>
+          <App />
+        </ToastProvider>
       </BrowserRouter>
     </ErrorBoundary>
   </React.StrictMode>
