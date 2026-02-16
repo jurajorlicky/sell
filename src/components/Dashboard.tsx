@@ -524,10 +524,10 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
         color: 'text-red-600 font-bold',
         badge: (
           <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 ml-2">
-            Higher
+            +{formatCurrency(diff)} above market
           </span>
         ),
-        desc: `(+${formatCurrency(diff)} above market price)`
+        desc: ''
       };
     }
 
