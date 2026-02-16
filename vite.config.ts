@@ -12,7 +12,9 @@ export default defineConfig({
         manualChunks: {
           vendor: ['react', 'react-dom'],
           router: ['react-router-dom'],
-          supabase: ['@supabase/supabase-js']
+          supabase: ['@supabase/supabase-js'],
+          xlsx: ['xlsx'],
+          pdf: ['jspdf']
         }
       }
     }

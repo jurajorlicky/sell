@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, lazy, Suspense } from "react";
 import { User } from '@supabase/supabase-js';
 import { supabase } from "./lib/supabase";
 import { logger } from "./lib/logger";
@@ -19,23 +19,34 @@ const ErrorFallback = ({ error, resetError }: { error: Error; resetError: () => 
         onClick={resetError}
         className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
       >
-        Skúsiť znova
+        Try again
       </button>
     </div>
   </div>
 );
 
-import AuthForm from "./components/AuthForm";
-import Dashboard from "./components/Dashboard";
-import Profile from "./components/Profile";
-import UserSales from "./components/UserSales";
-import AdminDashboard from "./components/AdminDashboard";
-import ProductsPage from "./pages/ProductsPage";
-import UsersPage from "./pages/UsersPage";
-import ListedProductsPage from "./pages/ListedProductsPage";
-import SalesPage from "./pages/SalesPage";
-import InvoicesPage from "./pages/InvoicesPage";
-import SettingsPage from "./pages/SettingsPage";
+// Page loading spinner shown while lazy chunks load
+const PageLoader = () => (
+  <div className="min-h-screen flex justify-center items-center bg-white">
+    <div className="text-center">
+      <div className="inline-block w-10 h-10 border-4 border-gray-200 border-t-black rounded-full animate-spin mb-3"></div>
+      <p className="text-gray-500 text-sm">Loading...</p>
+    </div>
+  </div>
+);
+
+// Lazy-loaded route components — each gets its own JS chunk
+const AuthForm = lazy(() => import("./components/AuthForm"));
+const Dashboard = lazy(() => import("./components/Dashboard"));
+const Profile = lazy(() => import("./components/Profile"));
+const UserSales = lazy(() => import("./components/UserSales"));
+const AdminDashboard = lazy(() => import("./components/AdminDashboard"));
+const ProductsPage = lazy(() => import("./pages/ProductsPage"));
+const UsersPage = lazy(() => import("./pages/UsersPage"));
+const ListedProductsPage = lazy(() => import("./pages/ListedProductsPage"));
+const SalesPage = lazy(() => import("./pages/SalesPage"));
+const InvoicesPage = lazy(() => import("./pages/InvoicesPage"));
+const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -317,6 +328,7 @@ export default function App() {
   }
 
   return (
+    <Suspense fallback={<PageLoader />}>
     <Routes>
       <Route
         path="/"
@@ -383,5 +395,6 @@ export default function App() {
         element={user && isAdmin ? <SettingsPage /> : <Navigate to="/dashboard" replace />}
       />
     </Routes>
+    </Suspense>
   );
 }
