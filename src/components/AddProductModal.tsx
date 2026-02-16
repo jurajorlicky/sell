@@ -73,6 +73,32 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
     }
   }, [isOpen]);
 
+  // Check if other consignors have this product+size
+  useEffect(() => {
+    if (!selectedProduct || !selectedSize) {
+      setHasOtherConsignors(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        const { count } = await supabase
+          .from('user_products')
+          .select('id', { count: 'exact', head: true })
+          .eq('product_id', selectedProduct.product_id)
+          .eq('size', selectedSize)
+          .neq('user_id', currentUser?.id ?? '');
+        if (!cancelled) {
+          setHasOtherConsignors((count ?? 0) > 0);
+        }
+      } catch {
+        if (!cancelled) setHasOtherConsignors(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [selectedProduct, selectedSize]);
+
   const numericNewPrice = parseInt(newPrice);
   const computedPayout = !isNaN(numericNewPrice)
     ? calculatePayout(numericNewPrice, fees.fee_percent, fees.fee_fixed)
@@ -416,21 +442,9 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
                   </label>
                   <select
                     value={selectedSize}
-                    onChange={async (e) => {
-                      const size = e.target.value;
-                      setSelectedSize(size);
+                    onChange={(e) => {
+                      setSelectedSize(e.target.value);
                       setNewPrice('');
-                      setHasOtherConsignors(false);
-                      if (size && selectedProduct) {
-                        const { data: { user: currentUser } } = await supabase.auth.getUser();
-                        const { count } = await supabase
-                          .from('user_products')
-                          .select('id', { count: 'exact', head: true })
-                          .eq('product_id', selectedProduct.product_id)
-                          .eq('size', size)
-                          .neq('user_id', currentUser?.id ?? '');
-                        setHasOtherConsignors((count ?? 0) > 0);
-                      }
                     }}
                     className="block w-full px-3 sm:px-4 py-2 sm:py-3 border border-slate-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent text-sm sm:text-base appearance-none"
                     required
