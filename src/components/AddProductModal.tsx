@@ -50,6 +50,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
   const [fees, setFees] = useState<Fees>({ fee_percent: 0.2, fee_fixed: 5 });
   const [searchLoading, setSearchLoading] = useState(false);
   const [sku, setSku] = useState<string>('');
+  const [hasOtherConsignors, setHasOtherConsignors] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -68,6 +69,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
       setError(null);
       setExistingProducts([]);
       setSizes([]);
+      setHasOtherConsignors(false);
     }
   }, [isOpen]);
 
@@ -83,7 +85,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
   let priceMessage = '';
   let priceBadge = null;
   
-  if (!isNaN(numericNewPrice) && numericNewPrice > 0) {
+  if (hasOtherConsignors && !isNaN(numericNewPrice) && numericNewPrice > 0) {
     if (numericNewPrice > recommendedPrice) {
       priceColor = 'text-red-600';
       priceMessage = 'Your price is higher than the lowest price!';
@@ -204,6 +206,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
     setSku('');
     setError(null);
     setSearchTerm('');
+    setHasOtherConsignors(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -413,9 +416,21 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
                   </label>
                   <select
                     value={selectedSize}
-                    onChange={(e) => {
-                      setSelectedSize(e.target.value);
+                    onChange={async (e) => {
+                      const size = e.target.value;
+                      setSelectedSize(size);
                       setNewPrice('');
+                      setHasOtherConsignors(false);
+                      if (size && selectedProduct) {
+                        const { data: { user: currentUser } } = await supabase.auth.getUser();
+                        const { count } = await supabase
+                          .from('user_products')
+                          .select('id', { count: 'exact', head: true })
+                          .eq('product_id', selectedProduct.product_id)
+                          .eq('size', size)
+                          .neq('user_id', currentUser?.id ?? '');
+                        setHasOtherConsignors((count ?? 0) > 0);
+                      }
                     }}
                     className="block w-full px-3 sm:px-4 py-2 sm:py-3 border border-slate-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent text-sm sm:text-base appearance-none"
                     required
@@ -440,7 +455,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
                         </div>
                         <div className="ml-3">
                           <p className="text-xs sm:text-sm font-medium text-blue-800">
-                            Lowest market price: <span className="font-bold">{recommendedPrice} €</span>
+                            {hasOtherConsignors ? 'Lowest market price' : 'Market price'}: <span className="font-bold">{recommendedPrice} €</span>
                           </p>
                         </div>
                       </div>
