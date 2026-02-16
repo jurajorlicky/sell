@@ -73,7 +73,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
     }
   }, [isOpen]);
 
-  // Check if other consignors have this product+size
+  // Check if anyone (including current user) already has this product+size listed
   useEffect(() => {
     if (!selectedProduct || !selectedSize) {
       setHasOtherConsignors(false);
@@ -82,13 +82,11 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
     let cancelled = false;
     (async () => {
       try {
-        const { data: { user: currentUser } } = await supabase.auth.getUser();
         const { count } = await supabase
           .from('user_products')
           .select('id', { count: 'exact', head: true })
           .eq('product_id', selectedProduct.product_id)
-          .eq('size', selectedSize)
-          .neq('user_id', currentUser?.id ?? '');
+          .eq('size', selectedSize);
         if (!cancelled) {
           setHasOtherConsignors((count ?? 0) > 0);
         }
