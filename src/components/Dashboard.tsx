@@ -506,16 +506,28 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
     const hasConsignorPrice = lowest_consignor_price !== null;
     const hasEshopPrice = lowest_eshop_price !== null;
 
-    // If no other consignors exist, just show market price neutrally
-    if (!hasConsignorPrice) {
+    // If no other consignors exist, compare against eshop price
+    if (!hasConsignorPrice && hasEshopPrice) {
+      const diff = product.price - lowest_eshop_price!;
+      if (isPriceLower(product.price, lowest_eshop_price!) || isPriceEqual(product.price, lowest_eshop_price!)) {
+        return {
+          color: 'text-green-600 font-bold',
+          badge: (
+            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 ml-2">
+              Lowest
+            </span>
+          ),
+          desc: diff < 0 ? `(${formatCurrency(Math.abs(diff))} below market)` : '(Matches market price)'
+        };
+      }
       return {
-        color: 'text-slate-700',
+        color: 'text-red-600 font-bold',
         badge: (
-          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 ml-2">
-            Market: {formatCurrency(marketPrice)}
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 ml-2">
+            Higher
           </span>
         ),
-        desc: ''
+        desc: `(+${formatCurrency(diff)} above market price)`
       };
     }
 
