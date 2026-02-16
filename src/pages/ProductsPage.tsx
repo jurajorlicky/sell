@@ -37,7 +37,7 @@ export default function ProductsPage() {
       setProducts(data || []);
     } catch (err: any) {
       console.error('Error loading products:', err.message);
-      setError('Chyba pri načítavaní produktov: ' + err.message);
+      setError('Error loading products: ' + err.message);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -78,8 +78,8 @@ export default function ProductsPage() {
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-gray-300 border-t-purple-500 rounded-full animate-spin mx-auto mb-4"></div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Načítavajú sa produkty</h3>
-          <p className="text-sm text-gray-600">Prosím čakajte...</p>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Loading products</h3>
+          <p className="text-sm text-gray-600">Please wait...</p>
         </div>
       </div>
     );
@@ -187,9 +187,9 @@ export default function ProductsPage() {
                 <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
                   <FaShoppingBag className="text-gray-600 text-2xl" />
                 </div>
-                <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">Žiadne produkty</h3>
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">No products</h3>
                 <p className="text-sm sm:text-base text-gray-600">
-                  {searchTerm ? 'Nenašli sa žiadne produkty pre váš vyhľadávací výraz' : 'Zatiaľ nie sú pridané žiadne produkty'}
+                  {searchTerm ? 'No products found for your search' : 'No products have been added yet'}
                 </p>
               </div>
             ) : (
@@ -233,7 +233,7 @@ export default function ProductsPage() {
                       <tr>
                         <th className="px-3 sm:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider hidden lg:table-cell">ID</th>
                         <th className="px-3 sm:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">IMAGE</th>
-                        <th className="px-3 sm:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Názov</th>
+                        <th className="px-3 sm:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Name</th>
                         <th className="px-3 sm:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">SKU</th>
                       </tr>
                     </thead>

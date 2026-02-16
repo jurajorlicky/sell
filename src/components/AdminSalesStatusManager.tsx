@@ -171,7 +171,7 @@ export default function AdminSalesStatusManager({
     
     if (!file) {
       console.error('No file provided');
-      setError('Žiadny súbor nebol vybraný');
+      setError('No file selected');
       return;
     }
     
@@ -183,7 +183,7 @@ export default function AdminSalesStatusManager({
 
     if (file.size > 10 * 1024 * 1024) { // 10MB limit
       console.warn('File too large', { fileSize: file.size });
-      setError('Súbor je príliš veľký. Maximálna veľkosť je 10MB');
+      setError('File is too large. Maximum size is 10MB');
       return;
     }
 
@@ -253,7 +253,7 @@ export default function AdminSalesStatusManager({
         if (uploadError.message?.includes('Bucket not found') || uploadError.message?.includes('not found')) {
           throw new Error('Storage bucket "labels" does not exist. Please create it in Supabase Dashboard > Storage > Create Bucket.');
         } else if (uploadError.message?.includes('new row violates row-level security') || uploadError.message?.includes('row-level security')) {
-          throw new Error('Nemáte oprávnenie na nahrávanie súborov. Skontrolujte RLS policies v Storage > labels > Policies. Bucket musí byť public alebo musíte mať správne nastavené policies.');
+          throw new Error('You do not have permission to upload files. Check RLS policies in Storage > labels > Policies. Bucket must be public or have correct policies.');
         } else if (uploadError.message?.includes('JWT')) {
           throw new Error('Authentication error. Please sign out and sign in again.');
         } else {
@@ -302,7 +302,7 @@ export default function AdminSalesStatusManager({
         stack: err.stack,
         errorString: JSON.stringify(err, null, 2)
       });
-      const errorMessage = err.message || 'Neznáma chyba pri nahrávaní PDF';
+      const errorMessage = err.message || 'Unknown error uploading PDF';
       setError(errorMessage);
     } finally {
       setUploading(false);
@@ -366,7 +366,7 @@ export default function AdminSalesStatusManager({
   const handleDeleteSale = async () => {
     if (!onDelete) return;
     
-    if (!confirm(`Naozaj chcete odstrániť tento predaj? Táto akcia je nevratná a odstráni aj všetky súvisiace súbory (label, zmluva).`)) {
+    if (!confirm(`Are you sure you want to delete this sale? This action cannot be undone and will remove all related files (label, contract).`)) {
       return;
     }
 
@@ -698,7 +698,7 @@ export default function AdminSalesStatusManager({
           });
           console.error('Email error details:', emailError);
           // Show error to user but don't fail the save
-          setError(`Upozornenie: Email notifikácia sa nepodarila odoslať: ${emailError?.message || 'Neznáma chyba'}. Predaj bol uložený úspešne.`);
+          setError(`Warning: Email notification could not be sent: ${emailError?.message || 'Unknown error'}. Sale was saved successfully.`);
         }
       }
       
@@ -746,10 +746,10 @@ export default function AdminSalesStatusManager({
             <svg className="w-5 h-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
-            <p className="text-sm text-green-800 font-medium">Zmeny boli úspešne uložené!</p>
+            <p className="text-sm text-green-800 font-medium">Changes have been saved successfully!</p>
           </div>
           {emailSuccess && (
-            <p className="text-xs text-green-700 mt-2 ml-7">Email notifikácia bola odoslaná.</p>
+            <p className="text-xs text-green-700 mt-2 ml-7">Email notification has been sent.</p>
           )}
         </div>
       )}
@@ -758,11 +758,11 @@ export default function AdminSalesStatusManager({
       <div className="bg-gradient-to-r from-slate-50 to-white rounded-xl p-4 border border-gray-200">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs text-gray-600 uppercase tracking-wider mb-1">Aktuálny status</p>
+            <p className="text-xs text-gray-600 uppercase tracking-wider mb-1">Current status</p>
             <div className="flex items-center space-x-2">
             <SalesStatusBadge status={currentStatus} />
               {currentIsManual && (
-                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold bg-blue-500 text-white" title="Manuálna sale">
+                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold bg-blue-500 text-white" title="Manual sale">
                   M
                 </span>
               )}
@@ -780,7 +780,7 @@ export default function AdminSalesStatusManager({
       {/* Status Selection */}
       <div className="bg-white rounded-xl p-4 border border-gray-200">
         <label className="block text-sm font-semibold text-gray-900 mb-3">
-          Status predaja
+          Sale status
         </label>
         <select
           value={selectedStatus}
@@ -839,7 +839,7 @@ export default function AdminSalesStatusManager({
           </p>
           {currentPayoutDate && (
             <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-              <p className="text-xs text-gray-600 mb-1">Plánovaný dátum vyplatenia:</p>
+              <p className="text-xs text-gray-600 mb-1">Planned payout date:</p>
               <p className="text-sm font-semibold text-blue-900">
                 {new Date(currentPayoutDate).toLocaleDateString('sk-SK', {
                   day: '2-digit',
@@ -1100,7 +1100,7 @@ export default function AdminSalesStatusManager({
                 </>
               )}
             </button>
-            <p className="text-xs text-gray-500">Vygeneruje PDF zmluvu s informáciami o predaji</p>
+            <p className="text-xs text-gray-500">Generates PDF contract with sale information</p>
           </div>
         )}
       </div>
@@ -1118,14 +1118,14 @@ export default function AdminSalesStatusManager({
               <div className="flex items-center space-x-3">
                 <FaFilePdf className="text-red-600 text-xl" />
                 <div>
-                  <p className="text-sm font-medium text-gray-900">Label je nahraný</p>
+                  <p className="text-sm font-medium text-gray-900">Label is uploaded</p>
                   <a
                     href={labelUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-xs text-blue-600 hover:text-blue-800"
                   >
-                    Otvoriť PDF
+                    Open PDF
                   </a>
                 </div>
               </div>
@@ -1133,13 +1133,13 @@ export default function AdminSalesStatusManager({
                 onClick={handleDeleteLabel}
                 disabled={uploading}
                 className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
-                title="Zmazať label"
+                title="Delete label"
               >
                 <FaTrash />
               </button>
             </div>
             {uploading && (
-              <p className="text-xs text-gray-600">Maže sa...</p>
+              <p className="text-xs text-gray-600">Deleting...</p>
           )}
         </div>
         ) : (
@@ -1148,7 +1148,7 @@ export default function AdminSalesStatusManager({
               <div className="flex flex-col items-center justify-center pt-5 pb-6">
                 <FaUpload className="text-gray-400 text-2xl mb-2" />
                 <p className="text-sm text-gray-600 font-medium">Kliknite pre nahranie PDF</p>
-                <p className="text-xs text-gray-500 mt-1">alebo presuňte súbor sem</p>
+                <p className="text-xs text-gray-500 mt-1">or drag and drop file here</p>
               </div>
               <input
                 type="file"
@@ -1161,7 +1161,7 @@ export default function AdminSalesStatusManager({
                     handleFileUpload(file);
                   } else {
                     console.warn('No file selected');
-                    setError('Žiadny súbor nebol vybraný');
+                    setError('No file selected');
                   }
                   // Reset input to allow selecting same file again
                   e.target.value = '';
@@ -1180,7 +1180,7 @@ export default function AdminSalesStatusManager({
                 <span>Nahráva sa...</span>
               </div>
             )}
-            <p className="text-xs text-gray-500">Maximálna veľkosť: 10MB</p>
+            <p className="text-xs text-gray-500">Maximum size: 10MB</p>
           </div>
         )}
       </div>
@@ -1205,12 +1205,12 @@ export default function AdminSalesStatusManager({
       <div className="bg-white rounded-xl p-4 border border-gray-200">
         <label className="block text-sm font-semibold text-gray-900 mb-3">
           <FaStickyNote className="inline mr-2 text-gray-700" />
-          Poznámka (voliteľné)
+          Note (optional)
         </label>
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          placeholder="Pridajte poznámku k zmene statusu, tracking informáciám alebo ďalšie detaily..."
+          placeholder="Add a note about status change, tracking info or other details..."
           rows={4}
           className="block w-full px-4 py-3 bg-white border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none text-gray-900"
         />

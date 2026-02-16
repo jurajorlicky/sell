@@ -184,7 +184,7 @@ export default function Profile() {
         }
         console.error('Error loading user data:', error.message);
         if (isMounted) {
-          setError('Nepodarilo sa načítať profil. Skúste znova.');
+          setError('Could not load profile. Please try again.');
         }
       } finally {
         if (isMounted) {
@@ -245,7 +245,7 @@ export default function Profile() {
 
     try {
       if (!user) {
-        setError('Používateľ nie je prihlásený.');
+        setError('User is not logged in.');
         return;
       }
 
@@ -482,7 +482,7 @@ export default function Profile() {
 
     try {
       if (!user) {
-        setError('Používateľ nie je prihlásený.');
+        setError('User is not logged in.');
         return;
       }
 
@@ -852,7 +852,7 @@ export default function Profile() {
                           target.style.display = 'none';
                           const parent = target.parentElement;
                           if (parent) {
-                            parent.innerHTML = '<p class="text-sm text-red-600">Chyba pri načítaní obrázka podpisu</p>';
+                            parent.innerHTML = '<p class="text-sm text-red-600">Error loading signature image</p>';
                           }
                         }}
                         onLoad={() => {
@@ -1000,7 +1000,7 @@ export default function Profile() {
 
                   <div>
                     <label htmlFor="address" className="block text-sm font-semibold text-slate-700 mb-2">
-                      Adresa
+                      Address
                     </label>
                     <input
                       type="text"
@@ -1028,7 +1028,7 @@ export default function Profile() {
 
                   <div>
                     <label htmlFor="psc" className="block text-sm font-semibold text-slate-700 mb-2">
-                      PSČ
+                      Postal Code
                     </label>
                     <input
                       type="text"
@@ -1042,7 +1042,7 @@ export default function Profile() {
 
                   <div>
                     <label htmlFor="mesto" className="block text-sm font-semibold text-slate-700 mb-2">
-                      Mesto
+                      City
                     </label>
                     <input
                       type="text"

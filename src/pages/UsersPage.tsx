@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import SalesStatusBadge from '../components/SalesStatusBadge';
 import AdminSalesStatusManager from '../components/AdminSalesStatusManager';
 import CreateSaleModal from '../components/CreateSaleModal';
+import BulkProductImportModal from '../components/BulkProductImportModal';
 import AdminNavigation from '../components/AdminNavigation';
 import { 
   FaSignOutAlt, 
@@ -26,7 +27,8 @@ import {
   FaSignature,
   FaTrash,
   FaChartBar,
-  FaPlus
+  FaPlus,
+  FaUpload
 } from 'react-icons/fa';
 
 interface UserProfile {
@@ -108,6 +110,7 @@ export default function UsersPage() {
   const [loadingOperations, setLoadingOperations] = useState(false);
   const [selectedSaleForStatus, setSelectedSaleForStatus] = useState<UserSale | null>(null);
   const [showCreateSaleModal, setShowCreateSaleModal] = useState(false);
+  const [showBulkImportModal, setShowBulkImportModal] = useState(false);
 
   const loadUsers = useCallback(async () => {
     try {
@@ -126,7 +129,7 @@ export default function UsersPage() {
       setUsers(data || []);
     } catch (err: any) {
       console.error('Error loading users:', err.message);
-      setError('Chyba pri načítavaní užívateľov: ' + err.message);
+      setError('Error loading users: ' + err.message);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -182,7 +185,7 @@ export default function UsersPage() {
 
     } catch (err: any) {
       console.error('Error loading user details:', err.message);
-      setError('Chyba pri načítavaní detailov užívateľa: ' + err.message);
+      setError('Error loading user details: ' + err.message);
     } finally {
       setLoadingUserData(false);
     }
@@ -267,7 +270,7 @@ export default function UsersPage() {
   const handleDeleteUser = async () => {
     if (!selectedUser) return;
 
-    const confirmMessage = `Naozaj chcete odstrániť používateľa "${selectedUser.email}"? Táto akcia je nevratná a odstráni aj všetky súvisiace súbory (podpis, predaje, zmluvy, labels).`;
+    const confirmMessage = `Are you sure you want to delete user "${selectedUser.email}"? This action cannot be undone and will remove all related files (signature, sales, contracts, labels).`;
     if (!confirm(confirmMessage)) {
       return;
     }
@@ -307,7 +310,7 @@ export default function UsersPage() {
         .eq('user_id', userId);
 
       if (salesError) {
-        throw new Error('Chyba pri načítavaní predajov: ' + salesError.message);
+        throw new Error('Error loading sales: ' + salesError.message);
       }
 
       if (userSalesData) {
@@ -355,7 +358,7 @@ export default function UsersPage() {
         .eq('user_id', userId);
 
       if (deleteSalesError) {
-        throw new Error('Chyba pri odstraňovaní predajov: ' + deleteSalesError.message);
+        throw new Error('Error deleting sales: ' + deleteSalesError.message);
       }
 
       // 4. Delete user products from database
@@ -365,7 +368,7 @@ export default function UsersPage() {
         .eq('user_id', userId);
 
       if (deleteProductsError) {
-        throw new Error('Chyba pri odstraňovaní produktov: ' + deleteProductsError.message);
+        throw new Error('Error deleting products: ' + deleteProductsError.message);
       }
 
       // 5. Delete user profile from database
@@ -375,7 +378,7 @@ export default function UsersPage() {
         .eq('id', userId);
 
       if (deleteProfileError) {
-        throw new Error('Chyba pri odstraňovaní profilu: ' + deleteProfileError.message);
+        throw new Error('Error deleting profile: ' + deleteProfileError.message);
       }
 
       // 6. Try to delete user from auth.users using Edge Function
@@ -397,13 +400,13 @@ export default function UsersPage() {
       }
 
       // Success - close modal and reload users
-      alert(`Používateľ "${selectedUser.email}" bol úspešne odstránený.`);
+      alert(`User "${selectedUser.email}" has been deleted successfully.`);
       closeModal();
       await loadUsers();
     } catch (err: any) {
       console.error('Error deleting user:', err);
-      setError('Chyba pri odstraňovaní používateľa: ' + (err.message || err));
-      alert('Chyba pri odstraňovaní používateľa: ' + (err.message || err));
+      setError('Error deleting user: ' + (err.message || err));
+      alert('Error deleting user: ' + (err.message || err));
     } finally {
       setDeletingUser(false);
     }
@@ -476,8 +479,8 @@ export default function UsersPage() {
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-gray-300 border-t-indigo-500 rounded-full animate-spin mx-auto mb-4"></div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Načítavajú sa užívatelia</h3>
-          <p className="text-sm text-gray-600">Prosím čakajte...</p>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Loading users</h3>
+          <p className="text-sm text-gray-600">Please wait...</p>
         </div>
       </div>
     );
@@ -599,7 +602,7 @@ export default function UsersPage() {
                       </p>
                     ) : null}
                     <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-medium ${
-                      user.profile_type === 'Obchodný' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
+                      user.profile_type === 'Business' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
                     }`}>
                       {user.profile_type || 'N/A'}
                     </span>
@@ -637,7 +640,7 @@ export default function UsersPage() {
                     </td>
                     <td className="px-3 sm:px-6 py-4 text-sm text-gray-700">
                       <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                        user.profile_type === 'Obchodný' ? 'bg-gray-100 text-blue-800' : 'bg-gray-100 text-gray-800'
+                        user.profile_type === 'Business' ? 'bg-gray-100 text-blue-800' : 'bg-gray-100 text-gray-800'
                       }`}>
                         {user.profile_type || 'N/A'}
                       </span>
@@ -648,7 +651,7 @@ export default function UsersPage() {
                         className="inline-flex items-center px-3 py-2 bg-black text-white text-sm font-semibold rounded-xl hover:bg-gray-800 transition-all duration-200 shadow-sm"
                       >
                         <FaInfoCircle className="mr-2" />
-                        Detail
+                        Details
                       </button>
                     </td>
                   </tr>
@@ -662,9 +665,9 @@ export default function UsersPage() {
               <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <FaUsers className="text-gray-600 text-2xl" />
               </div>
-              <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">Žiadni užívatelia</h3>
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">No users</h3>
               <p className="text-sm sm:text-base text-gray-600">
-                {searchTerm ? 'Nenašli sa žiadni užívatelia pre váš vyhľadávací výraz' : 'Zatiaľ nie sú pridaní žiadni užívatelia'}
+                {searchTerm ? 'No users found for your search' : 'No users have been added yet'}
               </p>
             </div>
           )}
@@ -684,7 +687,7 @@ export default function UsersPage() {
                     <h3 className="text-sm sm:text-base lg:text-xl font-bold text-gray-900 truncate">
                       {selectedUser.first_name || selectedUser.last_name ? 
                         `${selectedUser.first_name || ''} ${selectedUser.last_name || ''}`.trim() : 
-                        'Užívateľ'
+                        'User'
                       }
                     </h3>
                     <p className="text-gray-600 text-xs sm:text-sm break-all">{selectedUser.email}</p>
@@ -695,7 +698,7 @@ export default function UsersPage() {
                     onClick={handleDeleteUser}
                     disabled={deletingUser}
                     className="w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
-                    title="Odstrániť používateľa"
+                    title="Delete user"
                   >
                     {deletingUser ? (
                       <svg className="animate-spin w-5 h-5 sm:w-6 sm:h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -710,7 +713,7 @@ export default function UsersPage() {
                     onClick={closeModal}
                     disabled={deletingUser}
                     className="w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center bg-gray-800 hover:bg-gray-900 text-white rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
-                    aria-label="Zatvoriť"
+                    aria-label="Close"
                   >
                     <FaTimes className="w-6 h-6 sm:w-7 sm:h-7" />
                   </button>
@@ -748,14 +751,14 @@ export default function UsersPage() {
                         <FaShoppingCart className="text-blue-600 text-xs sm:text-sm lg:text-base" />
                       </div>
                       <p className="text-sm sm:text-base lg:text-xl font-bold text-gray-900">{userStats.totalSales}</p>
-                      <p className="text-[9px] sm:text-[10px] lg:text-xs text-gray-600 mt-0.5 sm:mt-1">Predaje</p>
+                      <p className="text-[9px] sm:text-[10px] lg:text-xs text-gray-600 mt-0.5 sm:mt-1">Sales</p>
                     </div>
                     <div className="bg-white rounded-lg sm:rounded-xl p-2 sm:p-3 lg:p-4 text-center border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
                       <div className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10 bg-green-500/10 rounded-lg sm:rounded-xl flex items-center justify-center mx-auto mb-1 sm:mb-2">
                         <FaEuroSign className="text-green-600 text-xs sm:text-sm lg:text-base" />
                       </div>
                       <p className="text-xs sm:text-sm lg:text-xl font-bold text-gray-900 truncate">{formatCurrency(userStats.totalRevenue)}</p>
-                      <p className="text-[9px] sm:text-[10px] lg:text-xs text-gray-600 mt-0.5 sm:mt-1">Tržby</p>
+                      <p className="text-[9px] sm:text-[10px] lg:text-xs text-gray-600 mt-0.5 sm:mt-1">Revenue</p>
                     </div>
                     <div className="bg-white rounded-lg sm:rounded-xl p-2 sm:p-3 lg:p-4 text-center border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
                       <div className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10 bg-purple-500/10 rounded-lg sm:rounded-xl flex items-center justify-center mx-auto mb-1 sm:mb-2">
@@ -769,7 +772,7 @@ export default function UsersPage() {
                         <FaBox className="text-orange-600 text-xs sm:text-sm lg:text-base" />
                       </div>
                       <p className="text-sm sm:text-base lg:text-xl font-bold text-gray-900">{userStats.totalProducts}</p>
-                      <p className="text-[9px] sm:text-[10px] lg:text-xs text-gray-600 mt-0.5 sm:mt-1">Produkty</p>
+                      <p className="text-[9px] sm:text-[10px] lg:text-xs text-gray-600 mt-0.5 sm:mt-1">Products</p>
                     </div>
                     <div className="bg-white rounded-lg sm:rounded-xl p-2 sm:p-3 lg:p-4 text-center border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
                       <div className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10 bg-green-500/10 rounded-lg sm:rounded-xl flex items-center justify-center mx-auto mb-1 sm:mb-2">
@@ -778,7 +781,7 @@ export default function UsersPage() {
                         </svg>
                       </div>
                       <p className="text-sm sm:text-base lg:text-xl font-bold text-gray-900">{userStats.completedSales}</p>
-                      <p className="text-[9px] sm:text-[10px] lg:text-xs text-gray-600 mt-0.5 sm:mt-1">Dokončené</p>
+                      <p className="text-[9px] sm:text-[10px] lg:text-xs text-gray-600 mt-0.5 sm:mt-1">Completed</p>
                     </div>
                     <div className="bg-white rounded-lg sm:rounded-xl p-2 sm:p-3 lg:p-4 text-center border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
                       <div className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10 bg-yellow-500/10 rounded-lg sm:rounded-xl flex items-center justify-center mx-auto mb-1 sm:mb-2">
@@ -787,7 +790,7 @@ export default function UsersPage() {
                         </svg>
                       </div>
                       <p className="text-sm sm:text-base lg:text-xl font-bold text-gray-900">{userStats.pendingSales}</p>
-                      <p className="text-[9px] sm:text-[10px] lg:text-xs text-gray-600 mt-0.5 sm:mt-1">Čakajúce</p>
+                      <p className="text-[9px] sm:text-[10px] lg:text-xs text-gray-600 mt-0.5 sm:mt-1">Pending</p>
                     </div>
                   </div>
                 </div>
@@ -796,10 +799,10 @@ export default function UsersPage() {
               {/* Tab Navigation */}
               <div className="flex border-b border-gray-200 bg-gray-50 overflow-x-auto flex-shrink-0">
                 {[
-                  { id: 'info', label: 'Informácie', icon: FaUser },
-                  { id: 'sales', label: 'Predaje', icon: FaShoppingCart },
-                  { id: 'products', label: 'Produkty', icon: FaBox },
-                  { id: 'operations', label: 'Operácie', icon: FaChartBar }
+                  { id: 'info', label: 'Info', icon: FaUser },
+                  { id: 'sales', label: 'Sales', icon: FaShoppingCart },
+                  { id: 'products', label: 'Products', icon: FaBox },
+                  { id: 'operations', label: 'Operations', icon: FaChartBar }
                 ].map((tab) => (
                   <button
                     key={tab.id}
@@ -822,7 +825,7 @@ export default function UsersPage() {
                 {loadingUserData ? (
                   <div className="flex items-center justify-center py-12">
                     <div className="w-8 h-8 border-4 border-gray-300 border-t-indigo-500 rounded-full animate-spin"></div>
-                    <span className="ml-3 text-gray-700">Načítavajú sa údaje...</span>
+                    <span className="ml-3 text-gray-700">Loading data...</span>
                   </div>
                 ) : (
                   <>
@@ -854,7 +857,7 @@ export default function UsersPage() {
                           <div className="flex items-start sm:items-center">
                             <FaPhone className="text-gray-600 mr-2 sm:mr-3 flex-shrink-0 mt-0.5 sm:mt-0" />
                             <div className="flex-1 min-w-0">
-                              <p className="text-xs text-gray-600 uppercase tracking-wider mb-0.5">Telefón</p>
+                              <p className="text-xs text-gray-600 uppercase tracking-wider mb-0.5">Phone</p>
                               <p className="text-sm sm:text-base font-semibold break-words">{selectedUser.telephone || 'N/A'}</p>
                             </div>
                           </div>
@@ -870,14 +873,14 @@ export default function UsersPage() {
                               <div className="flex items-start sm:items-center">
                                 <FaBuilding className="text-gray-600 mr-2 sm:mr-3 flex-shrink-0 mt-0.5 sm:mt-0" />
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-xs text-gray-600 uppercase tracking-wider mb-0.5">Spoločnosť</p>
+                                  <p className="text-xs text-gray-600 uppercase tracking-wider mb-0.5">Company</p>
                                   <p className="text-sm sm:text-base font-semibold break-words">{selectedUser.company_name || 'N/A'}</p>
                                 </div>
                               </div>
                               <div className="flex items-start sm:items-center">
                                 <FaBuilding className="text-gray-600 mr-2 sm:mr-3 flex-shrink-0 mt-0.5 sm:mt-0" />
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-xs text-gray-600 uppercase tracking-wider mb-0.5">IČO</p>
+                                  <p className="text-xs text-gray-600 uppercase tracking-wider mb-0.5">Company ID</p>
                                   <p className="text-sm sm:text-base font-semibold break-words">{selectedUser.ico || 'N/A'}</p>
                                 </div>
                               </div>
@@ -905,7 +908,7 @@ export default function UsersPage() {
                           <div className="flex items-start sm:items-center">
                             <FaMapMarkerAlt className="text-gray-600 mr-2 sm:mr-3 flex-shrink-0 mt-0.5 sm:mt-0" />
                             <div className="flex-1 min-w-0">
-                              <p className="text-xs text-gray-600 uppercase tracking-wider mb-0.5">PSČ</p>
+                              <p className="text-xs text-gray-600 uppercase tracking-wider mb-0.5">Postal Code</p>
                               <p className="text-sm sm:text-base font-semibold break-words">{selectedUser.psc || 'N/A'}</p>
                             </div>
                           </div>
@@ -926,17 +929,17 @@ export default function UsersPage() {
                           <div className="flex items-start sm:items-center">
                             <FaSignature className="text-gray-600 mr-2 sm:mr-3 flex-shrink-0 mt-0.5 sm:mt-0" />
                             <div className="flex-1 min-w-0">
-                              <p className="text-xs text-gray-600 uppercase tracking-wider mb-1.5 sm:mb-2">Podpis</p>
+                              <p className="text-xs text-gray-600 uppercase tracking-wider mb-1.5 sm:mb-2">Signature</p>
                               {selectedUser.signature_url ? (
                                 <div className="border border-gray-300 rounded-xl p-2 sm:p-3 bg-white">
                                   <img 
                                     src={selectedUser.signature_url} 
-                                    alt="Podpis" 
+                                    alt="Signature" 
                                     className="max-w-full h-20 sm:h-24 object-contain"
                                   />
                                 </div>
                               ) : (
-                                <p className="text-sm text-gray-500 italic">Podpis nie je nahraný</p>
+                                <p className="text-sm text-gray-500 italic">Signature not uploaded</p>
                               )}
                             </div>
                           </div>
@@ -948,14 +951,14 @@ export default function UsersPage() {
                     {activeTab === 'sales' && (
                       <div>
                         <div className="flex items-center justify-between mb-3 sm:mb-4">
-                          <h4 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900">Predaje ({userSales.length})</h4>
+                          <h4 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900">Sales ({userSales.length})</h4>
                           <button
                             onClick={() => setShowCreateSaleModal(true)}
                             className="inline-flex items-center px-2 py-1.5 sm:px-3 sm:py-2 bg-black text-white text-xs sm:text-sm font-semibold rounded-lg sm:rounded-xl hover:bg-gray-800 transition-all duration-200 shadow-sm transform hover:scale-105"
-                            title="Vytvoriť nový predaj"
+                            title="Create new sale"
                           >
                             <FaPlus className="text-xs sm:text-sm sm:mr-1.5" />
-                            <span className="hidden sm:inline">Nový predaj</span>
+                            <span className="hidden sm:inline">New sale</span>
                           </button>
                         </div>
                         {userSales.length > 0 ? (
@@ -983,18 +986,18 @@ export default function UsersPage() {
                                     <div className="flex items-center space-x-1.5 mb-1.5">
                                       <SalesStatusBadge status={sale.status} />
                                       {sale.is_manual && (
-                                        <span className="inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold bg-blue-500 text-white" title="Manuálna sale">
+                                        <span className="inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold bg-blue-500 text-white" title="Manual sale">
                                           M
                                         </span>
                                       )}
                                     </div>
-                                    <p className="text-xs text-gray-600">Veľkosť: {sale.size}</p>
+                                    <p className="text-xs text-gray-600">Size: {sale.size}</p>
                                     <p className="text-xs text-gray-500 font-mono truncate">SKU: {sale.sku || 'N/A'}</p>
                                   </div>
                                 </div>
                                 <div className="border-t border-gray-200 pt-3 space-y-1">
                                   <div className="flex items-center justify-between">
-                                    <span className="text-xs text-gray-600">Cena:</span>
+                                    <span className="text-xs text-gray-600">Price:</span>
                                     <span className="text-sm sm:text-base font-bold text-gray-900">{formatCurrency(sale.price)}</span>
                                   </div>
                                   <div className="flex items-center justify-between">
@@ -1002,12 +1005,12 @@ export default function UsersPage() {
                                     <span className="text-sm font-semibold text-green-600">{formatCurrency(sale.payout)}</span>
                                   </div>
                                   <div className="flex items-center justify-between">
-                                    <span className="text-xs text-gray-500">Dátum:</span>
+                                    <span className="text-xs text-gray-500">Date:</span>
                                     <span className="text-xs text-gray-600">{formatDate(sale.created_at)}</span>
                                   </div>
                                   {sale.external_id && (
                                     <div className="flex items-center justify-between">
-                                      <span className="text-xs text-gray-500">Externé ID:</span>
+                                      <span className="text-xs text-gray-500">External ID:</span>
                                       <span className="text-xs text-gray-700 font-mono truncate max-w-[120px]">{sale.external_id}</span>
                                     </div>
                                   )}
@@ -1020,7 +1023,7 @@ export default function UsersPage() {
                             <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
                               <FaShoppingCart className="text-gray-400 text-2xl" />
                             </div>
-                            <p className="text-sm sm:text-base text-gray-600 font-medium">Žiadne predaje</p>
+                            <p className="text-sm sm:text-base text-gray-600 font-medium">No sales</p>
                           </div>
                         )}
                       </div>
@@ -1029,7 +1032,17 @@ export default function UsersPage() {
                     {/* Products Tab */}
                     {activeTab === 'products' && (
                       <div>
-                        <h4 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Produkty ({userProducts.length})</h4>
+                        <div className="flex items-center justify-between mb-3 sm:mb-4">
+                          <h4 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900">Products ({userProducts.length})</h4>
+                          <button
+                            onClick={() => setShowBulkImportModal(true)}
+                            className="inline-flex items-center px-2 py-1.5 sm:px-3 sm:py-2 bg-black text-white text-xs sm:text-sm font-semibold rounded-lg sm:rounded-xl hover:bg-gray-800 transition-all duration-200 shadow-sm transform hover:scale-105"
+                            title="Bulk import products from XLSX/CSV"
+                          >
+                            <FaUpload className="text-xs sm:text-sm sm:mr-1.5" />
+                            <span className="hidden sm:inline">Bulk Import</span>
+                          </button>
+                        </div>
                         {userProducts.length > 0 ? (
                           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                             {userProducts.map((product) => (
@@ -1048,13 +1061,13 @@ export default function UsersPage() {
                                   </div>
                                   <div className="flex-1 min-w-0">
                                     <h5 className="text-sm sm:text-base font-semibold text-gray-900 truncate mb-1">{product.name}</h5>
-                                    <p className="text-xs text-gray-600">Veľkosť: {product.size}</p>
+                                    <p className="text-xs text-gray-600">Size: {product.size}</p>
                                     <p className="text-xs text-gray-500 font-mono truncate">SKU: {product.sku || 'N/A'}</p>
                                   </div>
                                 </div>
                                 <div className="border-t border-gray-200 pt-3 space-y-1">
                                   <div className="flex items-center justify-between">
-                                    <span className="text-xs text-gray-600">Cena:</span>
+                                    <span className="text-xs text-gray-600">Price:</span>
                                     <span className="text-sm sm:text-base font-bold text-gray-900">{formatCurrency(product.price)}</span>
                                   </div>
                                   <div className="flex items-center justify-between">
@@ -1062,7 +1075,7 @@ export default function UsersPage() {
                                     <span className="text-sm font-semibold text-green-600">{formatCurrency(product.payout)}</span>
                                   </div>
                                   <div className="flex items-center justify-between">
-                                    <span className="text-xs text-gray-500">Dátum:</span>
+                                    <span className="text-xs text-gray-500">Date:</span>
                                     <span className="text-xs text-gray-600">{formatDate(product.created_at)}</span>
                                   </div>
                                 </div>
@@ -1074,7 +1087,7 @@ export default function UsersPage() {
                             <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
                               <FaBox className="text-gray-400 text-2xl" />
                             </div>
-                            <p className="text-sm sm:text-base text-gray-600 font-medium">Žiadne produkty</p>
+                            <p className="text-sm sm:text-base text-gray-600 font-medium">No products</p>
                           </div>
                         )}
                       </div>
@@ -1083,11 +1096,11 @@ export default function UsersPage() {
                     {/* Operations Tab */}
                     {activeTab === 'operations' && (
                       <div>
-                        <h4 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">História operácií ({userOperations.length})</h4>
+                        <h4 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Operation history ({userOperations.length})</h4>
                         {loadingOperations ? (
                           <div className="flex items-center justify-center py-12">
                             <div className="w-8 h-8 border-4 border-gray-300 border-t-indigo-500 rounded-full animate-spin"></div>
-                            <span className="ml-3 text-gray-700 text-sm">Načítavajú sa operácie...</span>
+                            <span className="ml-3 text-gray-700 text-sm">Loading operations...</span>
                           </div>
                         ) : userOperations.length > 0 ? (
                           <div className="space-y-3">
@@ -1106,7 +1119,7 @@ export default function UsersPage() {
                                 </div>
                                 {op.notes && (
                                   <div className="mt-2 pt-2 border-t border-gray-100">
-                                    <p className="text-xs text-gray-600 italic">Poznámka: {op.notes}</p>
+                                    <p className="text-xs text-gray-600 italic">Note: {op.notes}</p>
                                   </div>
                                 )}
                               </div>
@@ -1117,7 +1130,7 @@ export default function UsersPage() {
                             <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
                               <FaChartBar className="text-gray-400 text-2xl" />
                             </div>
-                            <p className="text-sm sm:text-base text-gray-600 font-medium">Žiadne operácie</p>
+                            <p className="text-sm sm:text-base text-gray-600 font-medium">No operations</p>
                           </div>
                         )}
                       </div>
@@ -1132,13 +1145,13 @@ export default function UsersPage() {
                   <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col">
                     <div className="flex items-center justify-between p-3 sm:p-4 lg:p-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white flex-shrink-0">
                       <div className="flex-1 min-w-0 pr-2">
-                        <h3 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900 truncate">Správa predaja</h3>
+                        <h3 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900 truncate">Sale management</h3>
                         <p className="text-xs sm:text-sm text-gray-600 mt-0.5 truncate">{selectedSaleForStatus.name}</p>
                       </div>
                       <button
                         onClick={() => setSelectedSaleForStatus(null)}
                         className="w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center bg-gray-800 hover:bg-gray-900 text-white rounded-xl transition-colors flex-shrink-0 shadow-lg"
-                        aria-label="Zatvoriť"
+                        aria-label="Close"
                       >
                         <FaTimes className="w-6 h-6 sm:w-7 sm:h-7" />
                       </button>
@@ -1215,6 +1228,21 @@ export default function UsersPage() {
           preSelectedUserId={selectedUser?.id}
           preSelectedUserEmail={selectedUser?.email}
         />
+
+        {/* Bulk Product Import Modal */}
+        {selectedUser && (
+          <BulkProductImportModal
+            isOpen={showBulkImportModal}
+            onClose={() => setShowBulkImportModal(false)}
+            userId={selectedUser.id}
+            userEmail={selectedUser.email}
+            onImportComplete={async () => {
+              if (selectedUser) {
+                await loadUserDetails(selectedUser.id);
+              }
+            }}
+          />
+        )}
       </div>
     </div>
   );

@@ -114,7 +114,7 @@ export default function ListedProductsPage() {
 
       await loadProducts();
     } catch (err: any) {
-      alert('Chyba pri spracovaní: ' + err.message);
+      alert('Error processing: ' + err.message);
     } finally {
       setRefreshing(false);
     }
@@ -347,10 +347,10 @@ export default function ListedProductsPage() {
                     <div className="flex items-center justify-between mb-2 sm:mb-3 lg:mb-4">
                       <div className="text-[10px] sm:text-xs text-gray-600">
                         <p className="truncate">{product.user_email}</p>
-                        <p className="mt-0.5 sm:mt-1">Vytvorené: {new Date(product.created_at).toLocaleDateString('sk-SK')}</p>
+                        <p className="mt-0.5 sm:mt-1">Created: {new Date(product.created_at).toLocaleDateString('sk-SK')}</p>
                         {product.expires_at && (
                           <p className="mt-1">
-                            <span className="font-semibold">Expirácia:</span>{' '}
+                            <span className="font-semibold">Expiration:</span>{' '}
                             <span className={new Date(product.expires_at) < new Date() ? 'text-red-600' : 'text-orange-600'}>
                               {new Date(product.expires_at).toLocaleDateString('sk-SK')}
                             </span>
@@ -369,7 +369,7 @@ export default function ListedProductsPage() {
                       className="w-full inline-flex items-center justify-center px-2.5 sm:px-3 lg:px-4 py-1.5 sm:py-2 lg:py-2.5 bg-green-600 hover:bg-green-700 text-white text-[10px] sm:text-xs lg:text-sm font-semibold rounded-lg sm:rounded-xl transition-all duration-200"
                     >
                       <FaCheck className="mr-1 sm:mr-1.5 lg:mr-2 text-[10px] sm:text-xs lg:text-sm" />
-                      Prijať
+                      Accept
                     </button>
                   </div>
                 ))}
@@ -384,7 +384,7 @@ export default function ListedProductsPage() {
         <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black bg-opacity-50">
           <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl max-w-sm w-full border-t sm:border border-gray-200 flex flex-col">
             <div className="flex items-center justify-between p-3 sm:p-4 lg:p-6 border-b border-gray-200 flex-shrink-0">
-              <h2 className="text-base sm:text-lg text-gray-900 font-semibold">Zadaj External ID</h2>
+              <h2 className="text-base sm:text-lg text-gray-900 font-semibold">Enter External ID</h2>
               <button
                 onClick={() => {
                   setShowModal(false);
@@ -400,7 +400,7 @@ export default function ListedProductsPage() {
             <div className="p-3 sm:p-4 lg:p-6 flex-1 overflow-y-auto">
               <input
                 type="text"
-                placeholder="napr. AIR-001"
+                placeholder="e.g. AIR-001"
                 value={externalId}
                 onChange={(e) => setExternalId(e.target.value)}
                 className="w-full px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl bg-white text-gray-900 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-500 text-base mb-4"
@@ -414,7 +414,7 @@ export default function ListedProductsPage() {
                   }}
                   className="px-3 sm:px-4 py-2 sm:py-2.5 bg-white text-gray-800 text-sm sm:text-base rounded-xl border border-gray-300 hover:bg-gray-50 transition-colors"
                 >
-                  Zrušiť
+                  Cancel
                 </button>
                 <button
                   onClick={handleConfirmSale}

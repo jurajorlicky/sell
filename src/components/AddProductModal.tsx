@@ -84,12 +84,12 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
   if (!isNaN(numericNewPrice) && numericNewPrice > 0) {
     if (numericNewPrice > recommendedPrice) {
       priceColor = 'text-red-600';
-      priceMessage = 'Tvoja cena je vyššia ako najnižšia cena!';
-      priceBadge = <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 ml-2">Vyššia</span>;
+      priceMessage = 'Your price is higher than the lowest price!';
+      priceBadge = <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 ml-2">Higher</span>;
     } else if (numericNewPrice < recommendedPrice) {
       priceColor = 'text-green-600';
-      priceMessage = `Najnižšia nová cena bude ${numericNewPrice} €`;
-      priceBadge = <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 ml-2">Najnižšia</span>;
+      priceMessage = `Lowest new price will be ${numericNewPrice} €`;
+      priceBadge = <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 ml-2">Lowest</span>;
     }
   }
 
@@ -131,7 +131,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
         console.error('Error in fetchExistingProducts:', err);
         
         if (err.name === 'AbortError') {
-          setError('Vyhľadávanie trvá príliš dlho. Skúste znova.');
+          setError('Search is taking too long. Please try again.');
         } else {
           setError(err.message);
         }
@@ -208,7 +208,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
     e.preventDefault();
 
     if (!selectedProduct || !selectedSize || isNaN(numericNewPrice) || numericNewPrice <= 0) {
-      setError('Prosím, vyberte produkt, veľkosť a zadajte platnú cenu.');
+      setError('Please select a product, size and enter a valid price.');
       return;
     }
 
@@ -280,7 +280,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
       console.error('Error in handleSubmit:', err);
       
       if (err.name === 'AbortError') {
-        setError('Pridávanie produktu trvá príliš dlho. Skúste znova.');
+        setError('Adding product is taking too long. Please try again.');
       } else {
         setError(err.message);
       }

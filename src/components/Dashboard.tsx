@@ -935,7 +935,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
                           <img
                             className="h-full w-full object-contain p-2"
                             src={product?.image_url || '/default-image.png'}
-                            alt={product?.name || 'Žiadny obrázok'}
+                            alt={product?.name || 'No image'}
                             onError={(e) => {
                               const target = e.target as HTMLImageElement;
                               target.src = '/default-image.png';
@@ -944,7 +944,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between mb-2">
-                            <h4 className="text-sm font-semibold text-slate-900 truncate">{product?.name || 'Neznámy produkt'}</h4>
+                            <h4 className="text-sm font-semibold text-slate-900 truncate">{product?.name || 'Unknown product'}</h4>
                             <span className="text-xs text-slate-500 font-medium">#{index + 1}</span>
                           </div>
                           
@@ -962,7 +962,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
                             </div>
                             
                             <div className="flex items-center justify-between">
-                              <span className="text-xs text-slate-600">Cena:</span>
+                              <span className="text-xs text-slate-600">Price:</span>
                               <div className="flex items-center">
                                 <span className={`text-sm font-semibold ${priceDisplay.color}`}>
                                   {product?.price ? `${product.price} €` : 'Unknown price'}
@@ -986,7 +986,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
                             
                             {product.expires_at && (
                               <div className="flex items-center justify-between">
-                                <span className="text-xs text-slate-600">Expirácia:</span>
+                                <span className="text-xs text-slate-600">Expiration:</span>
                                 <span className={`text-xs font-semibold ${new Date(product.expires_at) < new Date() ? 'text-red-600' : 'text-orange-600'}`}>
                                   {new Date(product.expires_at).toLocaleDateString('sk-SK')}
                                 </span>

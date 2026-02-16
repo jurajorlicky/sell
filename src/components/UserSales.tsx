@@ -557,7 +557,7 @@ export default function UserSales() {
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-blue-600 hover:text-blue-800"
-                                title="Otvoriť tracking"
+                                title="Open tracking"
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 <FaLink />
@@ -714,7 +714,7 @@ export default function UserSales() {
                         <div className="flex items-center space-x-1">
                           <SalesStatusBadge status={selectedSaleForTimeline.status} />
                           {selectedSaleForTimeline.is_manual && (
-                            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold bg-blue-500 text-white" title="Manuálna sale">
+                            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold bg-blue-500 text-white" title="Manual sale">
                               M
                             </span>
                           )}

@@ -98,7 +98,7 @@ export default function AdminDashboard() {
 
     } catch (err: any) {
       console.error('Error loading stats:', err.message);
-      setError('Chyba pri načítavaní štatistík: ' + err.message);
+      setError('Error loading statistics: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -128,10 +128,10 @@ export default function AdminDashboard() {
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
 
-    if (diffMins < 1) return 'práve teraz';
-    if (diffMins < 60) return `pred ${diffMins} ${diffMins === 1 ? 'minútou' : diffMins < 5 ? 'minútami' : 'minútami'}`;
-    if (diffHours < 24) return `pred ${diffHours} ${diffHours === 1 ? 'hodinou' : diffHours < 5 ? 'hodinami' : 'hodinami'}`;
-    return `pred ${diffDays} ${diffDays === 1 ? 'dňom' : diffDays < 5 ? 'dňami' : 'dňami'}`;
+    if (diffMins < 1) return 'just now';
+    if (diffMins < 60) return `${diffMins} ${diffMins === 1 ? 'minute' : 'minutes'} ago`;
+    if (diffHours < 24) return `${diffHours} ${diffHours === 1 ? 'hour' : 'hours'} ago`;
+    return `${diffDays} ${diffDays === 1 ? 'day' : 'days'} ago`;
   };
 
   const loadRecentActivities = useCallback(async () => {
@@ -171,7 +171,7 @@ export default function AdminDashboard() {
           activities.push({
             id: `user-${user.id}`,
             type: 'user_registered',
-            action: 'Nový používateľ sa zaregistroval',
+            action: 'New user registered',
             created_at: user.created_at,
             icon: FaUsers,
             userEmail: user.email
@@ -185,7 +185,7 @@ export default function AdminDashboard() {
           activities.push({
             id: `product-${product.id}`,
             type: 'product_added',
-            action: 'Nový produkt v katalógu',
+            action: 'New product in catalog',
             created_at: product.created_at,
             icon: FaShoppingBag,
             productName: product.name
@@ -199,7 +199,7 @@ export default function AdminDashboard() {
           activities.push({
             id: `listing-${listing.id}`,
             type: 'listing_added',
-            action: 'Produkt bol pridaný do ponuky',
+            action: 'Product added to listings',
             created_at: listing.created_at,
             icon: FaPlus,
             productName: listing.name,
@@ -216,7 +216,7 @@ export default function AdminDashboard() {
             activities.push({
               id: `sale-completed-${sale.id}`,
               type: 'sale_completed',
-              action: 'Predaj bol dokončený',
+              action: 'Sale completed',
               created_at: sale.created_at,
               icon: FaChartLine,
               productName: sale.name,
@@ -228,7 +228,7 @@ export default function AdminDashboard() {
             activities.push({
               id: `sale-${sale.id}`,
               type: 'sale_created',
-              action: 'Nový predaj bol vytvorený',
+              action: 'New sale created',
               created_at: sale.created_at,
               icon: FaShoppingCart,
               productName: sale.name,
@@ -268,7 +268,7 @@ export default function AdminDashboard() {
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-gray-300 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
-          <h3 className="text-lg font-semibold text-gray-900">Načítava sa admin dashboard</h3>
+          <h3 className="text-lg font-semibold text-gray-900">Loading admin dashboard</h3>
         </div>
       </div>
     );
@@ -291,7 +291,7 @@ export default function AdminDashboard() {
                 <h1 className="text-lg sm:text-2xl font-bold text-gray-900">
                   Admin Dashboard
                 </h1>
-                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">Správa systému a analýza dát</p>
+                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">System management and data analysis</p>
               </div>
             </div>
             
@@ -301,7 +301,7 @@ export default function AdminDashboard() {
                 className="inline-flex items-center px-2 py-2 sm:px-4 bg-black text-white font-semibold rounded-xl hover:bg-gray-800 transition-all duration-200 shadow-lg transform hover:scale-105"
               >
                 <FaSignOutAlt className="text-sm sm:mr-2" />
-                <span className="hidden sm:inline">Odhlásiť</span>
+                <span className="hidden sm:inline">Sign Out</span>
               </button>
             </div>
           </div>
@@ -313,12 +313,12 @@ export default function AdminDashboard() {
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm mb-8 overflow-hidden">
           <div className="flex overflow-x-auto">
             {[
-              { id: 'overview', label: 'Prehľad', icon: FaChartBar, path: '/admin' },
-              { id: 'products', label: 'Produkty', icon: FaShoppingBag, path: '/admin/products' },
-              { id: 'listed-products', label: 'Ponuky', icon: FaList, path: '/admin/listed-products' },
-              { id: 'sales', label: 'Predaje', icon: FaShoppingCart, path: '/admin/sales' },
-              { id: 'users', label: 'Užívatelia', icon: FaUsers, path: '/admin/users' },
-              { id: 'settings', label: 'Nastavenia', icon: FaCog, path: '/admin/settings' },
+              { id: 'overview', label: 'Overview', icon: FaChartBar, path: '/admin' },
+              { id: 'products', label: 'Products', icon: FaShoppingBag, path: '/admin/products' },
+              { id: 'listed-products', label: 'Listings', icon: FaList, path: '/admin/listed-products' },
+              { id: 'sales', label: 'Sales', icon: FaShoppingCart, path: '/admin/sales' },
+              { id: 'users', label: 'Users', icon: FaUsers, path: '/admin/users' },
+              { id: 'settings', label: 'Settings', icon: FaCog, path: '/admin/settings' },
             ].map((tab) => {
               const isActive = location.pathname === tab.path;
               return (
@@ -348,25 +348,25 @@ export default function AdminDashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
             {[
               { 
-                title: 'Používatelia', 
+                title: 'Users', 
                 value: stats.totalUsers, 
                 icon: FaUsers, 
                 color: 'from-green-500 to-emerald-500'
               },
               { 
-                title: 'Produkty', 
+                title: 'Products', 
                 value: stats.totalProducts, 
                 icon: FaShoppingBag, 
                 color: 'from-purple-500 to-violet-500'
               },
               { 
-                title: 'Aktívne ponuky', 
+                title: 'Active listings', 
                 value: stats.totalListings, 
                 icon: FaEye, 
                 color: 'from-orange-500 to-amber-500'
               },
               { 
-                title: 'Predaje', 
+                title: 'Sales', 
                 value: stats.totalSales, 
                 icon: FaChartLine, 
                 color: 'from-blue-500 to-cyan-500'
@@ -392,7 +392,7 @@ export default function AdminDashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
             <div className="bg-white rounded-2xl p-4 sm:p-6 border border-gray-200">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg sm:text-xl font-bold text-gray-900">Celkové tržby</h3>
+                <h3 className="text-lg sm:text-xl font-bold text-gray-900">Total Revenue</h3>
                 <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-black flex items-center justify-center">
                   <FaEuroSign className="text-white text-lg" />
                 </div>
@@ -400,12 +400,12 @@ export default function AdminDashboard() {
               <p className="text-2xl sm:text-4xl font-bold text-gray-900">
                 {formatCurrency(stats.totalRevenue)}
               </p>
-              <p className="text-gray-600 text-xs sm:text-sm mt-2">Celkové tržby zo všetkých predajov</p>
+              <p className="text-gray-600 text-xs sm:text-sm mt-2">Total revenue from all sales</p>
             </div>
 
             <div className="bg-white rounded-2xl p-4 sm:p-6 border border-gray-200">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg sm:text-xl font-bold text-gray-900">Celkové výplaty</h3>
+                <h3 className="text-lg sm:text-xl font-bold text-gray-900">Total Payouts</h3>
                 <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-black flex items-center justify-center">
                   <FaChartLine className="text-white text-lg" />
                 </div>
@@ -413,7 +413,7 @@ export default function AdminDashboard() {
               <p className="text-2xl sm:text-4xl font-bold text-gray-900">
                 {formatCurrency(stats.totalPayout)}
               </p>
-              <p className="text-gray-600 text-xs sm:text-sm mt-2">Celkové výplaty pre predajcov</p>
+              <p className="text-gray-600 text-xs sm:text-sm mt-2">Total payouts to sellers</p>
             </div>
           </div>
 
@@ -421,7 +421,7 @@ export default function AdminDashboard() {
           <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
             <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg sm:text-xl font-bold text-gray-900">Nedávna aktivita</h3>
+                <h3 className="text-lg sm:text-xl font-bold text-gray-900">Recent Activity</h3>
                 <div className="flex items-center space-x-2">
                   <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
                   <span className="text-xs sm:text-sm text-gray-600">Live</span>
@@ -448,7 +448,7 @@ export default function AdminDashboard() {
                               <p className="text-gray-600 text-xs mt-1">{formatCurrency(activity.price)}</p>
                             )}
                             {activity.userEmail && (
-                              <p className="text-gray-500 text-xs mt-1">Od: {activity.userEmail}</p>
+                              <p className="text-gray-500 text-xs mt-1">From: {activity.userEmail}</p>
                             )}
                             <p className="text-gray-500 text-xs mt-1">{formatTimeAgo(activity.created_at)}</p>
                           </div>
@@ -462,7 +462,7 @@ export default function AdminDashboard() {
                         onClick={() => setShowAllActivities(!showAllActivities)}
                         className="w-full flex items-center justify-center space-x-2 px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-xl transition-colors"
                       >
-                        <span>{showAllActivities ? 'Skryť' : recentActivities.length < allActivities.length ? `Zobraziť všetko (${allActivities.length})` : `Zobraziť históriu (${allActivities.length})`}</span>
+                        <span>{showAllActivities ? 'Hide' : recentActivities.length < allActivities.length ? `Show all (${allActivities.length})` : `Show history (${allActivities.length})`}</span>
                         {showAllActivities ? (
                           <FaChevronUp className="text-xs" />
                         ) : (
@@ -474,8 +474,8 @@ export default function AdminDashboard() {
                 </>
               ) : (
                 <div className="text-center py-8">
-                  <p className="text-gray-600 text-sm">Žiadna nedávna aktivita</p>
-                  <p className="text-gray-500 text-xs mt-2">Aktivity za posledných 24 hodín sa zobrazia tu</p>
+                  <p className="text-gray-600 text-sm">No recent activity</p>
+                  <p className="text-gray-500 text-xs mt-2">Activities from the last 24 hours will appear here</p>
                 </div>
               )}
             </div>

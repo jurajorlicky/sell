@@ -34,7 +34,7 @@ class ErrorBoundary extends React.Component<
           padding: '20px',
           textAlign: 'center'
         }}>
-          <h1 style={{ color: '#ef4444', marginBottom: '16px' }}>Chyba aplikácie</h1>
+          <h1 style={{ color: '#ef4444', marginBottom: '16px' }}>Application error</h1>
           <p style={{ color: '#64748b', marginBottom: '16px' }}>
             Nastala neočakávaná chyba. Skúste obnoviť stránku.
           </p>
