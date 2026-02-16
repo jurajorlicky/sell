@@ -6,7 +6,8 @@ import {
   FaSignOutAlt, 
   FaSync,
   FaShoppingBag,
-  FaExclamationTriangle
+  FaExclamationTriangle,
+  FaBan
 } from 'react-icons/fa';
 
 interface Product {
@@ -14,6 +15,7 @@ interface Product {
   name: string;
   image_url?: string;
   sku: string;
+  consignor_blocked: boolean;
 }
 
 export default function ProductsPage() {
@@ -30,7 +32,7 @@ export default function ProductsPage() {
 
       const { data, error } = await supabase
         .from('products')
-        .select('id, name, image_url, sku')
+        .select('id, name, image_url, sku, consignor_blocked')
         .order('name', { ascending: true });
 
       if (error) throw error;
@@ -52,6 +54,24 @@ export default function ProductsPage() {
   const handleRetry = () => {
     setError(null);
     loadProducts();
+  };
+
+  const toggleConsignorBlocked = async (productId: string, currentValue: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('products')
+        .update({ consignor_blocked: !currentValue })
+        .eq('id', productId);
+
+      if (error) throw error;
+
+      setProducts(prev =>
+        prev.map(p => p.id === productId ? { ...p, consignor_blocked: !currentValue } : p)
+      );
+    } catch (err: any) {
+      console.error('Error toggling consignor block:', err.message);
+      setError('Failed to update product: ' + err.message);
+    }
   };
 
   const handleSignOut = async () => {
@@ -221,6 +241,18 @@ export default function ProductsPage() {
                             <p className="text-[10px] sm:text-xs text-gray-600 font-mono mb-0.5">SKU: {product.sku}</p>
                             <p className="text-[10px] sm:text-xs text-gray-500 font-mono">ID: {productId.slice(0, 8)}...</p>
                           </div>
+                          <div className="flex-shrink-0 flex flex-col items-center gap-1">
+                            <button
+                              onClick={() => toggleConsignorBlocked(product.id, product.consignor_blocked)}
+                              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${product.consignor_blocked ? 'bg-red-500' : 'bg-green-500'}`}
+                              title={product.consignor_blocked ? 'Blocked for consignors' : 'Open for consignors'}
+                            >
+                              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow ${product.consignor_blocked ? 'translate-x-6' : 'translate-x-1'}`} />
+                            </button>
+                            <span className={`text-[9px] font-medium ${product.consignor_blocked ? 'text-red-600' : 'text-green-600'}`}>
+                              {product.consignor_blocked ? 'Blocked' : 'Open'}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     );
@@ -236,6 +268,7 @@ export default function ProductsPage() {
                         <th className="px-3 sm:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">IMAGE</th>
                         <th className="px-3 sm:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Name</th>
                         <th className="px-3 sm:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">SKU</th>
+                        <th className="px-3 sm:px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">Consignors</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200/30">
@@ -262,6 +295,20 @@ export default function ProductsPage() {
                               <div className="text-sm font-semibold text-gray-900">{product.name}</div>
                             </td>
                             <td className="px-3 sm:px-6 py-4 text-sm text-gray-700 font-mono">{product.sku}</td>
+                            <td className="px-3 sm:px-6 py-4 text-center">
+                              <div className="flex flex-col items-center gap-1">
+                                <button
+                                  onClick={() => toggleConsignorBlocked(product.id, product.consignor_blocked)}
+                                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${product.consignor_blocked ? 'bg-red-500' : 'bg-green-500'}`}
+                                  title={product.consignor_blocked ? 'Blocked for consignors' : 'Open for consignors'}
+                                >
+                                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow ${product.consignor_blocked ? 'translate-x-6' : 'translate-x-1'}`} />
+                                </button>
+                                <span className={`text-xs font-medium ${product.consignor_blocked ? 'text-red-600' : 'text-green-600'}`}>
+                                  {product.consignor_blocked ? 'Blocked' : 'Open'}
+                                </span>
+                              </div>
+                            </td>
                           </tr>
                         );
                       })}

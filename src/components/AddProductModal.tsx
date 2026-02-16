@@ -30,6 +30,7 @@ interface ProductPrice {
   product_name: string;
   image_url: string;
   sku?: string;
+  consignor_blocked?: boolean;
 }
 
 interface Fees {
@@ -135,7 +136,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
       try {
         const { data, error } = await supabase
           .from('products')
-          .select('id, name, image_url, sku')
+          .select('id, name, image_url, sku, consignor_blocked')
           .ilike('name', `%${searchTerm}%`)
           .limit(10)
           .abortSignal(controller.signal);
@@ -153,6 +154,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
           product_name: product.name,
           image_url: product.image_url,
           sku: product.sku,
+          consignor_blocked: product.consignor_blocked ?? false,
         })));
       } catch (err: any) {
         clearTimeout(timeoutId);
@@ -385,8 +387,12 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
                     {existingProducts.map((product) => (
                       <div
                         key={product.product_id}
-                        className="p-3 sm:p-4 cursor-pointer hover:bg-slate-50 flex items-center space-x-3 sm:space-x-4 transition-colors active:bg-slate-100"
-                        onClick={() => handleProductSelect(product)}
+                        className={`p-3 sm:p-4 flex items-center space-x-3 sm:space-x-4 transition-colors ${
+                          product.consignor_blocked
+                            ? 'opacity-50 cursor-not-allowed bg-slate-50'
+                            : 'cursor-pointer hover:bg-slate-50 active:bg-slate-100'
+                        }`}
+                        onClick={() => !product.consignor_blocked && handleProductSelect(product)}
                       >
                         <div className="h-12 w-12 sm:h-16 sm:w-16 flex-shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-white">
                           <img
@@ -400,6 +406,11 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
                           <p className="text-xs sm:text-sm font-semibold text-slate-900 truncate">{product.product_name}</p>
                           <p className="text-xs text-slate-500">SKU: {product.sku || 'N/A'}</p>
                         </div>
+                        {product.consignor_blocked && (
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700 flex-shrink-0">
+                            Blocked
+                          </span>
+                        )}
                       </div>
                     ))}
                   </div>
