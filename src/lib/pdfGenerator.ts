@@ -203,11 +203,12 @@ export async function generatePurchaseAgreement(data: PurchaseAgreementData): Pr
       yPos = addText('SUBJECT OF THE PURCHASE AGREEMENT:', margin, yPos, pageWidth - 2 * margin, 12, 'left', 'bold');
       yPos += 6;
 
-      // Table
-      const tableStartY = yPos;
+      // Table: name gets most space; SIZE and PRICE grouped on the right to avoid overlap with long names
       const col1X = margin + 5;
-      const col2X = pageWidth / 2;
-      const col3X = pageWidth - margin - 30;
+      const rightBlockWidth = 42; // SIZE + PRICE columns (mm)
+      const nameMaxWidth = pageWidth - 2 * margin - rightBlockWidth;
+      const col2X = pageWidth - margin - 32; // SIZE next to price
+      const col3X = pageWidth - margin - 18; // PRICE at the end
       const rowHeight = 8;
 
       // Table headers
@@ -215,8 +216,7 @@ export async function generatePurchaseAgreement(data: PurchaseAgreementData): Pr
       doc.setFont('helvetica', 'bold');
       doc.text('THE GOODS', col1X, yPos);
       doc.text('SIZE', col2X, yPos);
-      // Always use "PRICE IN €" label, but use payout value for manual sales
-      doc.text('PRICE IN €', col3X, yPos);
+      doc.text('PRICE €', col3X, yPos);
       yPos += rowHeight;
 
       // Table line
@@ -225,15 +225,16 @@ export async function generatePurchaseAgreement(data: PurchaseAgreementData): Pr
       doc.line(margin, yPos - 2, pageWidth - margin, yPos - 2);
       yPos += 2;
 
-      // Table data
+      // Table data: product name with wrap so long names don't overlap SIZE/PRICE
       doc.setFont('helvetica', 'normal');
-      doc.text(data.productName, col1X, yPos);
+      const nameLines = doc.splitTextToSize(fixTextForPDF(data.productName), nameMaxWidth);
+      doc.text(nameLines, col1X, yPos);
       doc.text(data.size, col2X, yPos);
-      // Always use payout value (what consignor receives), fallback to price if payout not available
-      // Display the value as-is (already rounded in calculatePayout if needed)
       const displayAmount = data.payout !== undefined ? data.payout : data.price;
       doc.text(displayAmount.toFixed(2), col3X, yPos);
-      yPos += rowHeight + 5;
+      // If name wrapped to multiple lines, move next section down so it doesn't overlap
+      const nameBlockHeight = nameLines.length * 10 * 0.35;
+      yPos += Math.max(rowHeight, nameBlockHeight) + 5;
 
       // Terms
       doc.setFontSize(9);
