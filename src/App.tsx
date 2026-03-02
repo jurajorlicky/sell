@@ -175,17 +175,26 @@ export default function App() {
     } catch (err: any) {
       logger.warn('Auth initialization error', { error: err.message });
       
-      // On timeout, try to use cached admin status if user exists
+      // On timeout, try to get user again with a short timeout so we never hang
       if (err.message.includes('timeout')) {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          setUser(user);
-          const cachedStatus = lastKnownAdminStateRef.current ?? false;
-          setIsAdmin(cachedStatus);
-          logger.debug('Using cached admin status after timeout', { userId: user.id, cachedStatus });
-        } else {
+        try {
+          const result = await Promise.race([
+            supabase.auth.getUser(),
+            new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Retry timeout')), 2500))
+          ]) as { data: { user: User | null } };
+          if (result?.data?.user) {
+            setUser(result.data.user);
+            const cachedStatus = lastKnownAdminStateRef.current ?? false;
+            setIsAdmin(cachedStatus);
+            logger.debug('Using cached admin status after timeout', { userId: result.data.user.id, cachedStatus });
+          } else {
+            setUser(null);
+            setIsAdmin(false);
+          }
+        } catch {
           setUser(null);
           setIsAdmin(false);
+          setError('Connection slow or unavailable. Check your network and try again.');
         }
       } else {
         setUser(null);
@@ -220,6 +229,21 @@ export default function App() {
       };
     }
     return () => {};
+  }, []);
+
+  // Safety: force loading false after 12s so user never stays stuck on spinner
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setLoading((prev) => {
+        if (prev) {
+          logger.warn('Auth init safety timeout - forcing loading false');
+          setError('Loading took too long. Try refreshing.');
+          return false;
+        }
+        return prev;
+      });
+    }, 12000);
+    return () => clearTimeout(t);
   }, []);
 
   useEffect(() => {

@@ -430,6 +430,20 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
 
   useEffect(() => { initializeUser(); }, [initializeUser]);
 
+  // Safety: stop loading after 18s so user never stays stuck
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setLoading((prev) => {
+        if (prev) {
+          setError('Loading took too long. Please refresh or check your connection.');
+          return false;
+        }
+        return prev;
+      });
+    }, 18000);
+    return () => clearTimeout(t);
+  }, []);
+
   // Remove automatic redirect to admin - let users choose
   // useEffect(() => {
   //   if (isAdmin && user && !loading) {
