@@ -47,6 +47,7 @@ const ListedProductsPage = lazy(() => import("./pages/ListedProductsPage"));
 const SalesPage = lazy(() => import("./pages/SalesPage"));
 const InvoicesPage = lazy(() => import("./pages/InvoicesPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
+const SystemStatusPage = lazy(() => import("./pages/SystemStatusPage"));
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -417,6 +418,10 @@ export default function App() {
       <Route
         path="/admin/settings"
         element={user && isAdmin ? <SettingsPage /> : <Navigate to="/dashboard" replace />}
+      />
+      <Route
+        path="/admin/system-status"
+        element={user && isAdmin ? <SystemStatusPage /> : <Navigate to="/dashboard" replace />}
       />
     </Routes>
     </Suspense>

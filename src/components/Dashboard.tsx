@@ -43,6 +43,13 @@ interface UserProfile {
   signature_url?: string | null;
 }
 
+interface PayoutSummary {
+  pendingCount: number;
+  pendingAmount: number;
+  paidThisMonthAmount: number;
+  paidTotalAmount: number;
+}
+
 export default function Dashboard({ isAdmin }: DashboardProps) {
   const navigate = useNavigate();
   const [user, setUser] = useState<any>(null);
@@ -54,6 +61,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [payoutSummary, setPayoutSummary] = useState<PayoutSummary | null>(null);
   const [fees, setFees] = useState<Fees>({ fee_percent: 0.2, fee_fixed: 5 });
   const [refreshing, setRefreshing] = useState(false);
   const [marketPricesLoading, setMarketPricesLoading] = useState(false);
@@ -440,6 +448,53 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
         }
       } catch (e: any) {
         logger.warn('Error loading profile for dashboard banner', e?.message || e);
+      }
+
+      // Load payout summary for user's sales
+      try {
+        const { data: salesData, error: salesError } = await supabase
+          .from('user_sales')
+          .select('status, payout, payout_date')
+          .eq('user_id', user.id);
+
+        if (salesError) {
+          logger.warn('Failed to load payout summary:', salesError.message);
+        } else if (Array.isArray(salesData)) {
+          const now = new Date();
+          const thisMonth = now.getMonth();
+          const thisYear = now.getFullYear();
+
+          let pendingCount = 0;
+          let pendingAmount = 0;
+          let paidThisMonthAmount = 0;
+          let paidTotalAmount = 0;
+
+          for (const sale of salesData as any[]) {
+            const payout = typeof sale.payout === 'number' ? sale.payout : 0;
+            if (sale.status === 'delivered' && !sale.payout_date) {
+              pendingCount += 1;
+              pendingAmount += payout;
+            }
+            if (sale.status === 'completed' && payout > 0) {
+              paidTotalAmount += payout;
+              if (sale.payout_date) {
+                const d = new Date(sale.payout_date);
+                if (d.getFullYear() === thisYear && d.getMonth() === thisMonth) {
+                  paidThisMonthAmount += payout;
+                }
+              }
+            }
+          }
+
+          setPayoutSummary({
+            pendingCount,
+            pendingAmount,
+            paidThisMonthAmount,
+            paidTotalAmount,
+          });
+        }
+      } catch (e: any) {
+        logger.warn('Error computing payout summary', e?.message || e);
       }
       
       // Load fees in background (non-blocking)
@@ -840,7 +895,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
           </div>
         )}
 
-        {/* Stats Cards - Mobile Optimized */}
+        {/* Stats Cards - Products & Payouts */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
           <div className="bg-white rounded-2xl p-4 sm:p-6 border border-slate-100 shadow">
             <div className="flex items-center">
@@ -888,6 +943,37 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
             </div>
           </div>
         </div>
+
+        {payoutSummary && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+            <div className="bg-white rounded-2xl p-4 sm:p-6 border border-amber-100 shadow">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs sm:text-sm font-medium text-amber-700">Pending payouts</p>
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold bg-amber-100 text-amber-800">
+                  {payoutSummary.pendingCount} sales
+                </span>
+              </div>
+              <p className="text-xl sm:text-2xl font-bold text-amber-900">
+                {formatCurrency(payoutSummary.pendingAmount)}
+              </p>
+              <p className="mt-1 text-[11px] sm:text-xs text-amber-800">
+                Status <span className="font-semibold">Delivered</span>, payout not sent yet.
+              </p>
+            </div>
+            <div className="bg-white rounded-2xl p-4 sm:p-6 border border-emerald-100 shadow">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs sm:text-sm font-medium text-emerald-700">Payouts</p>
+              </div>
+              <p className="text-sm sm:text-xs font-medium text-emerald-800 mb-1">This month</p>
+              <p className="text-xl sm:text-2xl font-bold text-emerald-900">
+                {formatCurrency(payoutSummary.paidThisMonthAmount)}
+              </p>
+              <p className="mt-2 text-[11px] sm:text-xs text-emerald-700">
+                Total paid: <span className="font-semibold">{formatCurrency(payoutSummary.paidTotalAmount)}</span>
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Products Section */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow overflow-hidden">

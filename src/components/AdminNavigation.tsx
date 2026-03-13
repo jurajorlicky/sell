@@ -6,7 +6,8 @@ import {
   FaShoppingCart,
   FaUsers,
   FaFileInvoice,
-  FaCog
+  FaCog,
+  FaServer
 } from 'react-icons/fa';
 
 interface NavTab {
@@ -25,6 +26,7 @@ const navTabs: NavTab[] = [
   { id: 'users', label: 'Users', icon: FaUsers, color: 'from-indigo-500 to-blue-500', path: '/admin/users' },
   { id: 'invoices', label: 'Invoices', icon: FaFileInvoice, color: 'from-pink-500 to-rose-500', path: '/admin/invoices' },
   { id: 'settings', label: 'Settings', icon: FaCog, color: 'from-gray-500 to-slate-500', path: '/admin/settings' },
+  { id: 'system-status', label: 'System', icon: FaServer, color: 'from-slate-500 to-gray-700', path: '/admin/system-status' },
 ];
 
 export default function AdminNavigation() {
