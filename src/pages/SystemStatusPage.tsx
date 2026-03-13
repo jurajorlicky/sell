@@ -45,7 +45,8 @@ export default function SystemStatusPage() {
       };
 
       await runOne('admin_settings', async () => {
-        const { error } = await supabase.from('admin_settings').select('key').limit(1);
+        // We don't assume specific columns here, just that the table is reachable
+        const { error } = await supabase.from('admin_settings').select('*').limit(1);
         if (error) throw error;
       });
 
