@@ -974,7 +974,7 @@ export default function AdminSalesStatusManager({
                   // Always load latest sale + profile data from DB so contract uses fresh values
                   const { data: freshSale, error: freshSaleError } = await supabase
                     .from('user_sales')
-                    .select('id, user_id, name, size, price, is_manual, payout, created_at, external_id, invoice_date, user_email')
+                    .select('id, user_id, name, size, price, is_manual, payout, created_at, external_id, invoice_date')
                     .eq('id', saleId)
                     .single();
 
@@ -1061,7 +1061,7 @@ export default function AdminSalesStatusManager({
                     sellerSurname: freshProfile.last_name || '',
                     sellerCIN: freshProfile.ico || undefined,
                     sellerAddress: sellerAddress,
-                    sellerEmail: freshProfile.email || freshSale.user_email,
+                    sellerEmail: freshProfile.email || saleData.user_email,
                     sellerPhone: freshProfile.telephone || undefined,
                     sellerIBAN: freshProfile.iban || undefined,
                     sellerSignatureUrl: freshProfile.signature_url || undefined,
