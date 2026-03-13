@@ -1030,10 +1030,6 @@ export default function AdminSalesStatusManager({
                     ? new Date(invoiceDate + 'T12:00:00').toISOString()
                     : (freshSale.invoice_date || freshSale.created_at || new Date().toISOString());
                   
-                  // Generate form ID from contract date
-                  const contractDateObj = new Date(contractDateISO);
-                  const formId = contractDateObj.toISOString().split('T')[0].replace(/-/g, '');
-                  
                   // Load buyer signature from admin settings
                   const { data: adminSettings } = await supabase
                     .from('admin_settings')
@@ -1044,7 +1040,8 @@ export default function AdminSalesStatusManager({
                   const pdfBlob = await generatePurchaseAgreement({
                     saleId: saleId,
                     externalId: freshSale.external_id || undefined,
-                    formId: formId,
+                    // Use sale ID as form ID shown in PDF
+                    formId: saleId,
                     productName: freshSale.name,
                     size: freshSale.size || '',
                     price: freshSale.price,
