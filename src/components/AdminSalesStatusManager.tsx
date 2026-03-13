@@ -970,12 +970,33 @@ export default function AdminSalesStatusManager({
                 try {
                   setGeneratingContract(true);
                   setError(null);
+
+                  // Always load latest sale + profile data from DB so contract uses fresh values
+                  const { data: freshSale, error: freshSaleError } = await supabase
+                    .from('user_sales')
+                    .select('id, user_id, name, size, price, is_manual, payout, created_at, external_id, invoice_date, user_email')
+                    .eq('id', saleId)
+                    .single();
+
+                  if (freshSaleError || !freshSale) {
+                    throw new Error(freshSaleError?.message || 'Failed to load latest sale data');
+                  }
+
+                  const { data: freshProfile, error: freshProfileError } = await supabase
+                    .from('profiles')
+                    .select('first_name, last_name, ico, address, popisne_cislo, psc, mesto, krajina, email, telephone, iban, signature_url')
+                    .eq('id', freshSale.user_id)
+                    .single();
+
+                  if (freshProfileError || !freshProfile) {
+                    throw new Error(freshProfileError?.message || 'Failed to load latest user profile');
+                  }
                   
                   // Format seller address
                   // Format: "Ulica číslo, PSC Mesto, Krajina"
                   // Combine address and popisne_cislo without duplication (ulica číslo)
-                  const addressBase = (userProfile.address || '').trim();
-                  const houseNumber = (userProfile.popisne_cislo || '').trim();
+                  const addressBase = (freshProfile.address || '').trim();
+                  const houseNumber = (freshProfile.popisne_cislo || '').trim();
                   const addressHasNumber =
                     houseNumber.length > 0 &&
                     addressBase.toLowerCase().includes(houseNumber.toLowerCase());
@@ -988,13 +1009,13 @@ export default function AdminSalesStatusManager({
                   if (streetAndNumber) {
                     addressParts.push(streetAndNumber);
                   }
-                  if (userProfile.psc && userProfile.mesto) {
-                    addressParts.push(`${userProfile.psc} ${userProfile.mesto}`);
-                  } else if (userProfile.mesto) {
-                    addressParts.push(userProfile.mesto);
+                  if (freshProfile.psc && freshProfile.mesto) {
+                    addressParts.push(`${freshProfile.psc} ${freshProfile.mesto}`);
+                  } else if (freshProfile.mesto) {
+                    addressParts.push(freshProfile.mesto);
                   }
-                  if (userProfile.krajina) {
-                    addressParts.push(userProfile.krajina);
+                  if (freshProfile.krajina) {
+                    addressParts.push(freshProfile.krajina);
                   } else {
                     addressParts.push('Slovakia');
                   }
@@ -1004,10 +1025,10 @@ export default function AdminSalesStatusManager({
                   // Format buyer address (AirKicks company info - can be configured)
                   const buyerAddress = 'Lysica 336, 013 05 Lysica, SLOVAKIA';
                   
-                  // Use invoice date for PDF, fallback to sale date if not set
+                  // Use invoice date for PDF, fallback to latest sale invoice_date/created_at
                   const contractDateISO = invoiceDate 
                     ? new Date(invoiceDate + 'T12:00:00').toISOString()
-                    : (saleData.created_at || new Date().toISOString());
+                    : (freshSale.invoice_date || freshSale.created_at || new Date().toISOString());
                   
                   // Generate form ID from contract date
                   const contractDateObj = new Date(contractDateISO);
@@ -1022,13 +1043,13 @@ export default function AdminSalesStatusManager({
                   // Generate PDF with new format
                   const pdfBlob = await generatePurchaseAgreement({
                     saleId: saleId,
-                    externalId: saleData.external_id || undefined,
+                    externalId: freshSale.external_id || undefined,
                     formId: formId,
-                    productName: saleData.name,
-                    size: saleData.size || '',
-                    price: saleData.price,
-                    isManual: saleData.is_manual || false,
-                    payout: saleData.payout,
+                    productName: freshSale.name,
+                    size: freshSale.size || '',
+                    price: freshSale.price,
+                    isManual: freshSale.is_manual || false,
+                    payout: freshSale.payout,
                     // Buyer (Company - AirKicks)
                     buyerName: 'Juraj Orlicky ml.',
                     buyerCIN: '55702660',
@@ -1036,16 +1057,16 @@ export default function AdminSalesStatusManager({
                     buyerEmail: 'info@airkicks.eu',
                     buyerSignatureUrl: adminSettings?.buyer_signature_url || undefined,
                     // Seller (User/Consignor)
-                    sellerName: userProfile.first_name || '',
-                    sellerSurname: userProfile.last_name || '',
-                    sellerCIN: userProfile.ico || undefined,
+                    sellerName: freshProfile.first_name || '',
+                    sellerSurname: freshProfile.last_name || '',
+                    sellerCIN: freshProfile.ico || undefined,
                     sellerAddress: sellerAddress,
-                    sellerEmail: userProfile.email || saleData.user_email,
-                    sellerPhone: userProfile.telephone || undefined,
-                    sellerIBAN: userProfile.iban || undefined,
-                    sellerSignatureUrl: userProfile.signature_url || undefined,
+                    sellerEmail: freshProfile.email || freshSale.user_email,
+                    sellerPhone: freshProfile.telephone || undefined,
+                    sellerIBAN: freshProfile.iban || undefined,
+                    sellerSignatureUrl: freshProfile.signature_url || undefined,
                     // Location and Date - use invoice date for contract
-                    location: userProfile.mesto || 'Slovakia',
+                    location: freshProfile.mesto || 'Slovakia',
                     saleDate: contractDateISO
                   });
                   
