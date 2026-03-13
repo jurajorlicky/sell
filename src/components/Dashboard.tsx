@@ -7,7 +7,17 @@ import { formatCurrency } from '../lib/utils';
 import AddProductModal from './AddProductModal';
 import EditProductModal from './EditProductModal';
 import {
-  FaEdit, FaTrash, FaUser, FaSignOutAlt, FaChartLine, FaPlus, FaShoppingBag, FaSyncAlt, FaCog, FaExclamationTriangle
+  FaEdit,
+  FaTrash,
+  FaUser,
+  FaSignOutAlt,
+  FaChartLine,
+  FaPlus,
+  FaShoppingBag,
+  FaSyncAlt,
+  FaCog,
+  FaExclamationTriangle,
+  FaInfoCircle,
 } from 'react-icons/fa';
 import { Product } from '../lib/types';
 
@@ -28,6 +38,11 @@ interface MarketPriceData {
   is_user_first_in_line?: boolean; // True if user is first in line when tied
 }
 
+interface UserProfile {
+  iban?: string | null;
+  signature_url?: string | null;
+}
+
 export default function Dashboard({ isAdmin }: DashboardProps) {
   const navigate = useNavigate();
   const [user, setUser] = useState<any>(null);
@@ -38,6 +53,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [fees, setFees] = useState<Fees>({ fee_percent: 0.2, fee_fixed: 5 });
   const [refreshing, setRefreshing] = useState(false);
   const [marketPricesLoading, setMarketPricesLoading] = useState(false);
@@ -406,8 +422,25 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
       }
       setUser(user);
 
-      // Load products first (priority), fees in background
+      // Load products first (priority)
       await fetchProducts(user.id);
+
+      // Load profile (for IBAN / signature checks)
+      try {
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('iban, signature_url')
+          .eq('id', user.id)
+          .maybeSingle();
+        
+        if (profileError) {
+          logger.warn('Failed to load profile for dashboard banner:', profileError.message);
+        } else if (profileData) {
+          setProfile(profileData);
+        }
+      } catch (e: any) {
+        logger.warn('Error loading profile for dashboard banner', e?.message || e);
+      }
       
       // Load fees in background (non-blocking)
       getFees().then(feesResult => {
@@ -773,6 +806,36 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
                   </svg>
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Profile completeness banner (IBAN / Signature) */}
+        {profile && (!profile.iban || !profile.signature_url) && (
+          <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 sm:px-6 sm:py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-start">
+              <div className="flex-shrink-0 mt-0.5 sm:mt-0">
+                <FaInfoCircle className="h-5 w-5 text-amber-500" />
+              </div>
+              <div className="ml-3">
+                <p className="text-sm sm:text-base font-semibold text-amber-900">
+                  Complete your profile to receive payouts.
+                </p>
+                <p className="mt-1 text-xs sm:text-sm text-amber-800">
+                  {(!profile.iban && !profile.signature_url) && 'Please add your IBAN and upload your signature.'}
+                  {(!profile.iban && profile.signature_url) && 'Please add your IBAN to receive payouts.'}
+                  {(profile.iban && !profile.signature_url) && 'Please upload your signature for contracts.'}
+                </p>
+              </div>
+            </div>
+            <div className="flex-shrink-0">
+              <Link
+                to="/profile"
+                className="inline-flex items-center px-3 py-2 text-xs sm:text-sm font-semibold rounded-xl bg-slate-900 text-white hover:bg-slate-800 transition-colors"
+              >
+                <FaUser className="mr-1.5" />
+                Go to Profile
+              </Link>
             </div>
           </div>
         )}
