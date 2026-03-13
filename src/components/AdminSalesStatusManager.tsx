@@ -1067,8 +1067,11 @@ export default function AdminSalesStatusManager({
                     saleDate: contractDateISO
                   });
                   
+                  // Decide filename: prefer externalId (form ID), fallback to saleId
+                  const storageFileId = freshSale.external_id || saleId;
+                  
                   // Upload to storage
-                  const url = await uploadContractToStorage(saleId, pdfBlob);
+                  const url = await uploadContractToStorage(storageFileId, pdfBlob);
                   
                   // Update database
                   const { error: updateError } = await supabase

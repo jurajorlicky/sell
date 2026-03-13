@@ -339,11 +339,13 @@ export async function generatePurchaseAgreement(data: PurchaseAgreementData): Pr
   });
 }
 
-export async function uploadContractToStorage(saleId: string, pdfBlob: Blob): Promise<string> {
+// Upload contract PDF to storage.
+// fileId is used as the filename (e.g. externalId or saleId).
+export async function uploadContractToStorage(fileId: string, pdfBlob: Blob): Promise<string> {
   const { supabase } = await import('./supabase');
   
-  // Use sale ID as the filename
-  const fileName = `contracts/${saleId}.pdf`;
+  // Use provided fileId as the filename
+  const fileName = `contracts/${fileId}.pdf`;
   
   const { data, error } = await supabase.storage
     .from('contracts')
