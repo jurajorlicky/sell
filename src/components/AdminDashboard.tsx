@@ -17,7 +17,9 @@ import {
   FaList,
   FaShoppingCart,
   FaChevronDown,
-  FaChevronUp
+  FaChevronUp,
+  FaFileInvoice,
+  FaServer
 } from 'react-icons/fa';
 
 interface DashboardStats {
@@ -298,7 +300,9 @@ export default function AdminDashboard() {
               { id: 'listed-products', label: 'Listings', icon: FaList, path: '/admin/listed-products' },
               { id: 'sales', label: 'Sales', icon: FaShoppingCart, path: '/admin/sales' },
               { id: 'users', label: 'Users', icon: FaUsers, path: '/admin/users' },
+              { id: 'invoices', label: 'Invoices', icon: FaFileInvoice, path: '/admin/invoices' },
               { id: 'settings', label: 'Settings', icon: FaCog, path: '/admin/settings' },
+              { id: 'system-status', label: 'System', icon: FaServer, path: '/admin/system-status' },
             ].map((tab) => {
               const isActive = location.pathname === tab.path;
               return (
