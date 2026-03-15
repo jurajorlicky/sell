@@ -6,7 +6,8 @@ import {
   FaDatabase,
   FaCheckCircle,
   FaExclamationTriangle,
-  FaSync
+  FaSync,
+  FaSignOutAlt
 } from 'react-icons/fa';
 
 interface CheckResult {
@@ -20,59 +21,53 @@ export default function SystemStatusPage() {
   const [checks, setChecks] = useState<CheckResult[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let cancelled = false;
+  const runChecks = async () => {
+    setLoading(true);
+    const results: CheckResult[] = [];
 
-    const runChecks = async () => {
-      setLoading(true);
-      const results: CheckResult[] = [];
-
-      const runOne = async (name: string, fn: () => Promise<void>) => {
-        const started = performance.now();
-        try {
-          await fn();
-          const latencyMs = Math.round(performance.now() - started);
-          results.push({ name, ok: true, latencyMs });
-        } catch (e: any) {
-          const latencyMs = Math.round(performance.now() - started);
-          results.push({
-            name,
-            ok: false,
-            latencyMs,
-            message: e?.message || String(e),
-          });
-        }
-      };
-
-      await runOne('admin_settings', async () => {
-        // We don't assume specific columns here, just that the table is reachable
-        const { error } = await supabase.from('admin_settings').select('*').limit(1);
-        if (error) throw error;
-      });
-
-      await runOne('products', async () => {
-        const { error } = await supabase.from('products').select('id').limit(1);
-        if (error && error.code !== 'PGRST116') throw error;
-      });
-
-      await runOne('user_products', async () => {
-        const { error } = await supabase.from('user_products').select('id').limit(1);
-        if (error && error.code !== 'PGRST116') throw error;
-      });
-
-      await runOne('user_sales', async () => {
-        const { error } = await supabase.from('user_sales').select('id').limit(1);
-        if (error && error.code !== 'PGRST116') throw error;
-      });
-
-      if (!cancelled) {
-        setChecks(results);
-        setLoading(false);
+    const runOne = async (name: string, fn: () => Promise<void>) => {
+      const started = performance.now();
+      try {
+        await fn();
+        const latencyMs = Math.round(performance.now() - started);
+        results.push({ name, ok: true, latencyMs });
+      } catch (e: any) {
+        const latencyMs = Math.round(performance.now() - started);
+        results.push({
+          name,
+          ok: false,
+          latencyMs,
+          message: e?.message || String(e),
+        });
       }
     };
 
+    await runOne('admin_settings', async () => {
+      const { error } = await supabase.from('admin_settings').select('*').limit(1);
+      if (error) throw error;
+    });
+
+    await runOne('products', async () => {
+      const { error } = await supabase.from('products').select('id').limit(1);
+      if (error && error.code !== 'PGRST116') throw error;
+    });
+
+    await runOne('user_products', async () => {
+      const { error } = await supabase.from('user_products').select('id').limit(1);
+      if (error && error.code !== 'PGRST116') throw error;
+    });
+
+    await runOne('user_sales', async () => {
+      const { error } = await supabase.from('user_sales').select('id').limit(1);
+      if (error && error.code !== 'PGRST116') throw error;
+    });
+
+    setChecks(results);
+    setLoading(false);
+  };
+
+  useEffect(() => {
     runChecks();
-    return () => { cancelled = true; };
   }, []);
 
   const allOk = checks.length > 0 && checks.every(c => c.ok);
@@ -89,6 +84,27 @@ export default function SystemStatusPage() {
               <h1 className="text-lg sm:text-2xl font-bold text-gray-900">System Status</h1>
               <p className="text-xs sm:text-sm text-gray-500">Supabase connectivity and key tables</p>
             </div>
+          </div>
+          <div className="flex items-center space-x-1 sm:space-x-3">
+            <button
+              onClick={() => runChecks()}
+              disabled={loading}
+              className="inline-flex items-center px-2 py-2 sm:px-4 bg-black text-white font-semibold rounded-xl hover:bg-gray-800 transition-all duration-200 disabled:opacity-50"
+              title="Re-run checks"
+            >
+              <FaSync className={`text-sm sm:mr-2 ${loading ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">{loading ? 'Checking...' : 'Refresh'}</span>
+            </button>
+            <button
+              onClick={async () => {
+                await supabase.auth.signOut();
+                window.location.href = '/';
+              }}
+              className="inline-flex items-center px-2 py-2 sm:px-4 bg-black text-white font-semibold rounded-xl hover:bg-gray-800 transition-all duration-200 shadow-sm"
+            >
+              <FaSignOutAlt className="text-sm sm:mr-2" />
+              <span className="hidden sm:inline">Sign Out</span>
+            </button>
           </div>
         </div>
       </header>
