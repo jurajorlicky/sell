@@ -500,6 +500,13 @@ export default function AdminSalesStatusManager({
       return; // No changes to save
     }
 
+    // Confirm before cancelling or returning a sale
+    if (selectedStatus !== currentStatus && (selectedStatus === 'cancelled' || selectedStatus === 'returned')) {
+      if (!confirm('Naozaj zrušiť tento predaj? Táto zmena je nevratná.')) {
+        return;
+      }
+    }
+
     try {
       setSaving(true);
       setError(null);
