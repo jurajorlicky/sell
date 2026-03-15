@@ -27,6 +27,8 @@
   bundle = true
   minify = true
 
+# Bez cache pre SPA – každá cesta (/, /dashboard, …) vracia index.html
+# Takto po deployi používatelia hneď dostanú novú verziu bez inkognita
 [[headers]]
   for = "/*"
   [headers.values]
@@ -34,19 +36,12 @@
     X-XSS-Protection = "1; mode=block"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
-    Cache-Control = "public, max-age=31536000"
+    Cache-Control = "no-cache, no-store, must-revalidate"
+    Pragma = "no-cache"
+    Expires = "0"
 
+# Dlhá cache len pre hashed assety (Vite ich dáva do /assets/)
 [[headers]]
-  for = "/index.html"
-  [headers.values]
-    Cache-Control = "public, max-age=0, must-revalidate"
-
-[[headers]]
-  for = "/*.js"
-  [headers.values]
-    Cache-Control = "public, max-age=31536000, immutable"
-
-[[headers]]
-  for = "/*.css"
+  for = "/assets/*"
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
