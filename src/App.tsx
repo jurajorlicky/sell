@@ -48,13 +48,20 @@ const SalesPage = lazy(() => import("./pages/SalesPage"));
 const InvoicesPage = lazy(() => import("./pages/InvoicesPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const SystemStatusPage = lazy(() => import("./pages/SystemStatusPage"));
+const EshopSalesPage = lazy(() => import("./pages/EshopSalesPage"));
+const WarehousePage = lazy(() => import("./pages/WarehousePage"));
+const WtbListPage = lazy(() => import("./pages/WtbListPage"));
+const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage"));
 
 export default function App() {
+  const currentAppVersion = __APP_VERSION__;
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [appError, setAppError] = useState<Error | null>(null);
+  const [pendingAppVersion, setPendingAppVersion] = useState<string | null>(null);
+  const [reloadCountdown, setReloadCountdown] = useState(15);
   
   const adminCacheRef = useRef<{[key: string]: { value: boolean; timestamp: number } }>({});
   const initializingRef = useRef(false);
@@ -334,6 +341,93 @@ export default function App() {
     };
   }, [initializeAuth, checkAdminStatus]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    let isCancelled = false;
+
+    const checkForNewVersion = async () => {
+      try {
+        const response = await fetch(`/version.json?ts=${Date.now()}`, {
+          cache: 'no-store',
+          headers: {
+            'cache-control': 'no-cache'
+          }
+        });
+
+        if (!response.ok) {
+          return;
+        }
+
+        const data = await response.json();
+        const latestVersion = data?.version;
+
+        if (!latestVersion || latestVersion === currentAppVersion || isCancelled) {
+          return;
+        }
+
+        if (document.visibilityState === 'hidden') {
+          window.location.reload();
+          return;
+        }
+
+        setPendingAppVersion((prev) => prev || latestVersion);
+      } catch (versionError) {
+        logger.debug('Version check failed', versionError);
+      }
+    };
+
+    checkForNewVersion();
+
+    const intervalId = window.setInterval(checkForNewVersion, 60000);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        checkForNewVersion();
+      } else if (pendingAppVersion) {
+        window.location.reload();
+      }
+    };
+
+    window.addEventListener('focus', checkForNewVersion);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      isCancelled = true;
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', checkForNewVersion);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [currentAppVersion, pendingAppVersion]);
+
+  useEffect(() => {
+    if (!pendingAppVersion) {
+      setReloadCountdown(15);
+      return;
+    }
+
+    if (document.visibilityState === 'hidden') {
+      window.location.reload();
+      return;
+    }
+
+    setReloadCountdown(15);
+
+    const timeoutId = window.setTimeout(() => {
+      window.location.reload();
+    }, 15000);
+
+    const intervalId = window.setInterval(() => {
+      setReloadCountdown((prev) => Math.max(prev - 1, 0));
+    }, 1000);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      window.clearInterval(intervalId);
+    };
+  }, [pendingAppVersion]);
+
   // Show error fallback if there's an app error
   if (appError) {
     return <ErrorFallback error={appError} resetError={() => setAppError(null)} />;
@@ -354,7 +448,30 @@ export default function App() {
 
   return (
     <Suspense fallback={<PageLoader />}>
+    {pendingAppVersion && (
+      <div className="fixed inset-x-0 top-0 z-[100] flex justify-center px-4 pt-3">
+        <div className="w-full max-w-xl rounded-2xl border border-blue-200 bg-white/95 px-4 py-3 shadow-xl backdrop-blur">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-semibold text-gray-900">A new version is ready</p>
+              <p className="text-xs text-gray-600">The app will refresh automatically in {reloadCountdown}s.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="rounded-xl bg-black px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-gray-800"
+            >
+              Refresh now
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     <Routes>
+      <Route
+        path="/reset-password"
+        element={<ResetPasswordPage />}
+      />
       <Route
         path="/"
         element={
@@ -422,6 +539,18 @@ export default function App() {
       <Route
         path="/admin/system-status"
         element={user && isAdmin ? <SystemStatusPage /> : <Navigate to="/dashboard" replace />}
+      />
+      <Route
+        path="/admin/eshop-sales"
+        element={user && isAdmin ? <EshopSalesPage /> : <Navigate to="/dashboard" replace />}
+      />
+      <Route
+        path="/admin/warehouse"
+        element={user && isAdmin ? <WarehousePage /> : <Navigate to="/dashboard" replace />}
+      />
+      <Route
+        path="/admin/wtb-list"
+        element={user && isAdmin ? <WtbListPage /> : <Navigate to="/dashboard" replace />}
       />
     </Routes>
     </Suspense>

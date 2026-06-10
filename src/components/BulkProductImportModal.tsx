@@ -333,10 +333,10 @@ export default function BulkProductImportModal({ isOpen, onClose, userId, userEm
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-[80] overflow-y-auto"
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end justify-center p-0 sm:items-center sm:p-4 z-[80] overflow-y-auto"
       onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}
     >
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-3xl h-[96dvh] sm:h-auto sm:max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 flex-shrink-0">
           <div>
@@ -349,7 +349,7 @@ export default function BulkProductImportModal({ isOpen, onClose, userId, userEm
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+          <div className="flex-1 overflow-y-auto p-3 sm:p-6">
           {/* Step 1: Upload */}
           {step === 'upload' && (
             <div className="space-y-6">
@@ -410,7 +410,7 @@ export default function BulkProductImportModal({ isOpen, onClose, userId, userEm
               ) : (
                 <>
                   {/* Summary Cards */}
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
                     <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-center">
                       <p className="text-2xl font-bold text-green-700">{matchedCount}</p>
                       <p className="text-xs text-green-600 font-medium">Matched</p>
@@ -426,9 +426,38 @@ export default function BulkProductImportModal({ isOpen, onClose, userId, userEm
                   </div>
 
                   {/* Table */}
-                  <div className="border border-gray-200 rounded-xl overflow-hidden">
-                    <div className="max-h-[300px] overflow-y-auto">
-                      <table className="min-w-full divide-y divide-gray-200">
+                  <div className="grid gap-2 sm:hidden">
+                    {matchedProducts.map((m, idx) => (
+                      <div
+                        key={idx}
+                        className={`rounded-xl border p-3 ${
+                          m.status === 'matched' ? 'border-green-200 bg-white' :
+                          m.status === 'not_found' ? 'border-red-200 bg-red-50' :
+                          'border-yellow-200 bg-yellow-50'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-xs text-gray-500">Row {m.row.rowIndex}</p>
+                            <p className="font-mono text-sm font-semibold text-gray-900 break-all">{m.row.sku}</p>
+                            <p className="mt-1 text-xs text-gray-600">EU {m.row.size} · {m.row.price} EUR</p>
+                          </div>
+                          <span className={`inline-flex flex-shrink-0 items-center rounded-full px-2 py-1 text-[10px] font-medium ${
+                            m.status === 'matched' ? 'bg-green-100 text-green-800' :
+                            m.status === 'not_found' ? 'bg-red-100 text-red-800' :
+                            'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {m.status === 'matched' ? 'Ready' : m.status === 'not_found' ? 'Not found' : 'Duplicate'}
+                          </span>
+                        </div>
+                        <p className="mt-2 text-xs text-gray-700 break-words">{m.product?.name || '-'}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="hidden border border-gray-200 rounded-xl overflow-hidden sm:block">
+                    <div className="max-h-[300px] overflow-auto">
+                      <table className="min-w-[560px] w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50 sticky top-0">
                           <tr>
                             <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Row</th>
@@ -450,7 +479,7 @@ export default function BulkProductImportModal({ isOpen, onClose, userId, userEm
                               <td className="px-3 py-2 text-xs font-mono text-gray-900">{m.row.sku}</td>
                               <td className="px-3 py-2 text-xs text-gray-700">{m.row.size}</td>
                               <td className="px-3 py-2 text-xs font-semibold text-gray-900">{m.row.price} €</td>
-                              <td className="px-3 py-2 text-xs text-gray-700 max-w-[150px] truncate">
+                              <td className="px-3 py-2 text-xs text-gray-700 max-w-[220px] truncate">
                                 {m.product?.name || '-'}
                               </td>
                               <td className="px-3 py-2">
@@ -510,7 +539,7 @@ export default function BulkProductImportModal({ isOpen, onClose, userId, userEm
                     Import complete
                   </h3>
                 </div>
-                <div className="grid grid-cols-3 gap-3 mt-3">
+                <div className="grid grid-cols-3 gap-2 sm:gap-3 mt-3">
                   <div className="text-center">
                     <p className="text-xl font-bold text-green-700">{importResult.success}</p>
                     <p className="text-xs text-green-600">Imported</p>
@@ -527,7 +556,35 @@ export default function BulkProductImportModal({ isOpen, onClose, userId, userEm
               </div>
 
               {/* Details Table */}
-              <div className="border border-gray-200 rounded-xl overflow-hidden">
+              <div className="grid gap-2 sm:hidden">
+                {importResult.details.map((d, idx) => (
+                  <div
+                    key={idx}
+                    className={`rounded-xl border p-3 ${
+                      d.status === 'Success' ? 'border-green-200 bg-white' :
+                      d.status === 'Failed' ? 'border-red-200 bg-red-50' :
+                      'border-yellow-200 bg-yellow-50'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-mono text-sm font-semibold text-gray-900 break-all">{d.sku}</p>
+                        <p className="mt-1 text-xs text-gray-600">EU {d.size} · {d.price} EUR</p>
+                      </div>
+                      <span className={`inline-flex flex-shrink-0 items-center rounded-full px-2 py-1 text-[10px] font-medium ${
+                        d.status === 'Success' ? 'bg-green-100 text-green-800' :
+                        d.status === 'Failed' ? 'bg-red-100 text-red-800' :
+                        'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {d.status}
+                      </span>
+                    </div>
+                    {d.message && <p className="mt-2 text-xs text-gray-500 break-words">{d.message}</p>}
+                  </div>
+                ))}
+              </div>
+
+              <div className="hidden border border-gray-200 rounded-xl overflow-hidden sm:block">
                 <div className="max-h-[250px] overflow-y-auto">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50 sticky top-0">
@@ -557,7 +614,7 @@ export default function BulkProductImportModal({ isOpen, onClose, userId, userEm
                               {d.status}
                             </span>
                             {d.message && (
-                              <p className="text-[10px] text-gray-500 mt-0.5 truncate max-w-[200px]">{d.message}</p>
+                              <p className="text-[10px] text-gray-500 mt-0.5 truncate max-w-[260px]">{d.message}</p>
                             )}
                           </td>
                         </tr>
@@ -581,10 +638,10 @@ export default function BulkProductImportModal({ isOpen, onClose, userId, userEm
         </div>
 
         {/* Footer */}
-        <div className="border-t border-gray-200 p-4 sm:p-6 flex justify-between items-center flex-shrink-0">
+        <div className="border-t border-gray-200 p-3 sm:p-6 flex justify-between items-center flex-shrink-0 gap-2">
           {step === 'upload' && (
             <div className="w-full flex justify-end">
-              <button onClick={handleClose} className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 border border-gray-300 rounded-xl">
+              <button onClick={handleClose} className="w-full sm:w-auto px-4 py-2 text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 border border-gray-300 rounded-xl">
                 Cancel
               </button>
             </div>
@@ -594,14 +651,14 @@ export default function BulkProductImportModal({ isOpen, onClose, userId, userEm
             <>
               <button
                 onClick={resetState}
-                className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 border border-gray-300 rounded-xl"
+                className="flex-1 sm:flex-none px-4 py-2 text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 border border-gray-300 rounded-xl"
               >
                 Back
               </button>
               <button
                 onClick={handleImport}
                 disabled={matchedCount === 0}
-                className="px-4 py-2 text-sm font-semibold text-white bg-black hover:bg-gray-800 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center"
+                className="flex-1 sm:flex-none justify-center px-4 py-2 text-sm font-semibold text-white bg-black hover:bg-gray-800 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center"
               >
                 <FaUpload className="mr-2" />
                 Import {matchedCount} product{matchedCount !== 1 ? 's' : ''}
@@ -610,7 +667,7 @@ export default function BulkProductImportModal({ isOpen, onClose, userId, userEm
           )}
 
           {step === 'done' && (
-            <div className="w-full flex justify-between">
+            <div className="w-full grid grid-cols-2 gap-2 sm:flex sm:justify-between">
               <button
                 onClick={resetState}
                 className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 border border-gray-300 rounded-xl"

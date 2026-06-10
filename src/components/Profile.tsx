@@ -312,8 +312,10 @@ export default function Profile() {
 
     isDrawingRef.current = true;
     const rect = canvas.getBoundingClientRect();
-    const x = 'touches' in e ? e.touches[0].clientX - rect.left : e.clientX - rect.left;
-    const y = 'touches' in e ? e.touches[0].clientY - rect.top : e.clientY - rect.top;
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const x = ('touches' in e ? e.touches[0].clientX - rect.left : e.clientX - rect.left) * scaleX;
+    const y = ('touches' in e ? e.touches[0].clientY - rect.top : e.clientY - rect.top) * scaleY;
 
     ctx.beginPath();
     ctx.moveTo(x, y);
@@ -327,8 +329,10 @@ export default function Profile() {
 
     e.preventDefault();
     const rect = canvas.getBoundingClientRect();
-    const x = 'touches' in e ? e.touches[0].clientX - rect.left : e.clientX - rect.left;
-    const y = 'touches' in e ? e.touches[0].clientY - rect.top : e.clientY - rect.top;
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const x = ('touches' in e ? e.touches[0].clientX - rect.left : e.clientX - rect.left) * scaleX;
+    const y = ('touches' in e ? e.touches[0].clientY - rect.top : e.clientY - rect.top) * scaleY;
 
     ctx.lineTo(x, y);
     ctx.stroke();
@@ -1220,10 +1224,10 @@ export default function Profile() {
 
       {/* Signature Modal */}
       {showSignatureModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-xl font-bold text-gray-900">Signature</h2>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end justify-center p-0 sm:items-center sm:p-4 z-50">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200">
+              <h2 className="text-lg sm:text-xl font-bold text-gray-900">Signature</h2>
               <button
                 onClick={() => {
                   setShowSignatureModal(false);
@@ -1234,10 +1238,10 @@ export default function Profile() {
                 <FaTimes className="w-5 h-5 text-gray-600" />
               </button>
             </div>
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               <div className="mb-4">
                 <p className="text-sm text-gray-600 mb-3">Draw your signature below:</p>
-                <div className="flex justify-center bg-gray-50 rounded-xl p-4 border border-gray-200">
+                <div className="flex justify-center bg-gray-50 rounded-xl p-2 sm:p-4 border border-gray-200">
                   <canvas
                     ref={canvasRef}
                     width={300}
@@ -1249,12 +1253,12 @@ export default function Profile() {
                     onTouchStart={handleSignatureStart}
                     onTouchMove={handleSignatureMove}
                     onTouchEnd={handleSignatureEnd}
-                    className="border-2 border-gray-300 rounded-lg cursor-crosshair"
-                    style={{ touchAction: 'none' }}
+                    className="border-2 border-gray-300 rounded-lg cursor-crosshair w-full max-w-[300px] h-auto"
+                    style={{ touchAction: 'none', aspectRatio: '300 / 150' }}
                   />
                 </div>
               </div>
-              <div className="flex items-center justify-between space-x-3">
+              <div className="grid gap-2 sm:flex sm:items-center sm:justify-between sm:space-x-3">
                 <button
                   type="button"
                   onClick={clearSignature}
@@ -1262,7 +1266,7 @@ export default function Profile() {
                 >
                   Clear
                 </button>
-                <div className="flex space-x-3">
+                <div className="grid grid-cols-2 gap-2 sm:flex sm:space-x-3 sm:gap-0">
                   <button
                     type="button"
                     onClick={() => {

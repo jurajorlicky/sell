@@ -192,7 +192,7 @@ export default function InvoicesPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-gray-300 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
           <h3 className="text-lg font-semibold text-gray-900">Loading invoices...</h3>
@@ -203,7 +203,7 @@ export default function InvoicesPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="text-center max-w-md">
           <FaExclamationTriangle className="text-red-500 text-4xl mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-gray-900 mb-2">Error loading invoices</h3>
@@ -220,40 +220,37 @@ export default function InvoicesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
+      <header className="bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 sticky top-0 z-40 shadow-lg">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-2 sm:space-x-4">
-              <div className="relative">
-                <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-600 via-indigo-600 to-blue-800 rounded-2xl shadow-lg">
-                  <FaFileInvoice className="text-white text-xl" />
-                </div>
-                <div className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 rounded-full border-2 border-white animate-pulse"></div>
+              <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-pink-400 to-rose-500 rounded-2xl shadow-lg">
+                <FaFileInvoice className="text-white text-xl" />
               </div>
               <div>
-                <h1 className="text-lg sm:text-2xl font-bold text-gray-900">
+                <h1 className="text-lg sm:text-2xl font-bold text-white tracking-tight">
                   Invoices
                 </h1>
-                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">Invoice management and overview</p>
+                <p className="text-xs sm:text-sm text-gray-400 hidden sm:block">Invoice management and overview</p>
               </div>
             </div>
-            
-            <div className="flex items-center space-x-1 sm:space-x-3">
+
+            <div className="flex items-center space-x-2">
               <button
                 onClick={handleRefresh}
                 disabled={refreshing}
-                className="inline-flex items-center px-2 py-2 sm:px-4 bg-black text-white font-semibold rounded-xl hover:bg-gray-800 transition-all duration-200 disabled:opacity-50"
+                className="inline-flex items-center px-3 py-2 bg-white/10 text-white font-medium rounded-xl hover:bg-white/20 transition-all border border-white/20 text-sm disabled:opacity-50"
               >
-                <FaSync className={`text-sm sm:mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                <FaSync className={`sm:mr-2 ${refreshing ? 'animate-spin' : ''}`} />
                 <span className="hidden sm:inline">{refreshing ? 'Refreshing...' : 'Refresh'}</span>
               </button>
               <button
                 onClick={handleSignOut}
-                className="inline-flex items-center px-2 py-2 sm:px-4 bg-black text-white font-semibold rounded-xl hover:bg-gray-800 transition-all duration-200 shadow-lg transform hover:scale-105"
+                className="inline-flex items-center px-3 py-2 bg-white/10 text-white font-medium rounded-xl hover:bg-white/20 transition-all border border-white/20 text-sm"
               >
-                <FaSignOutAlt className="text-sm sm:mr-2" />
+                <FaSignOutAlt className="sm:mr-2" />
                 <span className="hidden sm:inline">Sign Out</span>
               </button>
             </div>
@@ -352,9 +349,83 @@ export default function InvoicesPage() {
           )}
         </div>
 
-        {/* Invoices Table */}
+        {/* Invoices */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
+          {/* Mobile Cards View */}
+          <div className="md:hidden">
+            {sortedInvoices.length === 0 ? (
+              <div className="px-4 py-16 text-center">
+                <FaFileInvoice className="text-gray-300 text-3xl mx-auto mb-3" />
+                <p className="text-gray-900 font-semibold mb-1">No invoices found</p>
+                <p className="text-gray-500 text-sm">
+                  {invoices.length === 0 ? 'No invoices have been created yet.' : 'Try adjusting your filters.'}
+                </p>
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-200">
+                {paginatedInvoices.map((invoice) => (
+                  <div key={invoice.id} className="p-3">
+                    <div className="flex items-start gap-3">
+                      {invoice.image_url && (
+                        <img
+                          loading="lazy"
+                          src={invoice.image_url}
+                          alt={invoice.name}
+                          className="w-12 h-12 rounded-lg object-cover flex-shrink-0"
+                        />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium text-gray-900 truncate">{invoice.name}</div>
+                            <div className="text-[10px] text-gray-500">
+                              {invoice.size} {invoice.sku && `• ${invoice.sku}`}
+                            </div>
+                          </div>
+                          <span className={`inline-flex items-center flex-shrink-0 px-2 py-1 rounded-full text-[10px] font-medium ${
+                            invoice.status === 'completed' ? 'bg-green-100 text-green-800' :
+                            invoice.status === 'delivered' ? 'bg-indigo-100 text-indigo-800' :
+                            invoice.status === 'shipped' ? 'bg-purple-100 text-purple-800' :
+                            invoice.status === 'processing' ? 'bg-yellow-100 text-yellow-800' :
+                            invoice.status === 'accepted' ? 'bg-blue-100 text-blue-800' :
+                            invoice.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                            invoice.status === 'returned' ? 'bg-orange-100 text-orange-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {invoice.status}
+                          </span>
+                        </div>
+                        <div className="mt-2 grid grid-cols-2 gap-x-2 gap-y-1 text-xs text-gray-600">
+                          <div>Date: <span className="text-gray-900">{formatDateShort(invoice.invoice_date)}</span></div>
+                          <div className="font-mono truncate">ID: {invoice.external_id || invoice.id.slice(0, 8)}</div>
+                          <div className="truncate">User: {invoice.user_email}</div>
+                          <div>Price: <span className="font-semibold text-gray-900">{formatCurrency(invoice.price)}</span></div>
+                          <div>Payout: <span className="font-semibold text-gray-600">{formatCurrency(invoice.payout)}</span></div>
+                          <div>
+                            {invoice.contract_url ? (
+                              <a
+                                href={invoice.contract_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center text-blue-600 hover:text-blue-800"
+                              >
+                                <FaFilePdf className="mr-1" /> Contract
+                              </a>
+                            ) : (
+                              <span className="text-gray-400">No contract</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Desktop Table View */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full min-w-[700px]">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
