@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { sendNewSaleEmail } from '../lib/email';
 import { formatCurrency } from '../lib/utils';
+import { SK_VAT_RATE } from '../lib/fees';
 import AdminNavigation from '../components/AdminNavigation';
 import {
   FaSearch, FaSignOutAlt, FaSync, FaCheck,
@@ -22,6 +23,8 @@ interface UserProduct {
   user_email: string;
   profiles: { email: string } | null;
   expires_at?: string;
+  is_vat0?: boolean | null;
+  vat_scheme?: 'VAT0' | 'MARGIN' | null;
 }
 
 export default function ListedProductsPage() {
@@ -38,12 +41,31 @@ export default function ListedProductsPage() {
   const [selectedProduct, setSelectedProduct] = useState<UserProduct | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const getVatScheme = (product: UserProduct): 'VAT0' | 'MARGIN' => (
+    product.vat_scheme === 'VAT0' || product.is_vat0 ? 'VAT0' : 'MARGIN'
+  );
+
+  const getSkVatBreakdown = (product: UserProduct) => {
+    const scheme = getVatScheme(product);
+    const grossPrice = Number(product.price) || 0;
+    const netPrice = scheme === 'VAT0' ? grossPrice : grossPrice / (1 + SK_VAT_RATE);
+    const vatAmount = scheme === 'VAT0' ? 0 : grossPrice - netPrice;
+
+    return {
+      scheme,
+      grossPrice,
+      netPrice,
+      vatAmount,
+    };
+  };
+
   // Hlavný JOIN na profiles(email)
   const loadProducts = useCallback(async () => {
     const { data, error } = await supabase
       .from('user_products')
       .select(`
         id, user_id, product_id, name, size, price, payout, created_at, image_url, sku, expires_at,
+        is_vat0, vat_scheme,
         profiles(email)
       `)
       .or('expires_at.is.null,expires_at.gt.' + new Date().toISOString())
@@ -323,11 +345,13 @@ export default function ListedProductsPage() {
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 lg:gap-6">
-                {filtered.map((product) => (
-                  <div
-                    key={product.id}
-                    className="bg-white border border-gray-200 rounded-xl p-2.5 sm:p-3 lg:p-5 hover:shadow-lg transition-all duration-200"
-                  >
+                {filtered.map((product) => {
+                  const vatBreakdown = getSkVatBreakdown(product);
+                  return (
+                    <div
+                      key={product.id}
+                      className="bg-white border border-gray-200 rounded-xl p-2.5 sm:p-3 lg:p-5 hover:shadow-lg transition-all duration-200"
+                    >
                     {/* Product Image & Basic Info */}
                     <div className="flex items-start space-x-2 sm:space-x-3 lg:space-x-4 mb-2 sm:mb-3 lg:mb-4">
                       <div className="h-14 w-14 sm:h-16 sm:w-16 lg:h-20 lg:w-20 flex-shrink-0 overflow-hidden rounded-lg sm:rounded-xl border border-gray-200 bg-white">
@@ -348,6 +372,13 @@ export default function ListedProductsPage() {
                           <span className="inline-flex items-center px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-medium bg-gray-100 text-gray-800">
                             {product.size}
                           </span>
+                          <span className={`inline-flex items-center px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-semibold ${
+                            vatBreakdown.scheme === 'VAT0'
+                              ? 'bg-amber-100 text-amber-800'
+                              : 'bg-slate-100 text-slate-800'
+                          }`}>
+                            {vatBreakdown.scheme === 'VAT0' ? 'VAT0' : 'Margin'}
+                          </span>
                         </div>
                         <p className="text-[10px] sm:text-xs text-gray-600">SKU: {product.sku || 'N/A'}</p>
                         <p className="text-[10px] sm:text-xs text-gray-500 font-mono mt-0.5">ID: {product.id.slice(0, 8)}...</p>
@@ -363,6 +394,28 @@ export default function ListedProductsPage() {
                       <div>
                         <p className="text-[10px] sm:text-xs text-gray-600 mb-0.5">Payout</p>
                         <p className="text-xs sm:text-sm font-semibold text-green-600">{formatCurrency(product.payout)}</p>
+                      </div>
+                      <div className="col-span-2 rounded-lg bg-slate-50 px-2.5 py-2 text-[10px] sm:text-xs text-slate-600">
+                        <div className="mb-1 flex items-center justify-between gap-2">
+                          <span className="font-semibold text-slate-800">SK DPH {Math.round(SK_VAT_RATE * 100)}%</span>
+                          <span className="font-semibold text-slate-900">
+                            {vatBreakdown.scheme === 'VAT0' ? 'VAT0' : 'Margin'}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div>
+                            <p className="text-slate-500">s DPH</p>
+                            <p className="font-semibold text-slate-900">{formatCurrency(vatBreakdown.grossPrice)}</p>
+                          </div>
+                          <div>
+                            <p className="text-slate-500">bez DPH</p>
+                            <p className="font-semibold text-slate-900">{formatCurrency(vatBreakdown.netPrice)}</p>
+                          </div>
+                          <div>
+                            <p className="text-slate-500">DPH</p>
+                            <p className="font-semibold text-slate-900">{formatCurrency(vatBreakdown.vatAmount)}</p>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
@@ -395,7 +448,8 @@ export default function ListedProductsPage() {
                       Accept
                     </button>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
