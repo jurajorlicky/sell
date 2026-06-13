@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { sendNewSaleEmail } from '../lib/email';
 import { formatCurrency } from '../lib/utils';
-import { SK_VAT_RATE } from '../lib/fees';
+import { calculatePayout, getFees } from '../lib/fees';
 import AdminNavigation from '../components/AdminNavigation';
 import {
   FaSearch, FaSignOutAlt, FaSync, FaCheck,
@@ -27,8 +27,14 @@ interface UserProduct {
   vat_scheme?: 'VAT0' | 'MARGIN' | null;
 }
 
+interface FeeSettings {
+  fee_percent: number;
+  fee_fixed: number;
+}
+
 export default function ListedProductsPage() {
   const [products, setProducts] = useState<UserProduct[]>([]);
+  const [feeSettings, setFeeSettings] = useState<FeeSettings | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFrom, setDateFrom] = useState<string>('');
   const [dateTo, setDateTo] = useState<string>('');
@@ -45,18 +51,9 @@ export default function ListedProductsPage() {
     product.vat_scheme === 'VAT0' || product.is_vat0 ? 'VAT0' : 'MARGIN'
   );
 
-  const getSkVatBreakdown = (product: UserProduct) => {
-    const scheme = getVatScheme(product);
-    const grossPrice = Number(product.price) || 0;
-    const netPrice = scheme === 'VAT0' ? grossPrice : grossPrice / (1 + SK_VAT_RATE);
-    const vatAmount = scheme === 'VAT0' ? 0 : grossPrice - netPrice;
-
-    return {
-      scheme,
-      grossPrice,
-      netPrice,
-      vatAmount,
-    };
+  const getCurrentPayout = (product: UserProduct): number | null => {
+    if (!feeSettings) return null;
+    return calculatePayout(product.price, feeSettings.fee_percent, feeSettings.fee_fixed, getVatScheme(product));
   };
 
   // Hlavný JOIN na profiles(email)
@@ -86,6 +83,15 @@ export default function ListedProductsPage() {
   useEffect(() => {
     loadProducts();
   }, [loadProducts]);
+
+  useEffect(() => {
+    getFees()
+      .then(settings => setFeeSettings({
+        fee_percent: settings.fee_percent,
+        fee_fixed: settings.fee_fixed,
+      }))
+      .catch(err => console.warn('Failed to load current fee settings:', err));
+  }, []);
 
   const handleConfirmSale = async () => {
     if (!selectedProduct || !externalId) return;
@@ -346,7 +352,9 @@ export default function ListedProductsPage() {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 lg:gap-6">
                 {filtered.map((product) => {
-                  const vatBreakdown = getSkVatBreakdown(product);
+                  const vatScheme = getVatScheme(product);
+                  const currentPayout = getCurrentPayout(product);
+                  const payoutDiffers = currentPayout !== null && Math.abs(currentPayout - product.payout) >= 1;
                   return (
                     <div
                       key={product.id}
@@ -373,11 +381,11 @@ export default function ListedProductsPage() {
                             {product.size}
                           </span>
                           <span className={`inline-flex items-center px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-semibold ${
-                            vatBreakdown.scheme === 'VAT0'
+                            vatScheme === 'VAT0'
                               ? 'bg-amber-100 text-amber-800'
                               : 'bg-slate-100 text-slate-800'
                           }`}>
-                            {vatBreakdown.scheme === 'VAT0' ? 'VAT0' : 'Margin'}
+                            {vatScheme === 'VAT0' ? 'VAT0 sale' : 'Margin sale'}
                           </span>
                         </div>
                         <p className="text-[10px] sm:text-xs text-gray-600">SKU: {product.sku || 'N/A'}</p>
@@ -386,7 +394,7 @@ export default function ListedProductsPage() {
                     </div>
 
                     {/* Financial Info */}
-                    <div className="grid grid-cols-2 gap-1.5 sm:gap-2 lg:gap-3 mb-2 sm:mb-3 lg:mb-4 pb-2 sm:pb-3 lg:pb-4 border-b border-gray-200">
+                    <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-1.5 sm:gap-2 lg:gap-3 mb-2 sm:mb-3 lg:mb-4 pb-2 sm:pb-3 lg:pb-4 border-b border-gray-200">
                       <div>
                         <p className="text-[10px] sm:text-xs text-gray-600 mb-0.5">Price</p>
                         <p className="text-xs sm:text-sm font-semibold text-gray-900">{formatCurrency(product.price)}</p>
@@ -395,28 +403,17 @@ export default function ListedProductsPage() {
                         <p className="text-[10px] sm:text-xs text-gray-600 mb-0.5">Payout</p>
                         <p className="text-xs sm:text-sm font-semibold text-green-600">{formatCurrency(product.payout)}</p>
                       </div>
-                      <div className="col-span-2 rounded-lg bg-slate-50 px-2.5 py-2 text-[10px] sm:text-xs text-slate-600">
-                        <div className="mb-1 flex items-center justify-between gap-2">
-                          <span className="font-semibold text-slate-800">SK DPH {Math.round(SK_VAT_RATE * 100)}%</span>
-                          <span className="font-semibold text-slate-900">
-                            {vatBreakdown.scheme === 'VAT0' ? 'VAT0' : 'Margin'}
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-3 gap-2">
-                          <div>
-                            <p className="text-slate-500">s DPH</p>
-                            <p className="font-semibold text-slate-900">{formatCurrency(vatBreakdown.grossPrice)}</p>
-                          </div>
-                          <div>
-                            <p className="text-slate-500">bez DPH</p>
-                            <p className="font-semibold text-slate-900">{formatCurrency(vatBreakdown.netPrice)}</p>
-                          </div>
-                          <div>
-                            <p className="text-slate-500">DPH</p>
-                            <p className="font-semibold text-slate-900">{formatCurrency(vatBreakdown.vatAmount)}</p>
-                          </div>
-                        </div>
+                      <div className="text-right">
+                        <p className="text-[10px] sm:text-xs text-gray-600 mb-0.5">Sale</p>
+                        <p className={`text-xs sm:text-sm font-semibold ${vatScheme === 'VAT0' ? 'text-amber-700' : 'text-slate-700'}`}>
+                          {vatScheme === 'VAT0' ? 'VAT0' : 'Margin'}
+                        </p>
                       </div>
+                      {payoutDiffers && currentPayout !== null && (
+                        <p className="col-span-3 text-[10px] sm:text-xs text-amber-700">
+                          Current formula gives {formatCurrency(currentPayout)}. This offer keeps its stored payout.
+                        </p>
+                      )}
                     </div>
 
                     {/* User & Date */}
