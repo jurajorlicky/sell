@@ -22,6 +22,7 @@ interface UserSale {
   carrier?: string;
   tracking_url?: string;
   label_url?: string;
+  fa_url?: string;
   sku?: string;
   delivered_at?: string;
   payout_date?: string;
@@ -67,7 +68,7 @@ export default function UserSales() {
     try {
       const { data, error } = await supabase
         .from('user_sales')
-        .select('id, external_id, product_id, name, size, price, image_url, payout, created_at, status, status_notes, tracking_number, carrier, tracking_url, label_url, sku, delivered_at, payout_date, is_manual, sale_type')
+        .select('id, external_id, product_id, name, size, price, image_url, payout, created_at, status, status_notes, tracking_number, carrier, tracking_url, label_url, fa_url, sku, delivered_at, payout_date, is_manual, sale_type')
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
       if (error) throw error;
@@ -187,7 +188,7 @@ export default function UserSales() {
     <div className="min-h-screen bg-white">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-4">
+        <div className="mx-auto max-w-[1680px] px-3 sm:px-6 lg:px-8 py-3 sm:py-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-2 sm:space-x-4">
               <div className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 bg-gray-100 rounded-xl border border-gray-200">
@@ -225,7 +226,7 @@ export default function UserSales() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
+      <main className="mx-auto max-w-[1680px] px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
         {error && (
           <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4">
             <div className="flex items-center justify-between">
@@ -585,6 +586,26 @@ export default function UserSales() {
                           <span className="text-gray-400 italic">not yet</span>
                         )}
                       </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-gray-600 flex items-center">
+                          <FaFilePdf className="mr-1" />
+                          FA:
+                        </span>
+                        {sale.fa_url ? (
+                          <a
+                            href={sale.fa_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-emerald-600 hover:text-emerald-800 flex items-center space-x-1"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <FaFilePdf />
+                            <span>PDF</span>
+                          </a>
+                        ) : (
+                          <span className="text-gray-400 italic">not yet</span>
+                        )}
+                      </div>
                     </div>
 
                     {/* Payout Date Info - Only for delivered status */}
@@ -801,6 +822,30 @@ export default function UserSales() {
                     ) : (
                       <div className="bg-gray-50 rounded-xl p-3 sm:p-4 border border-gray-200">
                         <p className="text-xs sm:text-sm text-gray-600">Label is not yet available</p>
+                      </div>
+                    )}
+
+                    {selectedSaleForTimeline.fa_url ? (
+                      <div className="bg-emerald-50 rounded-xl p-3 sm:p-4 border border-emerald-200">
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                          <div className="flex items-center space-x-2">
+                            <FaFilePdf className="text-emerald-600 text-sm sm:text-base" />
+                            <span className="text-xs sm:text-sm font-semibold text-gray-900">FA PDF</span>
+                          </div>
+                          <a
+                            href={selectedSaleForTimeline.fa_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center space-x-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-medium rounded-lg transition-colors"
+                          >
+                            <FaFilePdf />
+                            <span>Open PDF</span>
+                          </a>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-gray-50 rounded-xl p-3 sm:p-4 border border-gray-200">
+                        <p className="text-xs sm:text-sm text-gray-600">FA is not yet available</p>
                       </div>
                     )}
                   </div>

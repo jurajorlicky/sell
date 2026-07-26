@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { formatCurrency } from '../lib/utils';
+import { clearFeesCache } from '../lib/fees';
 import AdminNavigation from '../components/AdminNavigation';
 import {
   FaSignOutAlt,
@@ -12,7 +13,10 @@ import {
   FaSignature,
   FaUpload,
   FaTrash,
-  FaCog
+  FaCog,
+  FaExchangeAlt,
+  FaClock,
+  FaCheckCircle
 } from 'react-icons/fa';
 
 interface AdminSettings {
@@ -21,6 +25,29 @@ interface AdminSettings {
   fee_fixed: number;
   offer_expiration_days?: number;
   buyer_signature_url?: string;
+  eur_to_czk_rate?: number | null;
+}
+
+interface InvoiceImportRun {
+  id: string;
+  source: string;
+  status: 'success' | 'error' | 'skipped';
+  started_at: string;
+  finished_at: string;
+  duration_ms: number;
+  summary: {
+    messagesChecked?: number;
+    attachmentsFound?: number;
+    imported?: number;
+    matched?: number;
+    unmatched?: number;
+    skipped?: number;
+    errors?: number;
+    limit?: number;
+    maxImports?: number;
+    timezone?: string;
+  };
+  error?: string | null;
 }
 
 export default function SettingsPage() {
@@ -31,10 +58,17 @@ export default function SettingsPage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [feePercent, setFeePercent] = useState<string>('');
   const [feeFixed, setFeeFixed] = useState<string>('');
+  const [eurToCzkRate, setEurToCzkRate] = useState<string>('');
   const [offerExpirationDays, setOfferExpirationDays] = useState<number>(30);
   const [refreshing, setRefreshing] = useState(false);
   const [buyerSignatureUrl, setBuyerSignatureUrl] = useState<string | null>(null);
   const [uploadingSignature, setUploadingSignature] = useState(false);
+  const [cronRuns, setCronRuns] = useState<InvoiceImportRun[]>([]);
+  const [cronStatsAvailable, setCronStatsAvailable] = useState(true);
+  const settingCardClass = 'flex h-full min-h-[156px] flex-col rounded-xl border border-gray-200 bg-gray-50 p-4';
+  const settingLabelClass = 'mb-3 flex min-h-[24px] items-center text-xs sm:text-sm font-semibold text-gray-700';
+  const settingControlClass = 'h-12 w-full px-3 sm:px-4 bg-white border border-gray-300 rounded-xl text-gray-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-gray-500/50 focus:border-transparent transition-all duration-200 text-base';
+  const settingHelpClass = 'mt-2 min-h-[32px] text-xs leading-5 text-gray-600';
 
   const loadSettings = useCallback(async () => {
     try {
@@ -43,7 +77,7 @@ export default function SettingsPage() {
 
       const { data, error } = await supabase
         .from('admin_settings')
-        .select('id, fee_percent, fee_fixed, offer_expiration_days, buyer_signature_url')
+        .select('id, fee_percent, fee_fixed, offer_expiration_days, buyer_signature_url, eur_to_czk_rate')
         .single();
 
       if (error) throw error;
@@ -51,8 +85,24 @@ export default function SettingsPage() {
       setSettings(data);
       setFeePercent((data.fee_percent * 100).toString());
       setFeeFixed(data.fee_fixed.toString());
+      setEurToCzkRate(data.eur_to_czk_rate == null ? '' : data.eur_to_czk_rate.toString());
       setOfferExpirationDays(data.offer_expiration_days || 30);
       setBuyerSignatureUrl(data.buyer_signature_url || null);
+
+      const { data: runs, error: runsError } = await supabase
+        .from('invoice_import_runs')
+        .select('id, source, status, started_at, finished_at, duration_ms, summary, error')
+        .eq('source', 'netlify_cron')
+        .order('created_at', { ascending: false })
+        .limit(25);
+
+      if (runsError) {
+        setCronStatsAvailable(false);
+        setCronRuns([]);
+      } else {
+        setCronStatsAvailable(true);
+        setCronRuns((runs || []) as InvoiceImportRun[]);
+      }
     } catch (err: any) {
       console.error('Error loading settings:', err.message);
       setError('Error loading settings: ' + err.message);
@@ -70,8 +120,9 @@ export default function SettingsPage() {
 
       const feePercentValue = parseFloat(feePercent) / 100;
       const feeFixedValue = parseFloat(feeFixed);
+      const eurToCzkRateValue = eurToCzkRate.trim() ? parseFloat(eurToCzkRate) : null;
 
-      if (isNaN(feePercentValue) || isNaN(feeFixedValue)) {
+      if (isNaN(feePercentValue) || isNaN(feeFixedValue) || (eurToCzkRateValue !== null && isNaN(eurToCzkRateValue))) {
         throw new Error('Invalid fee values');
       }
 
@@ -81,6 +132,10 @@ export default function SettingsPage() {
 
       if (feeFixedValue < 0) {
         throw new Error('Fixed fee cannot be negative');
+      }
+
+      if (eurToCzkRateValue !== null && eurToCzkRateValue <= 0) {
+        throw new Error('EUR to CZK rate must be greater than 0');
       }
 
       if (![7, 14, 30].includes(offerExpirationDays)) {
@@ -93,6 +148,7 @@ export default function SettingsPage() {
           fee_percent: feePercentValue,
           fee_fixed: feeFixedValue,
           offer_expiration_days: offerExpirationDays,
+          eur_to_czk_rate: eurToCzkRateValue,
           buyer_signature_url: buyerSignatureUrl,
           updated_at: new Date().toISOString()
         })
@@ -100,6 +156,7 @@ export default function SettingsPage() {
 
       if (error) throw error;
 
+      clearFeesCache();
       setSuccess('Settings have been saved successfully!');
       loadSettings();
     } catch (err: any) {
@@ -129,57 +186,71 @@ export default function SettingsPage() {
     loadSettings();
   };
 
+  const formatDateTime = (value?: string | null) => {
+    if (!value) return '-';
+    return new Intl.DateTimeFormat('sk-SK', {
+      dateStyle: 'short',
+      timeStyle: 'short',
+      timeZone: 'Europe/Bratislava',
+    }).format(new Date(value));
+  };
+
+  const lastCronRun = cronRuns[0] || null;
+  const lastImportRun = cronRuns.find((run) => run.status !== 'skipped') || null;
+  const recentImportRuns = cronRuns.filter((run) => run.status !== 'skipped');
+  const recentImported = recentImportRuns.reduce((sum, run) => sum + Number(run.summary?.imported || 0), 0);
+  const recentMatched = recentImportRuns.reduce((sum, run) => sum + Number(run.summary?.matched || 0), 0);
+  const recentErrors = recentImportRuns.reduce((sum, run) => sum + Number(run.summary?.errors || (run.status === 'error' ? 1 : 0)), 0);
+  const cronHealthy = lastCronRun && lastCronRun.status !== 'error';
+
   useEffect(() => {
     loadSettings();
   }, []);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-gray-300 border-t-gray-500 rounded-full animate-spin mx-auto mb-4"></div>
           <h3 className="text-lg font-semibold text-gray-900 mb-2">Loading settings</h3>
-          <p className="text-sm text-gray-600">Please wait...</p>
+          <p className="text-sm text-gray-500">Please wait...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-4">
+      <header className="bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 sticky top-0 z-40 shadow-lg">
+        <div className="mx-auto max-w-[1680px] px-3 sm:px-6 lg:px-8 py-3 sm:py-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-2 sm:space-x-4">
-              <div className="relative">
-                <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-gray-600 via-slate-600 to-gray-800 rounded-2xl shadow-lg">
-                  <FaCog className="text-gray-900 text-xl" />
-                </div>
-                <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-slate-800 animate-pulse"></div>
+              <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-gray-400 to-slate-500 rounded-2xl shadow-lg">
+                <FaCog className="text-white text-xl" />
               </div>
               <div>
-                <h1 className="text-lg sm:text-2xl font-bold text-gray-900">
+                <h1 className="text-lg sm:text-2xl font-bold text-white tracking-tight">
                   Settings
                 </h1>
-                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">System settings management</p>
+                <p className="text-xs sm:text-sm text-gray-400 hidden sm:block">System settings management</p>
               </div>
             </div>
-            
-            <div className="flex items-center space-x-1 sm:space-x-3">
+
+            <div className="flex items-center space-x-2">
               <button
                 onClick={handleRefresh}
                 disabled={refreshing}
-                className="inline-flex items-center px-2 py-2 sm:px-4 bg-black text-white font-semibold rounded-xl hover:bg-gray-800 transition-all duration-200 disabled:opacity-50"
+                className="inline-flex items-center px-3 py-2 bg-white/10 text-white font-medium rounded-xl hover:bg-white/20 transition-all border border-white/20 text-sm disabled:opacity-50"
               >
-                <FaSync className={`text-sm sm:mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                <FaSync className={`sm:mr-2 ${refreshing ? 'animate-spin' : ''}`} />
                 <span className="hidden sm:inline">{refreshing ? 'Refreshing...' : 'Refresh'}</span>
               </button>
               <button
                 onClick={handleSignOut}
-                className="inline-flex items-center px-2 py-2 sm:px-4 bg-black text-white font-semibold rounded-xl hover:bg-gray-800 transition-all duration-200 shadow-lg transform hover:scale-105"
+                className="inline-flex items-center px-3 py-2 bg-white/10 text-white font-medium rounded-xl hover:bg-white/20 transition-all border border-white/20 text-sm"
               >
-                <FaSignOutAlt className="text-sm sm:mr-2" />
+                <FaSignOutAlt className="sm:mr-2" />
                 <span className="hidden sm:inline">Sign Out</span>
               </button>
             </div>
@@ -187,7 +258,7 @@ export default function SettingsPage() {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-3 sm:py-6 lg:py-8">
+      <div className="mx-auto max-w-[1680px] px-2 sm:px-4 lg:px-8 py-3 sm:py-6 lg:py-8">
         {error && (
           <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4 backdrop-blur-sm">
             <div className="flex items-center justify-between">
@@ -247,58 +318,128 @@ export default function SettingsPage() {
           </div>
 
           <div className="p-3 sm:p-4 lg:p-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 lg:gap-6">
-              <div>
-                <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-3">
-                  <FaPercent className="inline mr-2" />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:gap-6">
+              <div className={settingCardClass}>
+                <label className={settingLabelClass}>
+                  <FaPercent className="mr-2 flex-shrink-0" />
                   Percentage Fee (%)
                 </label>
                 <input
                   type="number"
                   value={feePercent}
                   onChange={(e) => setFeePercent(e.target.value)}
-                  className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-100 border border-gray-300 rounded-xl text-gray-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-gray-500/50 focus:border-transparent transition-all duration-200 text-base"
+                  className={settingControlClass}
                   step="0.1"
                   min="0"
                   max="100"
                   placeholder="20"
                 />
-                <p className="text-xs text-gray-600 mt-2">Percentage fee from sale price</p>
+                <p className={settingHelpClass}>Percentage fee from sale price</p>
               </div>
 
-              <div>
-                <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-3">
-                  <FaEuroSign className="inline mr-2" />
+              <div className={settingCardClass}>
+                <label className={settingLabelClass}>
+                  <FaEuroSign className="mr-2 flex-shrink-0" />
                   Fixed Fee (€)
                 </label>
                 <input
                   type="number"
                   value={feeFixed}
                   onChange={(e) => setFeeFixed(e.target.value)}
-                  className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-100 border border-gray-300 rounded-xl text-gray-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-gray-500/50 focus:border-transparent transition-all duration-200 text-base"
+                  className={settingControlClass}
                   step="0.01"
                   min="0"
                   placeholder="5.00"
                 />
-                <p className="text-xs text-gray-600 mt-2">Fixed fee per sale</p>
+                <p className={settingHelpClass}>Fixed fee per sale</p>
               </div>
 
-              <div>
-                <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-3">
-                  <FaExclamationTriangle className="inline mr-2" />
+              <div className={settingCardClass}>
+                <label className={settingLabelClass}>
+                  <FaExclamationTriangle className="mr-2 flex-shrink-0" />
                   Offer Expiration Period (days)
                 </label>
                 <select
                   value={offerExpirationDays}
                   onChange={(e) => setOfferExpirationDays(parseInt(e.target.value))}
-                  className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-100 border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-500/50 focus:border-transparent transition-all duration-200 text-base"
+                  className={settingControlClass}
                 >
                   <option value={7}>7 days</option>
                   <option value={14}>14 days</option>
                   <option value={30}>30 days</option>
                 </select>
-                <p className="text-xs text-gray-600 mt-2">After this number of days, the offer will be automatically deleted</p>
+                <p className={settingHelpClass}>After this number of days, the offer will be automatically deleted</p>
               </div>
+
+              <div className={settingCardClass}>
+                <label className={settingLabelClass}>
+                  <FaExchangeAlt className="mr-2 flex-shrink-0" />
+                  EUR to CZK Rate
+                </label>
+                <input
+                  type="number"
+                  value={eurToCzkRate}
+                  onChange={(e) => setEurToCzkRate(e.target.value)}
+                  className={settingControlClass}
+                  step="0.01"
+                  min="0.01"
+                  placeholder="No rate set"
+                />
+                <p className={settingHelpClass}>CZK input is available only when this rate is set.</p>
+              </div>
+            </div>
+
+            <div className="mt-4 sm:mt-6 rounded-xl border border-gray-200 bg-gray-50 p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex items-start gap-3">
+                  <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl ${cronHealthy ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
+                    {cronHealthy ? <FaCheckCircle /> : <FaClock />}
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-gray-900">Netlify FA cron</h4>
+                    <p className="mt-1 text-xs leading-5 text-gray-600">
+                      Automatický import FA beží o 00:00 a 12:00 podľa Europe/Bratislava.
+                    </p>
+                  </div>
+                </div>
+                <span className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold ${cronHealthy ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                  {!cronStatsAvailable ? 'Stats unavailable' : lastCronRun ? lastCronRun.status : 'No runs yet'}
+                </span>
+              </div>
+
+              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="rounded-lg bg-white p-3">
+                  <p className="text-xs text-gray-500">Last heartbeat</p>
+                  <p className="mt-1 text-sm font-semibold text-gray-900">{formatDateTime(lastCronRun?.started_at)}</p>
+                </div>
+                <div className="rounded-lg bg-white p-3">
+                  <p className="text-xs text-gray-500">Last import</p>
+                  <p className="mt-1 text-sm font-semibold text-gray-900">{formatDateTime(lastImportRun?.started_at)}</p>
+                </div>
+                <div className="rounded-lg bg-white p-3">
+                  <p className="text-xs text-gray-500">Imported / matched</p>
+                  <p className="mt-1 text-sm font-semibold text-gray-900">{recentImported} / {recentMatched}</p>
+                </div>
+                <div className="rounded-lg bg-white p-3">
+                  <p className="text-xs text-gray-500">Errors</p>
+                  <p className={`mt-1 text-sm font-semibold ${recentErrors > 0 ? 'text-red-700' : 'text-gray-900'}`}>{recentErrors}</p>
+                </div>
+              </div>
+
+              {lastImportRun && (
+                <p className="mt-3 text-xs leading-5 text-gray-600">
+                  Last import checked {lastImportRun.summary?.messagesChecked || 0} emails,
+                  found {lastImportRun.summary?.attachmentsFound || 0} PDFs,
+                  imported {lastImportRun.summary?.imported || 0}.
+                  {lastImportRun.error ? ` Error: ${lastImportRun.error}` : ''}
+                </p>
+              )}
+
+              {!cronStatsAvailable && (
+                <p className="mt-3 text-xs leading-5 text-amber-700">
+                  Cron stats table is not available yet. Run the Supabase migration and deploy production to start collecting stats.
+                </p>
+              )}
             </div>
 
             {/* Buyer Signature Upload */}

@@ -7,7 +7,10 @@ import {
   FaUsers,
   FaFileInvoice,
   FaCog,
-  FaServer
+  FaServer,
+  FaStore,
+  FaWarehouse,
+  FaHeart
 } from 'react-icons/fa';
 
 interface NavTab {
@@ -23,6 +26,9 @@ const navTabs: NavTab[] = [
   { id: 'products', label: 'Products', icon: FaShoppingBag, color: 'from-purple-500 to-violet-500', path: '/admin/products' },
   { id: 'listed-products', label: 'Offers', icon: FaList, color: 'from-orange-500 to-amber-500', path: '/admin/listed-products' },
   { id: 'sales', label: 'Sales', icon: FaShoppingCart, color: 'from-green-500 to-emerald-500', path: '/admin/sales' },
+  { id: 'eshop-sales', label: 'Eshop', icon: FaStore, color: 'from-teal-500 to-cyan-500', path: '/admin/eshop-sales' },
+  { id: 'warehouse', label: 'Warehouse', icon: FaWarehouse, color: 'from-amber-500 to-orange-500', path: '/admin/warehouse' },
+  { id: 'wtb-list', label: 'WTB', icon: FaHeart, color: 'from-rose-500 to-red-500', path: '/admin/wtb-list' },
   { id: 'users', label: 'Users', icon: FaUsers, color: 'from-indigo-500 to-blue-500', path: '/admin/users' },
   { id: 'invoices', label: 'Invoices', icon: FaFileInvoice, color: 'from-pink-500 to-rose-500', path: '/admin/invoices' },
   { id: 'settings', label: 'Settings', icon: FaCog, color: 'from-gray-500 to-slate-500', path: '/admin/settings' },
@@ -33,10 +39,10 @@ export default function AdminNavigation() {
   const location = useLocation();
 
   return (
-    <nav className="bg-white rounded-2xl border border-gray-200 shadow-sm mb-4 sm:mb-6 lg:mb-8 overflow-hidden" aria-label="Admin navigation">
-      <div className="flex justify-around sm:justify-start overflow-x-auto" role="tablist">
+    <nav className="admin-mobile-nav bg-white border border-gray-200 shadow-sm mb-4 sm:mb-6 lg:mb-8 overflow-hidden sm:rounded-2xl" aria-label="Admin navigation">
+      <div className="flex justify-start overflow-x-auto admin-scrollbar" role="tablist">
         {navTabs.map((tab) => {
-          const isActive = location.pathname === tab.path || 
+          const isActive = location.pathname === tab.path ||
             (tab.path !== '/admin' && location.pathname.startsWith(tab.path));
           const IconComponent = tab.icon;
           return (
@@ -46,26 +52,22 @@ export default function AdminNavigation() {
               role="tab"
               aria-selected={isActive}
               aria-current={isActive ? 'page' : undefined}
-              className={`relative flex items-center justify-center sm:justify-start px-2 sm:px-3 md:px-4 lg:px-6 py-2.5 sm:py-3 md:py-4 font-semibold transition-all duration-300 flex-1 sm:flex-initial min-w-0 sm:min-w-max ${
-                isActive 
-                  ? 'text-gray-900' 
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+              className={`relative flex min-w-[74px] flex-col items-center justify-center gap-1 px-2 py-2.5 font-semibold transition-all duration-200 sm:min-w-max sm:flex-row sm:justify-start sm:gap-0 sm:px-3 md:px-4 lg:px-5 sm:py-3 md:py-3.5 ${
+                isActive
+                  ? 'bg-gray-50 text-gray-900'
+                  : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50'
               }`}
             >
-              <IconComponent className={`text-lg sm:text-lg md:text-sm sm:mr-2 flex-shrink-0 ${
-                isActive 
-                  ? 'text-gray-900' 
-                  : 'text-gray-600'
-              }`} />
-              <span className={`hidden sm:inline ${
-                isActive 
-                  ? 'text-gray-900 font-bold' 
-                  : 'text-gray-600'
+              <div className={`flex-shrink-0 sm:mr-2 ${isActive ? 'text-gray-900' : 'text-gray-400'}`}>
+                <IconComponent className="text-base md:text-sm" />
+              </div>
+              <span className={`text-[10px] leading-none sm:text-sm font-semibold ${
+                isActive ? 'text-gray-900' : 'text-gray-500'
               }`}>
                 {tab.label}
               </span>
               {isActive && (
-                <div className={`absolute bottom-0 left-0 right-0 h-0.5 sm:h-1 bg-gradient-to-r ${tab.color} opacity-60 rounded-full`}></div>
+                <div className={`absolute bottom-0 left-0 right-0 h-[3px] bg-gradient-to-r ${tab.color} rounded-t-full`}></div>
               )}
             </Link>
           );
@@ -74,4 +76,3 @@ export default function AdminNavigation() {
     </nav>
   );
 }
-

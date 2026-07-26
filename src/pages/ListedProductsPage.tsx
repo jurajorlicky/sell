@@ -1,12 +1,12 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { sendNewSaleEmail } from '../lib/email';
-import { formatCurrency } from '../lib/utils';
+import { eurToCzk, formatCurrency, formatCzk } from '../lib/utils';
 import { calculatePayout, getFees } from '../lib/fees';
 import AdminNavigation from '../components/AdminNavigation';
 import {
   FaSearch, FaSignOutAlt, FaSync, FaCheck,
-  FaFilter, FaTimes, FaList, FaExclamationTriangle
+  FaFilter, FaTimes, FaList, FaExclamationTriangle, FaTrash
 } from 'react-icons/fa';
 
 interface UserProduct {
@@ -23,6 +23,9 @@ interface UserProduct {
   user_email: string;
   profiles: { email: string } | null;
   expires_at?: string;
+  input_currency?: 'EUR' | 'CZK' | null;
+  input_price?: number | null;
+  exchange_rate?: number | null;
   is_vat0?: boolean | null;
   vat_scheme?: 'VAT0' | 'MARGIN' | null;
 }
@@ -46,6 +49,21 @@ export default function ListedProductsPage() {
   const [externalId, setExternalId] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<UserProduct | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [deletingOfferId, setDeletingOfferId] = useState<string | null>(null);
+
+  const getOfferPriceLine = (product: UserProduct): string => {
+    if (product.input_currency === 'CZK' && product.input_price) {
+      return `${formatCurrency(product.price)} / ${formatCzk(product.input_price)}`;
+    }
+    return formatCurrency(product.price);
+  };
+
+  const getOfferPayoutLine = (product: UserProduct): string => {
+    if (product.input_currency === 'CZK' && product.exchange_rate && product.exchange_rate > 0) {
+      return `${formatCurrency(product.payout)} / ${formatCzk(eurToCzk(product.payout, product.exchange_rate))}`;
+    }
+    return formatCurrency(product.payout);
+  };
 
   const getVatScheme = (product: UserProduct): 'VAT0' | 'MARGIN' => (
     product.vat_scheme === 'VAT0' || product.is_vat0 ? 'VAT0' : 'MARGIN'
@@ -56,13 +74,19 @@ export default function ListedProductsPage() {
     return calculatePayout(product.price, feeSettings.fee_percent, feeSettings.fee_fixed, getVatScheme(product));
   };
 
+  const getAcceptedPayout = (product: UserProduct): number => {
+    const currentPayout = getCurrentPayout(product);
+    if (currentPayout !== null) return currentPayout;
+    return Math.round(Number(product.payout || 0));
+  };
+
   // Hlavný JOIN na profiles(email)
   const loadProducts = useCallback(async () => {
     const { data, error } = await supabase
       .from('user_products')
       .select(`
         id, user_id, product_id, name, size, price, payout, created_at, image_url, sku, expires_at,
-        is_vat0, vat_scheme,
+        input_currency, input_price, exchange_rate, is_vat0, vat_scheme,
         profiles(email)
       `)
       .or('expires_at.is.null,expires_at.gt.' + new Date().toISOString())
@@ -100,6 +124,7 @@ export default function ListedProductsPage() {
     setError(null);
 
     try {
+      const acceptedPayout = getAcceptedPayout(selectedProduct);
       // Create single sale with invoice_date set to product creation date
       const saleData = {
         user_id: selectedProduct.user_id,
@@ -108,7 +133,7 @@ export default function ListedProductsPage() {
         sku: selectedProduct.sku,
         size: selectedProduct.size,
         price: selectedProduct.price,
-        payout: selectedProduct.payout,
+        payout: acceptedPayout,
         image_url: selectedProduct.image_url,
         status: 'accepted',
         external_id: externalId,
@@ -133,7 +158,7 @@ export default function ListedProductsPage() {
             productName: selectedProduct.name,
             size: selectedProduct.size,
             price: selectedProduct.price,
-            payout: selectedProduct.payout,
+            payout: acceptedPayout,
             external_id: externalId,
             image_url: selectedProduct.image_url,
             sku: selectedProduct.sku
@@ -148,6 +173,27 @@ export default function ListedProductsPage() {
       setError('Error processing: ' + err.message);
     } finally {
       setRefreshing(false);
+    }
+  };
+
+  const handleDeleteOffer = async (product: UserProduct) => {
+    if (!confirm(`Delete offer "${product.name}" EU ${product.size}? This cannot be undone.`)) return;
+    setDeletingOfferId(product.id);
+    setError(null);
+
+    try {
+      const { error: deleteError } = await supabase
+        .from('user_products')
+        .delete()
+        .eq('id', product.id);
+
+      if (deleteError) throw deleteError;
+
+      setProducts(prev => prev.filter(item => item.id !== product.id));
+    } catch (err: any) {
+      setError('Error deleting offer: ' + err.message);
+    } finally {
+      setDeletingOfferId(null);
     }
   };
 
@@ -185,38 +231,35 @@ export default function ListedProductsPage() {
   const hasActiveFilters = dateFrom || dateTo || userEmailFilter || sizeFilter || searchTerm;
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-4">
+      <header className="bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 sticky top-0 z-40 shadow-lg">
+        <div className="mx-auto max-w-[1680px] px-3 sm:px-6 lg:px-8 py-3 sm:py-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-2 sm:space-x-4">
-              <div className="relative">
-                <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-orange-600 via-amber-600 to-orange-800 rounded-2xl shadow-lg">
-                  <FaList className="text-gray-900 text-xl" />
-                </div>
-                <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-slate-800 animate-pulse"></div>
+              <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-orange-400 to-amber-500 rounded-2xl shadow-lg">
+                <FaList className="text-white text-xl" />
               </div>
               <div>
-                <h1 className="text-lg sm:text-2xl font-bold text-gray-900">
+                <h1 className="text-lg sm:text-2xl font-bold text-white tracking-tight">
                   User Offers
                 </h1>
-                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">Manage and overview of offers</p>
+                <p className="text-xs sm:text-sm text-gray-400 hidden sm:block">Manage and overview of offers</p>
               </div>
             </div>
-            <div className="flex items-center space-x-1 sm:space-x-3">
+            <div className="flex items-center space-x-2">
               <button
                 onClick={() => { setRefreshing(true); loadProducts().finally(() => setRefreshing(false)); }}
-                className="inline-flex items-center px-2 py-2 sm:px-4 bg-black text-white font-semibold rounded-xl hover:bg-gray-800 transition-all duration-200 disabled:opacity-50"
+                className="inline-flex items-center px-3 py-2 bg-white/10 text-white font-medium rounded-xl hover:bg-white/20 transition-all border border-white/20 text-sm"
               >
-                <FaSync className={`text-sm sm:mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                <FaSync className={`sm:mr-2 ${refreshing ? 'animate-spin' : ''}`} />
                 <span className="hidden sm:inline">{refreshing ? 'Refreshing...' : 'Refresh'}</span>
               </button>
               <button
                 onClick={async () => { await supabase.auth.signOut(); window.location.href = '/'; }}
-                className="inline-flex items-center px-2 py-2 sm:px-4 bg-black text-white font-semibold rounded-xl hover:bg-gray-800 transition-all duration-200 shadow-lg transform hover:scale-105"
+                className="inline-flex items-center px-3 py-2 bg-white/10 text-white font-medium rounded-xl hover:bg-white/20 transition-all border border-white/20 text-sm"
               >
-                <FaSignOutAlt className="text-sm sm:mr-2" />
+                <FaSignOutAlt className="sm:mr-2" />
                 <span className="hidden sm:inline">Sign Out</span>
               </button>
             </div>
@@ -224,7 +267,7 @@ export default function ListedProductsPage() {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-3 sm:py-6 lg:py-8">
+      <div className="mx-auto max-w-[1680px] px-2 sm:px-4 lg:px-8 py-3 sm:py-6 lg:py-8">
         {/* Navigation */}
         <AdminNavigation />
 
@@ -250,15 +293,15 @@ export default function ListedProductsPage() {
         <div className="bg-white rounded-2xl border border-gray-200 shadow-2xl overflow-hidden">
           <div className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 border-b border-gray-200 bg-white flex flex-col sm:flex-row sm:justify-between sm:items-center space-y-2 sm:space-y-0 gap-2 sm:gap-0">
             <h3 className="text-lg sm:text-xl font-bold text-gray-900">Offers ({filtered.length})</h3>
-            <div className="flex items-center space-x-3">
-              <div className="relative">
+            <div className="grid w-full grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 sm:flex sm:w-auto sm:items-center sm:space-x-3 sm:gap-0">
+              <div className="relative min-w-0">
                 <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-600 text-sm" />
                 <input
                   type="text"
                   placeholder="Search..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-8 sm:pl-10 pr-3 sm:pr-4 py-2 bg-white border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm sm:text-base"
+                  className="w-full pl-8 sm:pl-10 pr-3 sm:pr-4 py-2 bg-white border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm sm:text-base"
                 />
               </div>
               <button
@@ -288,9 +331,9 @@ export default function ListedProductsPage() {
           {/* Filters Panel */}
           {showFilters && (
             <div className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 lg:py-4 bg-gray-50 border-b border-gray-200">
-              <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
                 {/* Date From */}
-                <div className="col-span-2 sm:col-span-1">
+                <div>
                   <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1 sm:mb-2">Date from</label>
                   <input
                     type="date"
@@ -301,7 +344,7 @@ export default function ListedProductsPage() {
                 </div>
 
                 {/* Date To */}
-                <div className="col-span-2 sm:col-span-1">
+                <div>
                   <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1 sm:mb-2">Date to</label>
                   <input
                     type="date"
@@ -312,7 +355,7 @@ export default function ListedProductsPage() {
                 </div>
 
                 {/* User Email Filter */}
-                <div className="col-span-2 sm:col-span-1">
+                <div>
                   <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1 sm:mb-2">User email</label>
                   <input
                     type="text"
@@ -324,7 +367,7 @@ export default function ListedProductsPage() {
                 </div>
 
                 {/* Size Filter */}
-                <div className="col-span-2 sm:col-span-1">
+                <div>
                   <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1 sm:mb-2">Size</label>
                   <input
                     type="text"
@@ -397,11 +440,11 @@ export default function ListedProductsPage() {
                     <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-1.5 sm:gap-2 lg:gap-3 mb-2 sm:mb-3 lg:mb-4 pb-2 sm:pb-3 lg:pb-4 border-b border-gray-200">
                       <div>
                         <p className="text-[10px] sm:text-xs text-gray-600 mb-0.5">Price</p>
-                        <p className="text-xs sm:text-sm font-semibold text-gray-900">{formatCurrency(product.price)}</p>
+                        <p className="text-xs sm:text-sm font-semibold text-gray-900">{getOfferPriceLine(product)}</p>
                       </div>
                       <div>
                         <p className="text-[10px] sm:text-xs text-gray-600 mb-0.5">Payout</p>
-                        <p className="text-xs sm:text-sm font-semibold text-green-600">{formatCurrency(product.payout)}</p>
+                        <p className="text-xs sm:text-sm font-semibold text-green-600">{getOfferPayoutLine(product)}</p>
                       </div>
                       <div className="text-right">
                         <p className="text-[10px] sm:text-xs text-gray-600 mb-0.5">Sale</p>
@@ -432,18 +475,30 @@ export default function ListedProductsPage() {
                       </div>
                     </div>
 
-                    {/* Action Button */}
-                    <button
-                      onClick={() => {
-                        setSelectedProduct(product);
-                        setExternalId('');
-                        setShowModal(true);
-                      }}
-                      className="w-full inline-flex items-center justify-center px-2.5 sm:px-3 lg:px-4 py-1.5 sm:py-2 lg:py-2.5 bg-green-600 hover:bg-green-700 text-white text-[10px] sm:text-xs lg:text-sm font-semibold rounded-lg sm:rounded-xl transition-all duration-200"
-                    >
-                      <FaCheck className="mr-1 sm:mr-1.5 lg:mr-2 text-[10px] sm:text-xs lg:text-sm" />
-                      Accept
-                    </button>
+                    {/* Action Buttons */}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          setSelectedProduct(product);
+                          setExternalId('');
+                          setShowModal(true);
+                        }}
+                        className="flex-1 inline-flex items-center justify-center px-2.5 sm:px-3 lg:px-4 py-1.5 sm:py-2 lg:py-2.5 bg-green-600 hover:bg-green-700 text-white text-[10px] sm:text-xs lg:text-sm font-semibold rounded-lg sm:rounded-xl transition-all duration-200"
+                      >
+                        <FaCheck className="mr-1 sm:mr-1.5 lg:mr-2 text-[10px] sm:text-xs lg:text-sm" />
+                        Accept
+                      </button>
+
+                      <button
+                        onClick={() => handleDeleteOffer(product)}
+                        disabled={deletingOfferId === product.id}
+                        className="inline-flex items-center justify-center px-3 py-1.5 sm:py-2 text-[10px] sm:text-xs lg:text-sm font-semibold rounded-lg sm:rounded-xl transition-all duration-200 border border-red-200 text-red-600 hover:bg-red-50"
+                        title="Delete offer"
+                      >
+                        <FaTrash className="mr-1" />
+                        {deletingOfferId === product.id ? 'Deleting...' : 'Delete'}
+                      </button>
+                    </div>
                   </div>
                   );
                 })}

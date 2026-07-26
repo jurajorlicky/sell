@@ -476,19 +476,7 @@ export default function App() {
         path="/"
         element={
           !user ? (
-            <div className="min-h-screen flex justify-center items-center bg-gray-50">
-              <div className="w-full max-w-md bg-white p-8 rounded-lg shadow-lg">
-                <h1 className="text-2xl font-bold text-gray-900 mb-6 text-center">
-                  Sign In
-                </h1>
-                <AuthForm />
-                {error && (
-                  <div className="mt-4 p-2 bg-red-100 text-red-800 rounded text-center text-sm">
-                    {error}
-                  </div>
-                )}
-              </div>
-            </div>
+            <AuthForm />
           ) : isAdmin ? (
             <Navigate to="/admin" replace />
           ) : (

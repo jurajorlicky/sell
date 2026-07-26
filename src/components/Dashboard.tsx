@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { getFees } from '../lib/fees';
 import { logger } from '../lib/logger';
-import { formatCurrency } from '../lib/utils';
+import { eurToCzk, formatCurrency, formatCzk } from '../lib/utils';
 import AddProductModal from './AddProductModal';
 import EditProductModal from './EditProductModal';
 import {
@@ -24,6 +24,7 @@ import { Product } from '../lib/types';
 interface Fees {
   fee_percent: number;
   fee_fixed: number;
+  eur_to_czk_rate?: number | null;
 }
 interface DashboardProps {
   isAdmin: boolean;
@@ -41,6 +42,8 @@ interface MarketPriceData {
 interface UserProfile {
   iban?: string | null;
   signature_url?: string | null;
+  profile_type?: string | null;
+  vat_type?: string | null;
 }
 
 interface PayoutSummary {
@@ -65,6 +68,9 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
   const [fees, setFees] = useState<Fees>({ fee_percent: 0.2, fee_fixed: 5 });
   const [refreshing, setRefreshing] = useState(false);
   const [marketPricesLoading, setMarketPricesLoading] = useState(false);
+  const [displayCurrency, setDisplayCurrency] = useState<'EUR' | 'CZK'>(() => {
+    return localStorage.getItem('airkicks_display_currency') === 'CZK' ? 'CZK' : 'EUR';
+  });
 
   const fetchProducts = useCallback(async (userId: string) => {
     const controller = new AbortController();
@@ -437,7 +443,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
       try {
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
-          .select('iban, signature_url')
+          .select('iban, signature_url, profile_type, vat_type')
           .eq('id', user.id)
           .maybeSingle();
         
@@ -584,6 +590,42 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
   const isPriceLower = (price1: number, price2: number) => price1 < price2 - PRICE_EPSILON;
   const isPriceHigher = (price1: number, price2: number) => price1 > price2 + PRICE_EPSILON;
 
+  // Memoize stats to avoid recalculation on every render
+  const czkRate = fees.eur_to_czk_rate ?? null;
+  const canDisplayCzk = typeof czkRate === 'number' && Number.isFinite(czkRate) && czkRate > 0;
+  const activeDisplayCurrency = displayCurrency === 'CZK' && canDisplayCzk ? 'CZK' : 'EUR';
+
+  const totalPayout = useMemo(() => products.reduce((sum, p) => sum + (p.payout ?? 0), 0), [products]);
+  const averagePriceNumber = useMemo(() => products.length > 0 ? products.reduce((sum, p) => sum + p.price, 0) / products.length : 0, [products]);
+
+  const setPreferredCurrency = (currency: 'EUR' | 'CZK') => {
+    if (currency === 'CZK' && !canDisplayCzk) return;
+    setDisplayCurrency(currency);
+    localStorage.setItem('airkicks_display_currency', currency);
+  };
+
+  const formatDisplayAmount = (amount: number): string => {
+    if (activeDisplayCurrency === 'CZK' && canDisplayCzk) {
+      return formatCzk(eurToCzk(amount, czkRate));
+    }
+
+    return formatCurrency(amount);
+  };
+
+  const getOfferCurrencyLine = (product: Product): string => {
+    return formatDisplayAmount(product.price);
+  };
+
+  const isVatPayerProfile = profile?.profile_type === 'Business' && ['VAT_PAYER', 'VAT 0%'].includes(String(profile?.vat_type || ''));
+
+  const shouldShowVatSchemeBadge = (product: Product): boolean => {
+    return product.vat_scheme === 'VAT0' || Boolean(product.is_vat0) || isVatPayerProfile;
+  };
+
+  const getVatSchemeLabel = (product: Product): string => {
+    return product.vat_scheme === 'VAT0' || product.is_vat0 ? 'VAT0' : 'Margin';
+  };
+
   const getPriceDisplay = useCallback((product: Product) => {
     const key = `${product.product_id}-${product.size}`;
     const marketData = marketPrices[key];
@@ -619,17 +661,17 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
               Lowest
             </span>
           ),
-          desc: diff < 0 ? `(${formatCurrency(Math.abs(diff))} below market)` : '(Matches market price)'
+          desc: diff < 0 ? `${formatDisplayAmount(Math.abs(diff))} below market` : ''
         };
       }
       return {
         color: 'text-red-600 font-bold',
         badge: (
           <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 ml-2">
-            +{formatCurrency(diff)} above market
+            +{formatDisplayAmount(diff)} above market
           </span>
         ),
-        desc: ''
+        desc: `Lower by ${formatDisplayAmount(diff)} to match market`
       };
     }
 
@@ -652,7 +694,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
             Lowest
           </span>
         ),
-        desc: '(You have the lowest price)'
+        desc: ''
       };
     }
 
@@ -665,7 +707,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
             Tied for Lowest
           </span>
         ),
-        desc: '(Same price as lowest, but you are not first in line)'
+        desc: 'Same price, later in queue'
       };
     }
 
@@ -704,10 +746,10 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
         color: 'text-red-600 font-bold',
         badge: (
           <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 ml-2">
-            Higher
-          </span>
-        ),
-        desc: `(+${formatCurrency(higherBy)} above ${higherThanWhat})`
+          Higher
+        </span>
+      ),
+        desc: `Lower by ${formatDisplayAmount(higherBy)} to match ${higherThanWhat}`
       };
     }
 
@@ -719,13 +761,9 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
           Competition
         </span>
       ),
-      desc: `(Lowest price: ${comparisonPrice} € - ${hasConsignorPrice ? 'Consignor' : 'Eshop'})`
+      desc: `Lowest: ${formatDisplayAmount(comparisonPrice)} (${hasConsignorPrice ? 'consignor' : 'eshop'})`
     };
-  }, [marketPrices, user]);
-
-  // Memoize stats to avoid recalculation on every render
-  const totalPayout = useMemo(() => products.reduce((sum, p) => sum + (p.payout ?? 0), 0), [products]);
-  const averagePrice = useMemo(() => products.length > 0 ? (products.reduce((sum, p) => sum + p.price, 0) / products.length).toFixed(2) : '0.00', [products]);
+  }, [marketPrices, user, activeDisplayCurrency, canDisplayCzk, czkRate]);
 
   // ------------------- RENDER ---------------------
   if (loading) {
@@ -779,7 +817,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
   return (
     <div className="min-h-screen bg-white">
       <header className="bg-white border-b border-slate-200 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-4">
+        <div className="mx-auto max-w-[1680px] px-3 sm:px-6 lg:px-8 py-3 sm:py-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-2 sm:space-x-4">
               <div className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 bg-slate-100 rounded-xl">
@@ -791,6 +829,26 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
               </div>
             </div>
             <div className="flex items-center space-x-1 sm:space-x-3">
+              <div
+                className="inline-flex rounded-xl border border-slate-200 bg-slate-100 p-1"
+                title={!canDisplayCzk ? 'Set CZK rate in admin settings first' : 'Display currency'}
+              >
+                {(['EUR', 'CZK'] as const).map((currency) => (
+                  <button
+                    key={currency}
+                    type="button"
+                    onClick={() => setPreferredCurrency(currency)}
+                    disabled={currency === 'CZK' && !canDisplayCzk}
+                    className={`rounded-lg px-2.5 py-1.5 text-xs font-bold transition ${
+                      activeDisplayCurrency === currency
+                        ? 'bg-white text-slate-900 shadow-sm'
+                        : 'text-slate-500 hover:text-slate-900'
+                    } ${currency === 'CZK' && !canDisplayCzk ? 'cursor-not-allowed opacity-40 hover:text-slate-500' : ''}`}
+                  >
+                    {currency}
+                  </button>
+                ))}
+              </div>
               <button
                 onClick={() => setIsAddModalOpen(true)}
                 className="inline-flex items-center px-3 py-2 sm:px-4 bg-slate-900 text-white font-semibold rounded-xl hover:bg-slate-800 transition-all duration-200 transform hover:scale-105 shadow"
@@ -833,7 +891,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
+      <main className="mx-auto max-w-[1680px] px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
         {error && (
           <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4">
             <div className="flex items-center justify-between">
@@ -921,7 +979,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
               </div>
               <div className="ml-3 sm:ml-4">
                 <p className="text-xs sm:text-sm font-medium text-slate-600">Total Payout</p>
-                <p className="text-xl sm:text-2xl font-bold text-slate-900">{formatCurrency(totalPayout)}</p>
+                <p className="text-xl sm:text-2xl font-bold text-slate-900">{formatDisplayAmount(totalPayout)}</p>
               </div>
             </div>
           </div>
@@ -937,7 +995,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
               <div className="ml-3 sm:ml-4">
                 <p className="text-xs sm:text-sm font-medium text-slate-600">Average Price</p>
                 <p className="text-xl sm:text-2xl font-bold text-slate-900">
-                  {averagePrice} €
+                  {formatDisplayAmount(averagePriceNumber)}
                 </p>
               </div>
             </div>
@@ -954,7 +1012,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
                 </span>
               </div>
               <p className="text-xl sm:text-2xl font-bold text-amber-900">
-                {formatCurrency(payoutSummary.pendingAmount)}
+                {formatDisplayAmount(payoutSummary.pendingAmount)}
               </p>
               <p className="mt-1 text-[11px] sm:text-xs text-amber-800">
                 Status <span className="font-semibold">Delivered</span>, payout not sent yet.
@@ -966,10 +1024,10 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
               </div>
               <p className="text-sm sm:text-xs font-medium text-emerald-800 mb-1">This month</p>
               <p className="text-xl sm:text-2xl font-bold text-emerald-900">
-                {formatCurrency(payoutSummary.paidThisMonthAmount)}
+                {formatDisplayAmount(payoutSummary.paidThisMonthAmount)}
               </p>
               <p className="mt-2 text-[11px] sm:text-xs text-emerald-700">
-                Total paid: <span className="font-semibold">{formatCurrency(payoutSummary.paidTotalAmount)}</span>
+                Total paid: <span className="font-semibold">{formatDisplayAmount(payoutSummary.paidTotalAmount)}</span>
               </p>
             </div>
           </div>
@@ -1050,9 +1108,14 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
                           <td className="px-6 py-4 whitespace-nowrap text-sm">
                             <div className="flex items-center">
                               <span className={priceDisplay.color}>
-                                {product?.price ? `${product.price} €` : 'Unknown price'}
+                                {product?.price ? getOfferCurrencyLine(product) : 'Unknown price'}
                               </span>
                               {priceDisplay.badge}
+                              {shouldShowVatSchemeBadge(product) && (
+                                <span className="ml-2 inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+                                  {getVatSchemeLabel(product)}
+                                </span>
+                              )}
                             </div>
                             {priceDisplay.desc && (
                               <div className="text-xs text-slate-500 mt-1">
@@ -1061,7 +1124,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
                             )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-900">
-                            {formatCurrency(product.payout ?? 0)}
+                            {formatDisplayAmount(product.payout ?? 0)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm">
                             {product.expires_at ? (
@@ -1138,9 +1201,14 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
                               <span className="text-xs text-slate-600">Price:</span>
                               <div className="flex items-center">
                                 <span className={`text-sm font-semibold ${priceDisplay.color}`}>
-                                  {product?.price ? `${product.price} €` : 'Unknown price'}
+                                  {product?.price ? getOfferCurrencyLine(product) : 'Unknown price'}
                                 </span>
                                 {priceDisplay.badge}
+                                {shouldShowVatSchemeBadge(product) && (
+                                  <span className="ml-2 inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
+                                    {getVatSchemeLabel(product)}
+                                  </span>
+                                )}
                               </div>
                             </div>
                             
@@ -1153,7 +1221,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
                             <div className="flex items-center justify-between">
                               <span className="text-xs text-slate-600">Payout:</span>
                               <span className="text-sm font-semibold text-green-600">
-                                {formatCurrency(product.payout ?? 0)}
+                                {formatDisplayAmount(product.payout ?? 0)}
                               </span>
                             </div>
                             

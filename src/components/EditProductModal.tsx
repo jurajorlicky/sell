@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { getFees, calculatePayout } from '../lib/fees';
-import { formatCurrency } from '../lib/utils';
+import { getFees, calculatePayout, getPayoutBasePrice, SK_VAT_RATE } from '../lib/fees';
+import { czkToEur, eurToCzk, formatCurrency, formatCzk } from '../lib/utils';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { FaTimes, FaCheck } from 'react-icons/fa';
 import { Product } from '../lib/types';
@@ -25,6 +25,7 @@ interface ProductPrice {
 interface Fees {
   fee_percent: number;
   fee_fixed: number;
+  eur_to_czk_rate?: number | null;
 }
 
 export default function EditProductModal({
@@ -44,12 +45,35 @@ export default function EditProductModal({
   const [currentMarketPrice, setCurrentMarketPrice] = useState<number | null>(null);
   const [currentMarketPriceOwner, setCurrentMarketPriceOwner] = useState<string | null>(null);
   const [lowestConsignorPrice, setLowestConsignorPrice] = useState<number | null>(null);
+  const [currency, setCurrency] = useState<'EUR' | 'CZK'>('EUR');
+  const [isBusinessProfile, setIsBusinessProfile] = useState(false);
+  const [isVatPayerProfile, setIsVatPayerProfile] = useState(false);
+  const [vatScheme, setVatScheme] = useState<'VAT0' | 'MARGIN'>('MARGIN');
+
+  const parsePriceInput = (value: string): number => {
+    const parsed = Number(value.replace(',', '.'));
+    return Number.isFinite(parsed) ? parsed : NaN;
+  };
 
   useEffect(() => {
     if (isOpen) {
       getFees().then((adminFees) => {
         setFees(adminFees ?? { fee_percent: 0.2, fee_fixed: 5 });
       });
+      supabase.auth.getUser()
+        .then(async ({ data: { user } }) => {
+          if (!user) return;
+          const { data } = await supabase
+            .from('profiles')
+            .select('profile_type, vat_type')
+            .eq('id', user.id)
+            .maybeSingle();
+          const isBusiness = data?.profile_type === 'Business';
+          const isVatPayer = ['VAT_PAYER', 'VAT 0%'].includes(String(data?.vat_type || ''));
+          setIsBusinessProfile(isBusiness);
+          setIsVatPayerProfile(isBusiness && isVatPayer);
+        })
+        .catch((err) => console.warn('Failed to load profile VAT settings:', err));
 
       if (product) {
         fetchCurrentMarketPrice(product);
@@ -135,20 +159,59 @@ export default function EditProductModal({
     }
   };
 
-  const numericNewPrice = parseFloat(newPrice);
+  const numericNewPrice = parsePriceInput(newPrice);
   const feePercent = fees?.fee_percent ?? 0.2;
   const feeFixed = fees?.fee_fixed ?? 5;
+  const exchangeRate = fees?.eur_to_czk_rate ?? null;
+  const hasExchangeRate = typeof exchangeRate === 'number' && Number.isFinite(exchangeRate) && exchangeRate > 0;
+  const eurPrice = !isNaN(numericNewPrice)
+    ? currency === 'CZK'
+      ? hasExchangeRate
+        ? czkToEur(numericNewPrice, exchangeRate)
+        : NaN
+      : numericNewPrice
+    : NaN;
   const computedPayoutValue =
-    !isNaN(numericNewPrice)
-      ? calculatePayout(numericNewPrice, feePercent, feeFixed)
+    !isNaN(eurPrice)
+      ? calculatePayout(eurPrice, feePercent, feeFixed, isBusinessProfile ? (isVatPayerProfile ? vatScheme : 'MARGIN') : null)
       : 0;
+  const payoutBasePrice = !isNaN(eurPrice) ? getPayoutBasePrice(eurPrice, isBusinessProfile ? (isVatPayerProfile ? vatScheme : 'MARGIN') : null) : null;
+
+  const handleCurrencyChange = (nextCurrency: 'EUR' | 'CZK') => {
+    if (nextCurrency === currency) return;
+    if (nextCurrency === 'CZK' && !hasExchangeRate) return;
+
+    const currentValue = parsePriceInput(newPrice);
+    if (!Number.isFinite(currentValue) || currentValue <= 0) {
+      setCurrency(nextCurrency);
+      setNewPrice('');
+      setIsPriceValid(false);
+      setPriceMessage('');
+      setPriceBadge(null);
+      return;
+    }
+
+    const currentEurPrice = currency === 'CZK' && hasExchangeRate ? czkToEur(currentValue, exchangeRate) : currentValue;
+    const nextValue = nextCurrency === 'CZK' && hasExchangeRate ? eurToCzk(currentEurPrice, exchangeRate) : currentEurPrice;
+
+    setCurrency(nextCurrency);
+    setNewPrice(String(nextValue));
+    setIsPriceValid(true);
+    updatePriceStatus(currentEurPrice, recommendedPrice);
+  };
 
   const recommendedPrice =
     currentMarketPrice || product?.original_price || product?.price || 0;
 
   useEffect(() => {
     if (product) {
-      setNewPrice(product.price.toString());
+      const initialCurrency = product.input_currency === 'CZK' ? 'CZK' : 'EUR';
+      const initialInputPrice = initialCurrency === 'CZK'
+        ? product.input_price || (hasExchangeRate ? eurToCzk(product.price, product.exchange_rate || exchangeRate) : product.price)
+        : product.price;
+      setCurrency(initialCurrency);
+      setVatScheme(product.vat_scheme === 'MARGIN' ? 'MARGIN' : product.is_vat0 ? 'VAT0' : 'MARGIN');
+      setNewPrice(String(initialInputPrice));
       const initialValue = product.price;
       updatePriceStatus(initialValue, recommendedPrice);
     }
@@ -182,7 +245,7 @@ export default function EditProductModal({
     if (isLowest) {
       // User has the lowest price
       setPriceColor('text-green-600');
-      setPriceMessage(`Lowest new price will be ${price} €`);
+      setPriceMessage(`Lowest new price will be ${formatCurrency(price)}`);
       setPriceBadge(
         <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 ml-2">
           Lowest
@@ -192,7 +255,7 @@ export default function EditProductModal({
       // User's price is higher than the lowest market price
       const difference = (price - comparisonPrice).toFixed(2);
       setPriceColor('text-red-600');
-      setPriceMessage(`Your price is ${difference} € higher than the lowest market price`);
+      setPriceMessage(`Your price is ${formatCurrency(Number(difference))} higher than the lowest market price`);
       setPriceBadge(
         <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 ml-2">
           Higher
@@ -201,7 +264,7 @@ export default function EditProductModal({
     } else if (isPriceLower(price, comparisonPrice)) {
       // User's price is lower (shouldn't happen if comparisonPrice is correct, but handle it)
       setPriceColor('text-green-600');
-      setPriceMessage(`Lowest new price will be ${price} €`);
+      setPriceMessage(`Lowest new price will be ${formatCurrency(price)}`);
       setPriceBadge(
         <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 ml-2">
           Lowest
@@ -221,7 +284,7 @@ export default function EditProductModal({
       } else {
         // Equal to eshop price or no other consignor price exists
         setPriceColor('text-green-600');
-        setPriceMessage(`Lowest new price will be ${price} €`);
+        setPriceMessage(`Lowest new price will be ${formatCurrency(price)}`);
         setPriceBadge(
           <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 ml-2">
             Lowest
@@ -239,20 +302,29 @@ export default function EditProductModal({
     setNewPrice(sanitizedValue);
 
     const numericValue = parseFloat(sanitizedValue);
-    if (isNaN(numericValue) || numericValue <= 0) {
+    const nextEurPrice = currency === 'CZK'
+      ? hasExchangeRate
+        ? czkToEur(numericValue, exchangeRate)
+        : NaN
+      : numericValue;
+    if (isNaN(numericValue) || numericValue <= 0 || isNaN(nextEurPrice) || nextEurPrice <= 0) {
       setIsPriceValid(false);
       setPriceColor('text-red-600');
       setPriceMessage('Price must be a positive number.');
       setPriceBadge(null);
     } else {
       setIsPriceValid(true);
-      updatePriceStatus(numericValue, recommendedPrice);
+      updatePriceStatus(nextEurPrice, recommendedPrice);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!product || !isPriceValid) return;
+    if (currency === 'CZK' && !hasExchangeRate) {
+      setError('CZK rate is not set. Please use EUR or ask admin to set the CZK rate.');
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -261,7 +333,12 @@ export default function EditProductModal({
       const { error: updateError } = await supabase
         .from('user_products')
         .update({
-          price: parseFloat(newPrice),
+          price: eurPrice,
+          input_currency: currency,
+          input_price: numericNewPrice,
+          exchange_rate: currency === 'CZK' ? exchangeRate : null,
+          is_vat0: isBusinessProfile && isVatPayerProfile && vatScheme === 'VAT0',
+          vat_scheme: isBusinessProfile ? (isVatPayerProfile ? vatScheme : 'MARGIN') : null,
           payout: computedPayoutValue,
         })
         .eq('id', product.id);
@@ -270,7 +347,12 @@ export default function EditProductModal({
 
       const updatedProduct = {
         ...product,
-        price: parseFloat(newPrice),
+        price: eurPrice,
+        input_currency: currency,
+        input_price: numericNewPrice,
+        exchange_rate: currency === 'CZK' ? exchangeRate : null,
+        is_vat0: isBusinessProfile && isVatPayerProfile && vatScheme === 'VAT0',
+        vat_scheme: isBusinessProfile ? (isVatPayerProfile ? vatScheme : 'MARGIN') : null,
         payout: computedPayoutValue,
       };
       onProductUpdated(updatedProduct);
@@ -344,7 +426,11 @@ export default function EditProductModal({
                   </div>
                   <div className="ml-3">
                     <p className="text-xs sm:text-sm font-medium text-blue-800">
-                      Current market price: <span className="font-bold">{currentMarketPrice} €</span>
+                      Current market price:{' '}
+                      <span className="font-bold">{formatCurrency(currentMarketPrice)}</span>
+                      {currency === 'CZK' && hasExchangeRate && (
+                        <span className="ml-2 text-blue-700">({formatCzk(eurToCzk(currentMarketPrice, exchangeRate))})</span>
+                      )}
                     </p>
                   </div>
                 </div>
@@ -353,25 +439,52 @@ export default function EditProductModal({
 
             {/* Price Input */}
             <div>
-              <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-3">
-                New Price
-              </label>
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <label className="block text-xs sm:text-sm font-semibold text-slate-700">
+                  New Price
+                </label>
+                <div className="inline-flex rounded-xl border border-slate-300 bg-slate-100 p-1">
+                  {(['EUR', 'CZK'] as const).map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => handleCurrencyChange(option)}
+                      disabled={option === 'CZK' && !hasExchangeRate}
+                      className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                        currency === option ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'
+                      } ${option === 'CZK' && !hasExchangeRate ? 'cursor-not-allowed opacity-40 hover:text-slate-500' : ''}`}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div className="relative">
                 <input
-                  type="number"
+                  type="text"
                   value={newPrice}
                   onChange={handlePriceChange}
-                  className={`block w-full px-3 sm:px-4 py-2 sm:py-3 border rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent text-sm sm:text-base ${priceColor === 'text-red-600' ? 'border-red-300' : priceColor === 'text-green-600' ? 'border-green-300' : 'border-slate-300'} appearance-none`}
-                  placeholder="Enter new price"
-                  step="1" // Changed to step=1 for €1 increments
-                  min="1"
+                  className={`block w-full px-3 sm:px-4 py-2 sm:py-3 pr-12 border rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent text-sm sm:text-base ${priceColor === 'text-red-600' ? 'border-red-300' : priceColor === 'text-green-600' ? 'border-green-300' : 'border-slate-300'} appearance-none`}
+                  placeholder={currency === 'CZK' ? 'Enter price in CZK' : 'Enter price in EUR'}
+                  pattern="[0-9]*[.]?[0-9]*"
                   inputMode="numeric"
                   required
                 />
-                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                  <span className="text-slate-500 text-sm">€</span>
+                <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
+                  <span className="rounded-lg bg-slate-50 px-2 py-1 text-sm font-semibold text-slate-500">{currency === 'CZK' ? 'Kč' : '€'}</span>
                 </div>
               </div>
+              {!isNaN(numericNewPrice) && numericNewPrice > 0 && !isNaN(eurPrice) && (
+                <div className="mt-2 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                  Stored as <span className="font-semibold text-slate-900">{formatCurrency(eurPrice)}</span>
+                  {currency === 'CZK' && hasExchangeRate && (
+                    <span> from {formatCzk(numericNewPrice)} at {exchangeRate} CZK/EUR</span>
+                  )}
+                  {currency === 'CZK' && hasExchangeRate && (
+                    <span className="ml-2">Display: {formatCurrency(eurPrice)} / {formatCzk(eurToCzk(eurPrice, exchangeRate))}</span>
+                  )}
+                </div>
+              )}
               
               {priceMessage && (
                 <div className={`mt-2 flex items-center text-sm ${priceColor}`}>
@@ -387,7 +500,43 @@ export default function EditProductModal({
                       <p className="text-xs sm:text-sm font-medium text-green-800">Your payout</p>
                       <p className="text-xs text-green-600">After fees ({fees.fee_percent * 100}% + {fees.fee_fixed}€)</p>
                     </div>
-                    <p className="text-base sm:text-lg font-bold text-green-900">{formatCurrency(computedPayoutValue)}</p>
+                    <p className="text-base sm:text-lg font-bold text-green-900">
+                      {formatCurrency(computedPayoutValue)}
+                      {currency === 'CZK' && hasExchangeRate && (
+                        <span className="ml-2 text-sm font-semibold text-green-700">
+                          {formatCzk(eurToCzk(computedPayoutValue, exchangeRate))}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {isVatPayerProfile && (
+                <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
+                  <div className="mb-3">
+                    <p className="text-sm font-semibold text-slate-800">Business VAT mode</p>
+                    <p className="text-xs text-slate-500">VAT payer listing. Choose margin sale or VAT0. VAT0 uses Slovak VAT {Math.round(SK_VAT_RATE * 100)}% base in payout calculation.</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { value: 'MARGIN' as const, label: 'Margin', desc: 'No VAT base deduction' },
+                      { value: 'VAT0' as const, label: 'VAT0', desc: `Base ${formatCurrency(payoutBasePrice ?? 0)}` },
+                    ].map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => setVatScheme(option.value)}
+                        className={`rounded-xl border px-3 py-2 text-left transition ${
+                          vatScheme === option.value
+                            ? 'border-slate-900 bg-slate-900 text-white'
+                            : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-300'
+                        }`}
+                      >
+                        <span className="block text-sm font-semibold">{option.label}</span>
+                        <span className={`block text-xs ${vatScheme === option.value ? 'text-slate-200' : 'text-slate-500'}`}>{option.desc}</span>
+                      </button>
+                    ))}
                   </div>
                 </div>
               )}

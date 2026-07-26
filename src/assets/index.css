@@ -32,6 +32,10 @@ html, body {
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
   }
+
+  body {
+    padding-bottom: calc(76px + env(safe-area-inset-bottom));
+  }
   
   #root {
     min-height: 100vh;
@@ -46,6 +50,43 @@ html, body {
   /* Prevent zoom on input focus */
   input, select, textarea {
     font-size: 16px;
+  }
+
+  .admin-mobile-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 55;
+    margin: 0;
+    border-left: 0;
+    border-right: 0;
+    border-bottom: 0;
+    border-radius: 18px 18px 0 0;
+    padding-bottom: env(safe-area-inset-bottom);
+    box-shadow: 0 -12px 30px rgba(15, 23, 42, 0.12);
+  }
+
+  .admin-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .admin-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .mobile-card-scroll {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .mobile-card-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  .shadow-2xl {
+    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
   }
   
   /* Smooth scrolling */

@@ -28,16 +28,45 @@ interface Product {
   sku?: string;
 }
 
+interface ManualSaleItemForm {
+  productSearch: string;
+  selectedProductId: string;
+  selectedProduct: Product | null;
+  productName: string;
+  size: string;
+  price: string;
+  payout: string;
+  sku: string;
+  imageUrl: string;
+  availableSizes: { size: string; price: number }[];
+  filteredProducts: Product[];
+  showProductSuggestions: boolean;
+  loadingSizes: boolean;
+}
+
+const createEmptySaleItem = (): ManualSaleItemForm => ({
+  productSearch: '',
+  selectedProductId: '',
+  selectedProduct: null,
+  productName: '',
+  size: '',
+  price: '',
+  payout: '',
+  sku: '',
+  imageUrl: '',
+  availableSizes: [],
+  filteredProducts: [],
+  showProductSuggestions: false,
+  loadingSizes: false
+});
+
 export default function CreateSaleModal({ isOpen, onClose, onSaleCreated, preSelectedUserId, preSelectedUserEmail }: CreateSaleModalProps) {
   const { showToast } = useToast();
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
-  const [availableSizes, setAvailableSizes] = useState<{size: string; price: number}[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [loadingProducts, setLoadingProducts] = useState(false);
-  const [loadingSizes, setLoadingSizes] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -46,22 +75,16 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated, preSel
   const [selectedUserId, setSelectedUserId] = useState<string>('');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [showUserSuggestions, setShowUserSuggestions] = useState(false);
-  const [productSearch, setProductSearch] = useState<string>('');
-  const [selectedProductId, setSelectedProductId] = useState<string>('');
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [showProductSuggestions, setShowProductSuggestions] = useState(false);
-  const [productName, setProductName] = useState('');
-  const [size, setSize] = useState('');
-  const [price, setPrice] = useState('');
-  const [payout, setPayout] = useState('');
-  const [sku, setSku] = useState('');
+  const [firstItem, setFirstItem] = useState<ManualSaleItemForm>(createEmptySaleItem());
+  const [secondItem, setSecondItem] = useState<ManualSaleItemForm>(createEmptySaleItem());
+  const [hasSecondProduct, setHasSecondProduct] = useState(false);
   const [externalId, setExternalId] = useState('');
-  const [imageUrl, setImageUrl] = useState('');
   const [saleDate, setSaleDate] = useState<string>('');
   const [sendEmail, setSendEmail] = useState(true); // Default: send email
 
   const userInputRef = useRef<HTMLInputElement>(null);
-  const productInputRef = useRef<HTMLInputElement>(null);
+  const firstProductInputRef = useRef<HTMLInputElement>(null);
+  const secondProductInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -70,18 +93,10 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated, preSel
         resetForm();
       } else {
         // Reset only non-user fields
-        setProductSearch('');
-        setSelectedProductId('');
-        setSelectedProduct(null);
-        setProductName('');
-        setSize('');
-        setPrice('');
-        setPayout('');
-        setSku('');
-        setImageUrl('');
+        setFirstItem(createEmptySaleItem());
+        setSecondItem(createEmptySaleItem());
+        setHasSecondProduct(false);
         setExternalId('');
-        setAvailableSizes([]);
-        setShowProductSuggestions(false);
       }
       
       // Set default date to today
@@ -129,10 +144,17 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated, preSel
       }
       
       // Check if click is outside product input and suggestions
-      if (productInputRef.current && !productInputRef.current.contains(target)) {
-        const productSuggestions = document.querySelector('[data-product-suggestions]');
+      if (firstProductInputRef.current && !firstProductInputRef.current.contains(target)) {
+        const productSuggestions = document.querySelector('[data-product-suggestions="0"]');
         if (productSuggestions && !productSuggestions.contains(target)) {
-          setShowProductSuggestions(false);
+          setFirstItem((prev) => ({ ...prev, showProductSuggestions: false }));
+        }
+      }
+
+      if (secondProductInputRef.current && !secondProductInputRef.current.contains(target)) {
+        const productSuggestions = document.querySelector('[data-product-suggestions="1"]');
+        if (productSuggestions && !productSuggestions.contains(target)) {
+          setSecondItem((prev) => ({ ...prev, showProductSuggestions: false }));
         }
       }
     };
@@ -162,52 +184,54 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated, preSel
   }, [userEmailSearch, allUsers]);
 
   useEffect(() => {
-    if (productSearch.length > 0) {
-      const filtered = products.filter(product => 
-        product.name.toLowerCase().includes(productSearch.toLowerCase()) ||
-        (product.sku && product.sku.toLowerCase().includes(productSearch.toLowerCase()))
-      ).slice(0, 5);
-      setFilteredProducts(filtered);
-      setShowProductSuggestions(true);
-    } else {
-      setFilteredProducts([]);
-      setShowProductSuggestions(false);
-    }
-  }, [productSearch, products]);
+    const updateFilteredProducts = (
+      item: ManualSaleItemForm,
+      setItem: React.Dispatch<React.SetStateAction<ManualSaleItemForm>>
+    ) => {
+      if (item.productSearch.length > 0) {
+        const filtered = products.filter(product =>
+          product.name.toLowerCase().includes(item.productSearch.toLowerCase()) ||
+          (product.sku && product.sku.toLowerCase().includes(item.productSearch.toLowerCase()))
+        ).slice(0, 5);
+        setItem((prev) => ({ ...prev, filteredProducts: filtered, showProductSuggestions: true }));
+      } else {
+        setItem((prev) => ({ ...prev, filteredProducts: [], showProductSuggestions: false }));
+      }
+    };
+
+    updateFilteredProducts(firstItem, setFirstItem);
+  }, [firstItem.productSearch, products]);
 
   useEffect(() => {
-    if (selectedProductId) {
-      const product = products.find(p => p.id === selectedProductId);
-      if (product) {
-        setSelectedProduct(product);
-        setProductName(product.name);
-        setSku(product.sku || '');
-        setImageUrl(product.image_url || '');
-        setProductSearch(product.name);
-        setShowProductSuggestions(false);
+    const updateFilteredProducts = (
+      item: ManualSaleItemForm,
+      setItem: React.Dispatch<React.SetStateAction<ManualSaleItemForm>>
+    ) => {
+      if (item.productSearch.length > 0) {
+        const filtered = products.filter(product =>
+          product.name.toLowerCase().includes(item.productSearch.toLowerCase()) ||
+          (product.sku && product.sku.toLowerCase().includes(item.productSearch.toLowerCase()))
+        ).slice(0, 5);
+        setItem((prev) => ({ ...prev, filteredProducts: filtered, showProductSuggestions: true }));
+      } else {
+        setItem((prev) => ({ ...prev, filteredProducts: [], showProductSuggestions: false }));
       }
-    }
-  }, [selectedProductId, products]);
+    };
+
+    updateFilteredProducts(secondItem, setSecondItem);
+  }, [secondItem.productSearch, products]);
 
   const resetForm = () => {
     setUserEmailSearch('');
     setSelectedUserId('');
     setSelectedUser(null);
-    setProductSearch('');
-    setSelectedProductId('');
-    setSelectedProduct(null);
-    setProductName('');
-    setSize('');
-    setPrice('');
-    setPayout('');
-    setSku('');
-    setImageUrl('');
+    setFirstItem(createEmptySaleItem());
+    setSecondItem(createEmptySaleItem());
+    setHasSecondProduct(false);
     setExternalId('');
     setSaleDate('');
     setSendEmail(true); // Reset to default: send email
-    setAvailableSizes([]);
     setShowUserSuggestions(false);
-    setShowProductSuggestions(false);
   };
 
   const loadUsers = async () => {
@@ -253,20 +277,27 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated, preSel
     setShowUserSuggestions(false);
   };
 
-  const handleProductSelect = async (product: Product) => {
-    setSelectedProductId(product.id);
-    setSelectedProduct(product);
-    setProductName(product.name);
-    setSku(product.sku || '');
-    setImageUrl(product.image_url || '');
-    setProductSearch(product.name);
-    setShowProductSuggestions(false);
-    setSize('');
-    setPrice('');
-    
+  const handleProductSelect = async (product: Product, itemIndex: 0 | 1) => {
+    const setItem = itemIndex === 0 ? setFirstItem : setSecondItem;
+
+    setItem((prev) => ({
+      ...prev,
+      selectedProductId: product.id,
+      selectedProduct: product,
+      productName: product.name,
+      sku: product.sku || '',
+      imageUrl: product.image_url || '',
+      productSearch: product.name,
+      showProductSuggestions: false,
+      size: '',
+      price: '',
+      payout: '',
+      availableSizes: []
+    }));
+
     // Load available sizes for this product
     try {
-      setLoadingSizes(true);
+      setItem((prev) => ({ ...prev, loadingSizes: true }));
       const { data, error } = await supabase
         .from('product_price_view')
         .select('size, final_price')
@@ -280,12 +311,12 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated, preSel
         price: item.final_price
       }));
       
-      setAvailableSizes(sizes);
+      setItem((prev) => ({ ...prev, availableSizes: sizes }));
     } catch (err: any) {
       logger.warn('Error loading sizes', err);
-      setAvailableSizes([]);
+      setItem((prev) => ({ ...prev, availableSizes: [] }));
     } finally {
-      setLoadingSizes(false);
+      setItem((prev) => ({ ...prev, loadingSizes: false }));
     }
   };
 
@@ -297,26 +328,8 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated, preSel
       return;
     }
 
-    if (!selectedProductId) {
-      setError('Please select a product');
-      return;
-    }
-
-    if (!productName || !size || !price || !payout || !saleDate) {
+    if (!saleDate) {
       setError('Please fill in all required fields');
-      return;
-    }
-
-    const priceNum = parseFloat(price);
-    const payoutNum = parseFloat(payout);
-
-    if (isNaN(priceNum) || priceNum <= 0) {
-      setError('Price must be a positive number');
-      return;
-    }
-
-    if (isNaN(payoutNum) || payoutNum <= 0 || payoutNum > priceNum) {
-      setError('Payout must be a positive number and less than or equal to price');
       return;
     }
 
@@ -324,10 +337,47 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated, preSel
       setSaving(true);
       setError(null);
 
-      if (!selectedProduct) {
-        setError('Selected product was not found');
-        return;
-      }
+      const itemsToValidate = hasSecondProduct ? [firstItem, secondItem] : [firstItem];
+      const manualSaleItems = itemsToValidate.map((item, index) => {
+        if (!item.selectedProductId || !item.selectedProduct) {
+          throw new Error(index === 0 ? 'Please select the first product' : 'Please select the second product');
+        }
+
+        if (!item.productName || !item.size || !item.price || !item.payout) {
+          throw new Error(index === 0 ? 'Please fill in all fields for the first product' : 'Please fill in all fields for the second product');
+        }
+
+        const priceNum = parseFloat(item.price);
+        const payoutNum = parseFloat(item.payout);
+
+        if (isNaN(priceNum) || priceNum <= 0) {
+          throw new Error(index === 0 ? 'First product price must be a positive number' : 'Second product price must be a positive number');
+        }
+
+        if (isNaN(payoutNum) || payoutNum <= 0 || payoutNum > priceNum) {
+          throw new Error(index === 0
+            ? 'First product payout must be a positive number and less than or equal to price'
+            : 'Second product payout must be a positive number and less than or equal to price');
+        }
+
+        return {
+          productId: item.selectedProduct.id,
+          productName: item.productName,
+          size: item.size,
+          price: priceNum,
+          payout: payoutNum,
+          sku: item.sku || null,
+          imageUrl: item.imageUrl || null
+        };
+      });
+
+      const totalPrice = manualSaleItems.reduce((sum, item) => sum + item.price, 0);
+      const totalPayout = manualSaleItems.reduce((sum, item) => sum + item.payout, 0);
+      const summaryName = manualSaleItems.map((item) => item.productName).join(' + ');
+      const summarySize = manualSaleItems.map((item) => item.size).join(' / ');
+      const summarySku = manualSaleItems.map((item) => item.sku).filter(Boolean).join(' / ');
+      const primaryItem = manualSaleItems[0];
+      const notificationEmail = selectedUser?.email;
 
       // Use selected date for both created_at and invoice_date
       // Use noon UTC to avoid timezone shifting the date by one day
@@ -336,18 +386,24 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated, preSel
       // Create single sale with proper dates
       const saleData = {
         user_id: selectedUserId,
-        product_id: selectedProduct.id,
-        name: productName,
-        size: size,
-        price: priceNum,
-        payout: payoutNum,
-        sku: sku || null,
+        product_id: primaryItem.productId,
+        name: summaryName,
+        size: summarySize,
+        price: totalPrice,
+        payout: totalPayout,
+        sku: summarySku || null,
         external_id: externalId || null,
-        image_url: imageUrl || null,
+        image_url: primaryItem.imageUrl || null,
         status: 'accepted',
         is_manual: true,
         created_at: saleDateISO,
-        invoice_date: saleDateISO
+        invoice_date: saleDateISO,
+        manual_sale_items: manualSaleItems.map((item) => ({
+          productName: item.productName,
+          size: item.size,
+          price: item.price,
+          payout: item.payout
+        }))
       };
 
       const { data: insertedSale, error: saleError } = await supabase
@@ -359,17 +415,17 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated, preSel
       if (saleError) throw saleError;
 
       // Send email notification if enabled
-      if (sendEmail && selectedUser?.email) {
+      if (sendEmail && notificationEmail) {
         try {
           await sendNewSaleEmail({
-            email: selectedUser.email,
-            productName: productName,
-            size: size,
-            price: priceNum,
-            payout: payoutNum,
+            email: notificationEmail,
+            productName: summaryName,
+            size: summarySize,
+            price: totalPrice,
+            payout: totalPayout,
             external_id: externalId || insertedSale.id,
-            image_url: imageUrl || undefined,
-            sku: sku
+            image_url: primaryItem.imageUrl || undefined,
+            sku: summarySku
           });
         } catch (emailError) {
           logger.warn('Failed to send email notification', emailError);
@@ -377,9 +433,9 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated, preSel
         }
       }
 
-      logger.info('Sale created successfully', { saleId: insertedSale.id });
+      logger.info('Sale created successfully', { saleId: insertedSale.id, items: manualSaleItems.length });
       
-      showToast(`Sale created: ${productName}`, 'success');
+      showToast(`Sale created: ${summaryName}`, 'success');
       
       // Reset form
       resetForm();
@@ -397,6 +453,233 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated, preSel
   const handleCloseModal = useCallback(() => onClose(), [onClose]);
   useEscapeKey(handleCloseModal, isOpen);
 
+  const renderProductSection = (
+    item: ManualSaleItemForm,
+    setItem: React.Dispatch<React.SetStateAction<ManualSaleItemForm>>,
+    itemIndex: 0 | 1,
+    title: string
+  ) => {
+    const inputRef = itemIndex === 0 ? firstProductInputRef : secondProductInputRef;
+
+    return (
+      <div className="space-y-4 rounded-2xl border border-gray-200 p-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
+          {itemIndex === 1 && (
+            <button
+              type="button"
+              onClick={() => {
+                setHasSecondProduct(false);
+                setSecondItem(createEmptySaleItem());
+              }}
+              className="text-sm font-medium text-red-600 hover:text-red-700"
+            >
+              Remove
+            </button>
+          )}
+        </div>
+
+        <div className="relative">
+          <label className="block text-sm font-semibold text-gray-900 mb-2">
+            <FaBox className="inline mr-2" />
+            Product *
+          </label>
+          {loadingProducts ? (
+            <div className="text-sm text-gray-600">Loading products...</div>
+          ) : (
+            <>
+              <div className="relative">
+                <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={item.productSearch}
+                  onChange={(e) => {
+                    const nextValue = e.target.value;
+                    setItem((prev) => ({
+                      ...prev,
+                      productSearch: nextValue,
+                      ...(nextValue === '' ? createEmptySaleItem() : {})
+                    }));
+                  }}
+                  onFocus={() => {
+                    if (item.filteredProducts.length > 0) {
+                      setItem((prev) => ({ ...prev, showProductSuggestions: true }));
+                    }
+                  }}
+                  className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
+                  placeholder="Start typing product name..."
+                  required
+                />
+              </div>
+              {item.showProductSuggestions && item.filteredProducts.length > 0 && (
+                <div
+                  data-product-suggestions={String(itemIndex)}
+                  className="absolute z-[60] w-full mt-1 bg-white border border-gray-300 rounded-xl shadow-lg max-h-60 overflow-auto"
+                >
+                  {item.filteredProducts.map((product) => (
+                    <div
+                      key={`${itemIndex}-${product.id}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleProductSelect(product, itemIndex);
+                      }}
+                      className="px-4 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0 flex items-center space-x-3"
+                    >
+                      {product.image_url && (
+                        <img
+                          loading="lazy"
+                          src={product.image_url}
+                          alt={product.name}
+                          className="w-10 h-10 object-contain"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
+                      )}
+                      <div>
+                        <div className="font-medium text-gray-900">{product.name}</div>
+                        {product.sku && (
+                          <div className="text-sm text-gray-600">SKU: {product.sku}</div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {item.selectedProduct && (
+                <div className="mt-2 text-sm text-green-600">
+                  ✓ Selected: {item.selectedProduct.name}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {item.selectedProductId && (
+          <>
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-2">
+                Product Name *
+              </label>
+              <input
+                type="text"
+                value={item.productName}
+                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-gray-900"
+                readOnly
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-2">
+                Size *
+              </label>
+              {item.loadingSizes ? (
+                <div className="text-sm text-gray-600">Loading sizes...</div>
+              ) : item.availableSizes.length > 0 ? (
+                <select
+                  value={item.size}
+                  onChange={(e) => {
+                    const selectedSize = e.target.value;
+                    const selectedSizeData = item.availableSizes.find((sizeOption) => sizeOption.size === selectedSize);
+                    setItem((prev) => ({
+                      ...prev,
+                      size: selectedSize,
+                      price: selectedSizeData ? selectedSizeData.price.toString() : prev.price
+                    }));
+                  }}
+                  className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
+                  required
+                >
+                  <option value="">Select size...</option>
+                  {item.availableSizes.map((sizeOption) => (
+                    <option key={sizeOption.size} value={sizeOption.size}>
+                      {sizeOption.size} ({sizeOption.price.toFixed(2)} €)
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={item.size}
+                  onChange={(e) => setItem((prev) => ({ ...prev, size: e.target.value }))}
+                  className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
+                  placeholder="For example: 42, M, L"
+                  required
+                />
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-900 mb-2">
+                  Sale Price (€) *
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={item.price}
+                  onChange={(e) => setItem((prev) => ({ ...prev, price: e.target.value }))}
+                  className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
+                  placeholder="0.00"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-900 mb-2">
+                  Payout (€) *
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={item.payout}
+                  onChange={(e) => setItem((prev) => ({ ...prev, payout: e.target.value }))}
+                  className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
+                  placeholder="0.00"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-2">
+                SKU (optional)
+              </label>
+              <input
+                type="text"
+                value={item.sku}
+                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-gray-900"
+                placeholder="For example: NIKE-AM90-42"
+                readOnly
+              />
+            </div>
+
+            {item.imageUrl && (
+              <div>
+                <label className="block text-sm font-semibold text-gray-900 mb-2">
+                  Product Image
+                </label>
+                <div className="mt-2">
+                  <img
+                    loading="lazy"
+                    src={item.imageUrl}
+                    alt={item.productName}
+                    className="w-32 h-32 object-contain border border-gray-200 rounded-lg bg-gray-50"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    );
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -408,8 +691,8 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated, preSel
         }
       }}
     >
-      <div 
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col"
+        <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between p-6 border-b border-gray-200 flex-shrink-0">
@@ -501,196 +784,22 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated, preSel
               )}
             </div>
 
-            {/* Product Selection with Autocomplete */}
-            <div className="relative">
-              <label className="block text-sm font-semibold text-gray-900 mb-2">
-                <FaBox className="inline mr-2" />
-                Product *
-              </label>
-              {loadingProducts ? (
-                <div className="text-sm text-gray-600">Loading products...</div>
-              ) : (
-                <>
-                  <div className="relative">
-                    <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                    <input
-                      ref={productInputRef}
-                      type="text"
-                      value={productSearch}
-                      onChange={(e) => {
-                        setProductSearch(e.target.value);
-                        if (e.target.value === '') {
-                          setSelectedProductId('');
-                          setSelectedProduct(null);
-                          resetForm();
-                        }
-                      }}
-                      onFocus={() => {
-                        if (filteredProducts.length > 0) {
-                          setShowProductSuggestions(true);
-                        }
-                      }}
-                      className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
-                      placeholder="Start typing product name..."
-                      required
-                    />
-                  </div>
-                  {showProductSuggestions && filteredProducts.length > 0 && (
-                    <div 
-                      data-product-suggestions
-                      className="absolute z-[60] w-full mt-1 bg-white border border-gray-300 rounded-xl shadow-lg max-h-60 overflow-auto"
-                    >
-                      {filteredProducts.map((product) => (
-                        <div
-                          key={product.id}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleProductSelect(product);
-                          }}
-                          className="px-4 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0 flex items-center space-x-3"
-                        >
-                          {product.image_url && (
-                            <img 
-                              loading="lazy"
-                              src={product.image_url} 
-                              alt={product.name}
-                              className="w-10 h-10 object-contain"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).style.display = 'none';
-                              }}
-                            />
-                          )}
-                          <div>
-                            <div className="font-medium text-gray-900">{product.name}</div>
-                            {product.sku && (
-                              <div className="text-sm text-gray-600">SKU: {product.sku}</div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {selectedProduct && (
-                    <div className="mt-2 text-sm text-green-600">
-                      ✓ Selected: {selectedProduct.name}
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
+            {renderProductSection(firstItem, setFirstItem, 0, 'Product 1')}
 
-            {/* Product Name (read-only when product is selected) */}
-            {selectedProductId && (
-              <div>
-                <label className="block text-sm font-semibold text-gray-900 mb-2">
-                  Product Name *
-                </label>
-                <input
-                  type="text"
-                  value={productName}
-                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-gray-900"
-                  readOnly
-                />
-              </div>
-            )}
-
-            {/* Size Selection */}
-            {selectedProductId && (
-              <div>
-                <label className="block text-sm font-semibold text-gray-900 mb-2">
-                  Size *
-                </label>
-                {loadingSizes ? (
-                  <div className="text-sm text-gray-600">Loading sizes...</div>
-                ) : availableSizes.length > 0 ? (
-                  <select
-                    value={size}
-                    onChange={(e) => {
-                      setSize(e.target.value);
-                      // Auto-fill price if size is selected
-                      const selectedSizeData = availableSizes.find(s => s.size === e.target.value);
-                      if (selectedSizeData) {
-                        setPrice(selectedSizeData.price.toString());
-                      }
-                    }}
-                    className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
-                    required
-                  >
-                    <option value="">Select size...</option>
-                    {availableSizes.map((sizeOption) => (
-                      <option key={sizeOption.size} value={sizeOption.size}>
-                        {sizeOption.size} ({sizeOption.price.toFixed(2)} €)
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <input
-                    type="text"
-                    value={size}
-                    onChange={(e) => setSize(e.target.value)}
-                    className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
-                    placeholder="For example: 42, M, L"
-                    required
-                  />
-                )}
-              </div>
-            )}
-
-            {/* Price and Payout */}
-            {selectedProductId && (
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-900 mb-2">
-                    Sale Price (€) *
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={price}
-                    onChange={(e) => setPrice(e.target.value)}
-                    className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
-                    placeholder="0.00"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-900 mb-2">
-                    Payout (€) *
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={payout}
-                    onChange={(e) => setPayout(e.target.value)}
-                    className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
-                    placeholder="0.00"
-                    required
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* SKU */}
-            {selectedProductId && (
-              <div>
-                <label className="block text-sm font-semibold text-gray-900 mb-2">
-                  SKU (optional)
-                </label>
-                <input
-                  type="text"
-                  value={sku}
-                  onChange={(e) => setSku(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-gray-900"
-                  placeholder="For example: NIKE-AM90-42"
-                  readOnly
-                />
-              </div>
+            {!hasSecondProduct ? (
+              <button
+                type="button"
+                onClick={() => setHasSecondProduct(true)}
+                className="w-full px-4 py-3 border border-dashed border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Add second product
+              </button>
+            ) : (
+              renderProductSection(secondItem, setSecondItem, 1, 'Product 2')
             )}
 
             {/* Sale Date */}
-            {selectedProductId && (
+            {firstItem.selectedProductId && (
               <div>
                 <label className="block text-sm font-semibold text-gray-900 mb-2">
                   Sale Date *
@@ -718,26 +827,6 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated, preSel
                 placeholder="For example: ORDER-12345"
               />
             </div>
-
-            {/* Product Image (display only) */}
-            {selectedProductId && imageUrl && (
-              <div>
-                <label className="block text-sm font-semibold text-gray-900 mb-2">
-                  Product Image
-                </label>
-                <div className="mt-2">
-                  <img 
-                    loading="lazy"
-                    src={imageUrl} 
-                    alt={productName}
-                    className="w-32 h-32 object-contain border border-gray-200 rounded-lg bg-gray-50"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = 'none';
-                    }}
-                  />
-                </div>
-              </div>
-            )}
 
             {/* Send Email Toggle - at the very bottom before buttons */}
             {selectedUser?.email && (
@@ -792,6 +881,3 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated, preSel
     </div>
   );
 }
-
-
-

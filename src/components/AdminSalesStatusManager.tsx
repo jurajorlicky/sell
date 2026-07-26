@@ -6,7 +6,14 @@ import { sendStatusChangeEmail, sendTrackingEmail } from '../lib/email';
 import { logger } from '../lib/logger';
 import { generatePurchaseAgreement, uploadContractToStorage } from '../lib/pdfGenerator';
 import { useToast } from './Toast';
-import { FaSave, FaStickyNote, FaTruck, FaBox, FaLink, FaTimes, FaPlus, FaEdit, FaFilePdf, FaUpload, FaTrash, FaClock, FaFileContract } from 'react-icons/fa';
+import { FaSave, FaStickyNote, FaTruck, FaBox, FaLink, FaTimes, FaPlus, FaEdit, FaFilePdf, FaUpload, FaTrash, FaClock, FaFileContract, FaFileInvoice } from 'react-icons/fa';
+
+interface ManualSaleItem {
+  productName: string;
+  size: string;
+  price: number;
+  payout?: number;
+}
 
 interface AdminSalesStatusManagerProps {
   saleId: string;
@@ -14,6 +21,7 @@ interface AdminSalesStatusManagerProps {
   currentExternalId?: string;
   currentTrackingUrl?: string;
   currentLabelUrl?: string;
+  currentFaUrl?: string;
   currentDeliveredAt?: string;
   currentPayoutDate?: string;
   currentCreatedAt?: string;
@@ -40,6 +48,7 @@ export default function AdminSalesStatusManager({
   currentExternalId = '', 
   currentTrackingUrl = '',
   currentLabelUrl = '',
+  currentFaUrl = '',
   currentDeliveredAt = '',
   currentPayoutDate = '',
   currentCreatedAt = '',
@@ -88,10 +97,12 @@ export default function AdminSalesStatusManager({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [emailSuccess, setEmailSuccess] = useState(false);
-  const [saleData, setSaleData] = useState<{ name: string; user_email: string; sku?: string; price: number; payout: number; external_id?: string; user_id?: string; created_at?: string; size?: string; image_url?: string; is_manual?: boolean; product_id?: string } | null>(null);
+  const [saleData, setSaleData] = useState<{ name: string; user_email: string; sku?: string; price: number; payout: number; external_id?: string; user_id?: string; created_at?: string; size?: string; image_url?: string; is_manual?: boolean; product_id?: string; manual_sale_items?: ManualSaleItem[] } | null>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [generatingContract, setGeneratingContract] = useState(false);
   const [contractUrl, setContractUrl] = useState<string | null>(null);
+  const [faUrl, setFaUrl] = useState<string | null>(currentFaUrl || null);
+  const [documentMode, setDocumentMode] = useState<'contract' | 'fa'>(currentFaUrl ? 'fa' : 'contract');
   const [deleting, setDeleting] = useState(false);
 
   // Load existing notes and sale data on mount
@@ -101,7 +112,7 @@ export default function AdminSalesStatusManager({
         logger.debug('Loading existing sale data', { saleId });
         const { data, error } = await supabase
           .from('user_sales')
-          .select('status_notes, tracking_url, label_url, name, user_id, sku, price, payout, external_id, created_at, contract_url, size, is_manual, image_url, product_id, invoice_date, profiles(email)')
+          .select('status_notes, tracking_url, label_url, fa_url, name, user_id, sku, price, payout, external_id, created_at, contract_url, size, is_manual, image_url, product_id, invoice_date, manual_sale_items, profiles(email)')
           .eq('id', saleId)
           .single();
 
@@ -111,7 +122,14 @@ export default function AdminSalesStatusManager({
           setOriginalNotes(loadedNotes); // Store original notes for comparison
           if (data.tracking_url) setTrackingUrl(data.tracking_url);
           if (data.label_url) setLabelUrl(data.label_url);
-          if (data.contract_url) setContractUrl(data.contract_url);
+          if (data.fa_url) {
+            setFaUrl(data.fa_url);
+            setDocumentMode('fa');
+          }
+          if (data.contract_url) {
+            setContractUrl(data.contract_url);
+            if (!data.fa_url) setDocumentMode('contract');
+          }
           if (data.created_at) setSaleDate(isoToLocalDateString(data.created_at));
           
           // Load invoice_date from the same sale record
@@ -139,7 +157,8 @@ export default function AdminSalesStatusManager({
             size: data.size || '',
             image_url: data.image_url || undefined,
             is_manual: data.is_manual || false,
-            product_id: data.product_id // Add product_id for invoice sale lookup
+            product_id: data.product_id, // Add product_id for invoice sale lookup
+            manual_sale_items: Array.isArray(data.manual_sale_items) ? data.manual_sale_items : undefined
           });
 
           // Load user profile for PDF generation
@@ -167,6 +186,20 @@ export default function AdminSalesStatusManager({
     };
     loadExistingData();
   }, [saleId]);
+
+  const getContractsBucketPath = (url: string | null | undefined, prefix: string) => {
+    if (!url) return '';
+    if (url.includes('/storage/v1/object/public/contracts/')) {
+      return url.split('/storage/v1/object/public/contracts/')[1].split('?')[0];
+    }
+    if (url.includes('/contracts/')) {
+      return url.split('/contracts/')[1].split('?')[0];
+    }
+    if (url.startsWith(`${prefix}/`)) {
+      return url;
+    }
+    return url.split('?')[0];
+  };
 
   const handleFileUpload = async (file: File) => {
     if (!file) {
@@ -399,6 +432,23 @@ export default function AdminSalesStatusManager({
         }
       }
 
+      // Delete FA from storage if exists
+      if (faUrl) {
+        try {
+          const filePath = getContractsBucketPath(faUrl, 'fa');
+          if (filePath) {
+            const { error: deleteError } = await supabase.storage
+              .from('contracts')
+              .remove([filePath]);
+            if (deleteError) {
+              logger.warn('Failed to delete FA from storage:', deleteError);
+            }
+          }
+        } catch (err) {
+          logger.warn('Error deleting FA from storage:', err);
+        }
+      }
+
       // Delete sale from database
       const { error: deleteError } = await supabase
         .from('user_sales')
@@ -472,6 +522,88 @@ export default function AdminSalesStatusManager({
       setUploading(false);
     }
   };
+
+  const handleFaUpload = async (file: File) => {
+    if (!file) return;
+    if (file.type !== 'application/pdf') {
+      setError('Please upload a PDF file.');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setError('File is too large. Maximum size is 10MB');
+      return;
+    }
+
+    try {
+      setUploading(true);
+      setError(null);
+
+      if (faUrl) {
+        const oldPath = getContractsBucketPath(faUrl, 'fa');
+        if (oldPath) {
+          await supabase.storage.from('contracts').remove([oldPath]);
+        }
+      }
+
+      const filePath = `fa/${saleId}-${Date.now()}.pdf`;
+      const { error: uploadError } = await supabase.storage
+        .from('contracts')
+        .upload(filePath, file, {
+          contentType: 'application/pdf',
+          upsert: true
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage.from('contracts').getPublicUrl(filePath);
+      const newFaUrl = urlData.publicUrl;
+
+      const { error: updateError } = await supabase
+        .from('user_sales')
+        .update({ fa_url: newFaUrl, updated_at: new Date().toISOString() })
+        .eq('id', saleId);
+
+      if (updateError) throw updateError;
+
+      setFaUrl(newFaUrl);
+      setDocumentMode('fa');
+      showToast('FA uploaded successfully', 'success');
+    } catch (err: any) {
+      setError('Error uploading FA: ' + (err.message || 'Unknown error'));
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDeleteFa = async () => {
+    if (!faUrl) return;
+
+    try {
+      setUploading(true);
+      setError(null);
+
+      const filePath = getContractsBucketPath(faUrl, 'fa');
+      if (filePath) {
+        await supabase.storage.from('contracts').remove([filePath]);
+      }
+
+      const { error: updateError } = await supabase
+        .from('user_sales')
+        .update({ fa_url: null, updated_at: new Date().toISOString() })
+        .eq('id', saleId);
+
+      if (updateError) throw updateError;
+
+      setFaUrl(null);
+      setDocumentMode('fa');
+      showToast('FA deleted successfully', 'success');
+    } catch (err: any) {
+      setError('Error deleting FA: ' + (err.message || 'Unknown error'));
+    } finally {
+      setUploading(false);
+    }
+  };
+
 
   const handleSave = async () => {
     // Compare dates properly - extract date part from both for comparison
@@ -598,6 +730,44 @@ export default function AdminSalesStatusManager({
         .eq('id', saleId);
 
       if (updateError) throw updateError;
+
+      if (selectedStatus !== currentStatus && (selectedStatus === 'cancelled' || selectedStatus === 'returned') && saleData) {
+        const sourceMarker = `sale:${saleId}`;
+        const { data: existingWarehouseItem, error: existingWarehouseError } = await supabase
+          .from('warehouse_items')
+          .select('id')
+          .ilike('notes', `%${sourceMarker}%`)
+          .limit(1)
+          .maybeSingle();
+
+        if (existingWarehouseError && existingWarehouseError.code !== 'PGRST116') {
+          logger.warn('Failed to check warehouse duplicate for returned sale', existingWarehouseError);
+        }
+
+        if (!existingWarehouseItem) {
+          const { error: warehouseError } = await supabase
+            .from('warehouse_items')
+            .insert([{
+              name: saleData.name,
+              size: saleData.size || null,
+              sku: saleData.sku || null,
+              image_url: saleData.image_url || null,
+              source_type: 'unclaimed_order',
+              purchase_price: saleData.payout || 0,
+              document_type: faUrl ? 'fa' : 'zmluva',
+              status: 'available',
+              notes: `Auto-added from ${selectedStatus} sale ${saleData.external_id || saleId} (${sourceMarker})`,
+              updated_at: new Date().toISOString(),
+            }]);
+
+          if (warehouseError) {
+            logger.warn('Failed to auto-add returned sale to warehouse', warehouseError);
+            showToast('Sale saved, but warehouse auto-add failed', 'info');
+          } else {
+            showToast('Sale saved and item added to warehouse', 'success');
+          }
+        }
+      }
       
       // Update original invoice date after successful save
       if (invoiceDate !== originalInvoiceDate) {
@@ -911,7 +1081,33 @@ export default function AdminSalesStatusManager({
         </div>
       </div>
 
+      {!contractUrl && !faUrl && (
+        <div className="bg-white rounded-xl p-4 border border-gray-200">
+          <label className="block text-sm font-semibold text-gray-900 mb-3">
+            <FaFilePdf className="inline mr-2 text-gray-700" />
+            Documents
+          </label>
+          <div className="inline-flex rounded-xl border border-gray-300 p-1 bg-gray-50">
+            <button
+              type="button"
+              onClick={() => setDocumentMode('contract')}
+              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${documentMode === 'contract' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600'}`}
+            >
+              GEN CONTRACT PDF
+            </button>
+            <button
+              type="button"
+              onClick={() => setDocumentMode('fa')}
+              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${documentMode === 'fa' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600'}`}
+            >
+              UPLOAD FA
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Contract PDF Generation */}
+      {(contractUrl || (!faUrl && documentMode === 'contract')) && (
       <div className="bg-white rounded-xl p-4 border border-gray-200">
         <label className="block text-sm font-semibold text-gray-900 mb-3">
           <FaFileContract className="inline mr-2 text-blue-600" />
@@ -981,7 +1177,7 @@ export default function AdminSalesStatusManager({
                   // Always load latest sale + profile data from DB so contract uses fresh values
                   const { data: freshSale, error: freshSaleError } = await supabase
                     .from('user_sales')
-                    .select('id, user_id, name, size, price, is_manual, payout, created_at, external_id, invoice_date')
+                    .select('id, user_id, name, size, price, is_manual, payout, created_at, external_id, invoice_date, manual_sale_items')
                     .eq('id', saleId)
                     .single();
 
@@ -1054,6 +1250,7 @@ export default function AdminSalesStatusManager({
                     price: freshSale.price,
                     isManual: freshSale.is_manual || false,
                     payout: freshSale.payout,
+                    items: Array.isArray(freshSale.manual_sale_items) ? freshSale.manual_sale_items : undefined,
                     // Buyer (Company - AirKicks)
                     buyerName: 'Juraj Orlicky ml.',
                     buyerCIN: '55702660',
@@ -1089,6 +1286,7 @@ export default function AdminSalesStatusManager({
                   if (updateError) throw updateError;
                   
                   setContractUrl(url);
+                  setDocumentMode('contract');
                   setSuccess(true);
                   showToast('Contract PDF generated', 'success');
                   logger.info('Contract PDF generated successfully', { saleId, url });
@@ -1121,6 +1319,7 @@ export default function AdminSalesStatusManager({
           </div>
         )}
       </div>
+      )}
 
       {/* Label PDF Upload */}
       <div className="bg-white rounded-xl p-4 border border-gray-200">
@@ -1200,6 +1399,66 @@ export default function AdminSalesStatusManager({
         )}
       </div>
 
+      {/* FA PDF */}
+      {(faUrl || (!contractUrl && documentMode === 'fa')) && (
+      <div className="bg-white rounded-xl p-4 border border-gray-200">
+        <label className="block text-sm font-semibold text-gray-900 mb-3">
+          <FaFileInvoice className="inline mr-2 text-emerald-600" />
+          FA PDF
+        </label>
+
+        {faUrl ? (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="flex items-center space-x-3">
+                <FaFileInvoice className="text-emerald-600 text-xl" />
+                <div>
+                  <p className="text-sm font-medium text-gray-900">FA je uložená</p>
+                  <a
+                    href={faUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-blue-600 hover:text-blue-800"
+                  >
+                    Otvoriť PDF
+                  </a>
+                </div>
+              </div>
+              <button
+                onClick={handleDeleteFa}
+                disabled={uploading}
+                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                title="Delete FA"
+              >
+                <FaTrash />
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-xl cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
+              <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                <FaUpload className="text-gray-400 text-2xl mb-2" />
+                <p className="text-sm text-gray-600 font-medium">Kliknite pre nahranie FA PDF</p>
+                <p className="text-xs text-gray-500 mt-1">Maximum size: 10MB</p>
+              </div>
+              <input
+                type="file"
+                accept="application/pdf"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleFaUpload(file);
+                  e.target.value = '';
+                }}
+                disabled={uploading}
+                className="hidden"
+              />
+            </label>
+          </div>
+        )}
+      </div>
+      )}
+
       {/* Send Email Toggle */}
       {saleData && saleData.user_email && saleData.user_email !== 'N/A' && (
         <div className="flex items-center space-x-3 p-4 bg-gray-50 rounded-xl border border-gray-200">
@@ -1241,6 +1500,7 @@ export default function AdminSalesStatusManager({
         <SalesStatusTimeline 
           saleId={saleId} 
           currentStatus={selectedStatus}
+          saleCreatedAt={saleData?.created_at || currentCreatedAt}
         />
       </div>
 

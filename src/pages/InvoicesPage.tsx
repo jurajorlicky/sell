@@ -1,200 +1,608 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
-import { supabase } from '../lib/supabase';
-import AdminNavigation from '../components/AdminNavigation';
-import Pagination from '../components/Pagination';
-import { formatDate as formatDateFull, formatDateShort, formatCurrency } from '../lib/utils';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  FaCheckCircle,
+  FaExclamationTriangle,
+  FaExternalLinkAlt,
+  FaFileContract,
+  FaFileInvoice,
+  FaFilePdf,
+  FaLink,
   FaSearch,
   FaSignOutAlt,
   FaSync,
-  FaFileInvoice,
-  FaUserShield,
-  FaFilePdf,
-  FaFilter,
   FaTimes,
-  FaDownload,
-  FaExclamationTriangle,
-  FaSortAmountDown,
-  FaSortAmountUp
+  FaUnlink,
 } from 'react-icons/fa';
+import AdminNavigation from '../components/AdminNavigation';
+import InvoiceEmailImportPanel from '../components/InvoiceEmailImportPanel';
+import { useToast } from '../components/Toast';
+import { generatePurchaseAgreement, uploadContractToStorage } from '../lib/pdfGenerator';
+import { supabase } from '../lib/supabase';
+import { formatCurrency, formatDateShort } from '../lib/utils';
 
-interface Invoice {
+interface InvoiceSale {
   id: string;
-  product_id: string;
+  source: 'user_sales' | 'eshop_sales';
   name: string;
-  size: string;
+  size: string | null;
   price: number;
   payout: number;
-  invoice_date: string;
+  invoice_date: string | null;
   created_at: string;
   status: string;
-  image_url?: string;
+  image_url?: string | null;
+  user_id?: string | null;
   user_email: string;
-  sku?: string;
-  external_id?: string;
-  contract_url?: string;
+  sku?: string | null;
+  external_id?: string | null;
+  fa_url?: string | null;
+  contract_url?: string | null;
+  is_manual?: boolean;
+  manual_sale_items?: Array<{
+    productName: string;
+    size: string;
+    price: number;
+    payout?: number;
+  }> | null;
   profiles?: {
     email: string;
-  };
+  } | null;
 }
 
-export default function InvoicesPage() {
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('');
-  const [dateFrom, setDateFrom] = useState<string>('');
-  const [dateTo, setDateTo] = useState<string>('');
-  const [userEmailFilter, setUserEmailFilter] = useState<string>('');
-  const [showFilters, setShowFilters] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(24);
-  const [sortField, setSortField] = useState<'invoice_date' | 'price' | 'payout' | 'name'>('invoice_date');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+interface ImportedInvoice {
+  id: string;
+  name: string;
+  path: string;
+  folder: 'matched' | 'unmatched';
+  orderNumber: string | null;
+  publicUrl: string;
+  updatedAt: string | null;
+  size: number;
+  extractedProduct?: string | null;
+  extractedTotal?: number | null;
+  extractedItems?: Array<{ product?: string; total?: number | null }> | null;
+  extractionStatus?: string | null;
+  extractionError?: string | null;
+  linkedSale?: InvoiceSale | null;
+}
 
-  const loadInvoices = useCallback(async () => {
+type ViewMode = 'files' | 'missing' | 'contracts';
+
+const normalizeOrderNumber = (value?: string | null) => {
+  if (!value) return null;
+  return value.trim().replace(/\.pdf$/i, '').replace(/[_-]\d+$/, '');
+};
+
+const extractOrderNumber = (value: string) => {
+  const patterns = [
+    /(?:^|[^0-9])((?:202\d{5})(?:[_-]\d+)?)(?=$|[^0-9])/,
+  ];
+
+  for (const pattern of patterns) {
+    const match = value.match(pattern);
+    if (match?.[1]) return normalizeOrderNumber(match[1]);
+  }
+
+  return null;
+};
+
+const saleMatchesOrder = (sale: InvoiceSale, orderNumber: string) => {
+  const saleExternalId = normalizeOrderNumber(sale.external_id);
+  if (saleExternalId === orderNumber) return true;
+  return Boolean(sale.external_id?.toLowerCase().includes(orderNumber.toLowerCase()));
+};
+
+const formatFileSize = (bytes: number) => {
+  if (!bytes) return '-';
+  if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+};
+
+const statusBadge = (status: string) => {
+  if (status === 'completed') return 'bg-green-100 text-green-800';
+  if (status === 'delivered') return 'bg-indigo-100 text-indigo-800';
+  if (status === 'shipped') return 'bg-purple-100 text-purple-800';
+  if (status === 'processing') return 'bg-yellow-100 text-yellow-800';
+  if (status === 'accepted') return 'bg-blue-100 text-blue-800';
+  if (status === 'cancelled') return 'bg-red-100 text-red-800';
+  if (status === 'returned') return 'bg-orange-100 text-orange-800';
+  return 'bg-gray-100 text-gray-800';
+};
+
+export default function InvoicesPage() {
+  const { showToast } = useToast();
+  const [sales, setSales] = useState<InvoiceSale[]>([]);
+  const [files, setFiles] = useState<ImportedInvoice[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
+  const [viewMode, setViewMode] = useState<ViewMode>('files');
+  const [attachModalFile, setAttachModalFile] = useState<ImportedInvoice | null>(null);
+  const [attachTarget, setAttachTarget] = useState('');
+  const [attachingPath, setAttachingPath] = useState<string | null>(null);
+  const [generatingContractId, setGeneratingContractId] = useState<string | null>(null);
+  const [payoutModalSale, setPayoutModalSale] = useState<InvoiceSale | null>(null);
+  const [payoutDraft, setPayoutDraft] = useState('');
+  const [savingPayout, setSavingPayout] = useState(false);
+
+  const linkFilesToSales = useCallback((nextFiles: ImportedInvoice[], nextSales: InvoiceSale[]) => {
+    return nextFiles.map((file) => {
+      const linkedByUrl = nextSales.find((sale) => sale.fa_url && sale.fa_url.includes(`/invoices/${file.path}`));
+      const linkedByOrder = file.orderNumber
+        ? nextSales.find((sale) => saleMatchesOrder(sale, file.orderNumber as string))
+        : null;
+
+      return {
+        ...file,
+        linkedSale: linkedByUrl || linkedByOrder || null,
+      };
+    });
+  }, []);
+
+  const loadSales = useCallback(async () => {
+    const { data: userSales, error: salesError } = await supabase
+      .from('user_sales')
+      .select(`
+        id, user_id, name, size, price, payout, invoice_date, created_at, status, image_url,
+        external_id, sku, fa_url, contract_url, is_manual, manual_sale_items, profiles(email)
+      `)
+      .order('created_at', { ascending: false })
+      .limit(1000);
+
+    if (salesError) throw salesError;
+
+    const { data: eshopSales, error: eshopError } = await supabase
+      .from('eshop_sales')
+      .select(`
+        id, order_number, product_name, size, price, payout, status, image_url,
+        customer_email, sku, fa_url, order_created_at, created_at
+      `)
+      .order('created_at', { ascending: false })
+      .limit(1000);
+
+    if (eshopError) throw eshopError;
+
+    const normalizedUserSales = (userSales || []).map((sale: any) => ({
+      ...sale,
+      source: 'user_sales' as const,
+      user_email: sale.profiles?.email || 'N/A',
+    }));
+
+    const normalizedEshopSales = (eshopSales || []).map((sale: any) => ({
+      id: sale.id,
+      source: 'eshop_sales' as const,
+      name: sale.product_name,
+      size: sale.size,
+      price: Number(sale.price || 0),
+      payout: Number(sale.payout || 0),
+      invoice_date: sale.order_created_at || sale.created_at,
+      created_at: sale.created_at,
+      status: sale.status,
+      image_url: sale.image_url,
+      user_id: null,
+      user_email: sale.customer_email || 'Eshop',
+      sku: sale.sku,
+      external_id: sale.order_number,
+      fa_url: sale.fa_url,
+      contract_url: null,
+      is_manual: false,
+      manual_sale_items: null,
+      profiles: null,
+    }));
+
+    return [...normalizedEshopSales, ...normalizedUserSales] as InvoiceSale[];
+  }, []);
+
+  const loadFilesFromStorage = useCallback(async () => {
+    const folders: Array<'matched' | 'unmatched'> = ['matched', 'unmatched'];
+    const loaded: ImportedInvoice[] = [];
+
+    for (const folder of folders) {
+      const { data, error: listError } = await supabase.storage
+        .from('invoices')
+        .list(folder, {
+          limit: 100,
+          sortBy: { column: 'updated_at', order: 'desc' },
+        });
+
+      if (listError) throw listError;
+
+      for (const item of data || []) {
+        if (!item.name || item.name === '.emptyFolderPlaceholder') continue;
+        const path = `${folder}/${item.name}`;
+        const publicUrl = supabase.storage.from('invoices').getPublicUrl(path).data.publicUrl;
+        loaded.push({
+          id: path,
+          name: item.name,
+          path,
+          folder,
+          orderNumber: extractOrderNumber(item.name),
+          publicUrl,
+          updatedAt: item.updated_at || item.created_at || null,
+          size: Number(item.metadata?.size || 0),
+        });
+      }
+    }
+
+    return loaded;
+  }, []);
+
+  const loadFiles = useCallback(async () => {
+    const storageFiles = await loadFilesFromStorage();
+
+    const { data: documentRows, error: documentsError } = await supabase
+      .from('invoice_documents')
+      .select('id, storage_path, file_name, order_number, public_url, status, updated_at, imported_at, extracted_product, extracted_total, extracted_items, extraction_status, extraction_error')
+      .eq('document_type', 'fa')
+      .order('imported_at', { ascending: false })
+      .limit(250);
+
+    const tableIsMissing = documentsError && /invoice_documents|schema cache|does not exist|not found/i.test(documentsError.message || '');
+    if (documentsError && !tableIsMissing) throw documentsError;
+
+    const byPath = new Map<string, ImportedInvoice>();
+    storageFiles.forEach((file) => byPath.set(file.path, file));
+
+    if (!documentsError) {
+      (documentRows || []).forEach((row: any) => {
+        const path = row.storage_path;
+        if (!path) return;
+
+        const fallback = byPath.get(path);
+        const folder = path.startsWith('matched/') ? 'matched' : 'unmatched';
+        byPath.set(path, {
+          id: path,
+          name: row.file_name || fallback?.name || path.split('/').pop() || path,
+          path,
+          folder,
+          orderNumber: normalizeOrderNumber(row.order_number) || fallback?.orderNumber || extractOrderNumber(path),
+          publicUrl: row.public_url || fallback?.publicUrl || supabase.storage.from('invoices').getPublicUrl(path).data.publicUrl,
+          updatedAt: row.updated_at || row.imported_at || fallback?.updatedAt || null,
+          size: fallback?.size || 0,
+          extractedProduct: row.extracted_product || null,
+          extractedTotal: row.extracted_total !== null && row.extracted_total !== undefined ? Number(row.extracted_total) : null,
+          extractedItems: Array.isArray(row.extracted_items) ? row.extracted_items : [],
+          extractionStatus: row.extraction_status || null,
+          extractionError: row.extraction_error || null,
+          linkedSale: fallback?.linkedSale || null,
+        });
+      });
+    }
+
+    return Array.from(byPath.values()).sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime());
+  }, [loadFilesFromStorage]);
+
+  const loadPage = useCallback(async () => {
     try {
       setError(null);
       if (!refreshing) setLoading(true);
-
-      const { data, error } = await supabase
-        .from('user_sales')
-        .select(`
-          id, product_id, name, size, price, payout, invoice_date, created_at, status, image_url, external_id, sku,
-          contract_url, profiles(email)
-        `)
-        .not('invoice_date', 'is', null)
-        .order('invoice_date', { ascending: false });
-
-      if (error) throw error;
-
-      const enriched = (data || []).map((invoice: any) => ({
-        ...invoice,
-        user_email: invoice.profiles?.email || 'N/A',
-      }));
-
-      setInvoices(enriched);
-
+      const [nextSales, nextFiles] = await Promise.all([loadSales(), loadFiles()]);
+      setSales(nextSales);
+      setFiles(linkFilesToSales(nextFiles, nextSales));
     } catch (err: any) {
-      console.error('Error loading invoices:', err.message);
-      setError('Error loading invoices: ' + err.message);
+      setError(err.message || 'Error loading invoices');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [refreshing]);
+  }, [linkFilesToSales, loadFiles, loadSales, refreshing]);
+
+  useEffect(() => {
+    loadPage();
+  }, []);
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await loadInvoices();
+    await loadPage();
   };
 
   const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    window.location.href = '/';
+  };
+
+  const openAttachModal = (file: ImportedInvoice) => {
+    const suggestedSale = file.orderNumber
+      ? attachableSales.find((sale) => saleMatchesOrder(sale, file.orderNumber as string))
+      : null;
+    setAttachModalFile(file);
+    setAttachTarget(suggestedSale ? `${suggestedSale.source}:${suggestedSale.id}` : '');
+  };
+
+  const closeAttachModal = () => {
+    if (attachingPath) return;
+    setAttachModalFile(null);
+    setAttachTarget('');
+  };
+
+  const attachFileToSale = async () => {
+    if (!attachModalFile) return;
+    const target = attachTarget;
+    if (!target) {
+      showToast('Select sale first', 'error');
+      return;
+    }
+
     try {
-      await supabase.auth.signOut();
-      window.location.href = '/';
+      setAttachingPath(attachModalFile.id);
+      const [source, saleId] = target.split(':');
+      const { error: updateError } = await supabase
+        .from(source === 'eshop_sales' ? 'eshop_sales' : 'user_sales')
+        .update({ fa_url: attachModalFile.publicUrl, updated_at: new Date().toISOString() })
+        .eq('id', saleId);
+
+      if (updateError) throw updateError;
+
+      const now = new Date().toISOString();
+      const { error: documentError } = await supabase
+        .from('invoice_documents')
+        .upsert({
+          document_type: 'fa',
+          status: 'matched',
+          bucket: 'invoices',
+          storage_path: attachModalFile.path,
+          public_url: attachModalFile.publicUrl,
+          file_name: attachModalFile.name,
+          order_number: attachModalFile.orderNumber,
+          matched_target: source === 'eshop_sales' ? 'eshop_sales' : 'user_sales',
+          user_sale_id: source === 'user_sales' ? saleId : null,
+          eshop_sale_id: source === 'eshop_sales' ? saleId : null,
+          source: 'manual_attach',
+          updated_at: now,
+        }, { onConflict: 'storage_path' });
+
+      if (documentError) throw documentError;
+
+      showToast('Invoice attached', 'success');
+      setAttachModalFile(null);
+      setAttachTarget('');
+      await loadPage();
     } catch (err: any) {
-      console.error('Error signing out:', err.message);
+      showToast(err.message || 'Attach failed', 'error');
+    } finally {
+      setAttachingPath(null);
     }
   };
 
-  const handleRetry = () => {
-    setError(null);
-    loadInvoices();
+  const buildSellerAddress = (profile: any) => {
+    const addressBase = (profile.address || '').trim();
+    const houseNumber = (profile.popisne_cislo || '').trim();
+    const addressHasNumber = houseNumber && addressBase.toLowerCase().includes(houseNumber.toLowerCase());
+    const streetAndNumber = [addressBase, addressHasNumber ? '' : houseNumber].filter(Boolean).join(' ');
+    const parts = [];
+
+    if (streetAndNumber) parts.push(streetAndNumber);
+    if (profile.psc && profile.mesto) parts.push(`${profile.psc} ${profile.mesto}`);
+    else if (profile.mesto) parts.push(profile.mesto);
+    parts.push(profile.krajina || 'Slovakia');
+
+    return parts.join(', ');
   };
 
-  useEffect(() => {
-    loadInvoices();
-  }, []);
-
-  const filteredInvoices = invoices.filter((invoice) => {
-    // Search filter
-    if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase();
-      const matchesSearch = 
-        invoice.name?.toLowerCase().includes(searchLower) ||
-        invoice.external_id?.toLowerCase().includes(searchLower) ||
-        invoice.sku?.toLowerCase().includes(searchLower) ||
-        invoice.user_email?.toLowerCase().includes(searchLower);
-      if (!matchesSearch) return false;
+  const generateContractForSale = async (sale: InvoiceSale) => {
+    if (sale.source !== 'user_sales') {
+      showToast('Zmluvu vieme generovať len pre consign sale', 'error');
+      return;
     }
 
-    // Status filter
-    if (statusFilter && invoice.status !== statusFilter) {
-      return false;
-    }
+    try {
+      setGeneratingContractId(sale.id);
 
-    // User email filter
-    if (userEmailFilter) {
-      const emailLower = userEmailFilter.toLowerCase();
-      if (!invoice.user_email?.toLowerCase().includes(emailLower)) {
-        return false;
+      const { data: freshSale, error: freshSaleError } = await supabase
+        .from('user_sales')
+        .select('id, user_id, name, size, price, is_manual, payout, created_at, external_id, invoice_date, manual_sale_items')
+        .eq('id', sale.id)
+        .single();
+
+      if (freshSaleError || !freshSale) {
+        throw new Error(freshSaleError?.message || 'Failed to load sale data');
       }
-    }
 
-    // Date filters
-    if (dateFrom) {
-      const invoiceDate = new Date(invoice.invoice_date);
-      invoiceDate.setHours(0, 0, 0, 0);
-      const fromDate = new Date(dateFrom);
-      fromDate.setHours(0, 0, 0, 0);
-      if (invoiceDate < fromDate) return false;
-    }
-
-    if (dateTo) {
-      const invoiceDate = new Date(invoice.invoice_date);
-      invoiceDate.setHours(23, 59, 59, 999);
-      const toDate = new Date(dateTo);
-      toDate.setHours(23, 59, 59, 999);
-      if (invoiceDate > toDate) return false;
-    }
-
-    return true;
-  });
-
-  const sortedInvoices = useMemo(() => {
-    const sorted = [...filteredInvoices];
-    sorted.sort((a, b) => {
-      let cmp = 0;
-      switch (sortField) {
-        case 'price': cmp = a.price - b.price; break;
-        case 'payout': cmp = a.payout - b.payout; break;
-        case 'name': cmp = a.name.localeCompare(b.name); break;
-        case 'invoice_date':
-        default: cmp = new Date(a.invoice_date).getTime() - new Date(b.invoice_date).getTime(); break;
+      if (!freshSale.user_id) {
+        throw new Error('Sale nemá priradený profil predajcu');
       }
-      return sortDirection === 'desc' ? -cmp : cmp;
+
+      const { data: freshProfile, error: freshProfileError } = await supabase
+        .from('profiles')
+        .select('first_name, last_name, ico, address, popisne_cislo, psc, mesto, krajina, email, telephone, iban, signature_url')
+        .eq('id', freshSale.user_id)
+        .single();
+
+      if (freshProfileError || !freshProfile) {
+        throw new Error(freshProfileError?.message || 'Failed to load user profile');
+      }
+
+      const { data: adminSettings } = await supabase
+        .from('admin_settings')
+        .select('buyer_signature_url')
+        .single();
+
+      const contractDateISO = freshSale.invoice_date || freshSale.created_at || new Date().toISOString();
+      const pdfBlob = await generatePurchaseAgreement({
+        saleId: sale.id,
+        externalId: freshSale.external_id || undefined,
+        formId: sale.id,
+        productName: freshSale.name,
+        size: freshSale.size || '',
+        price: Number(freshSale.price || 0),
+        isManual: Boolean(freshSale.is_manual),
+        payout: Number(freshSale.payout || 0),
+        items: Array.isArray(freshSale.manual_sale_items) ? freshSale.manual_sale_items : undefined,
+        buyerName: 'Juraj Orlicky ml.',
+        buyerCIN: '55702660',
+        buyerAddress: 'Lysica 336, 013 05 Lysica, SLOVAKIA',
+        buyerEmail: 'info@airkicks.eu',
+        buyerSignatureUrl: adminSettings?.buyer_signature_url || undefined,
+        sellerName: freshProfile.first_name || '',
+        sellerSurname: freshProfile.last_name || '',
+        sellerCIN: freshProfile.ico || undefined,
+        sellerAddress: buildSellerAddress(freshProfile),
+        sellerEmail: freshProfile.email || sale.user_email,
+        sellerPhone: freshProfile.telephone || undefined,
+        sellerIBAN: freshProfile.iban || undefined,
+        sellerSignatureUrl: freshProfile.signature_url || undefined,
+        location: freshProfile.mesto || 'Slovakia',
+        saleDate: contractDateISO,
+      });
+
+      const storageFileId = freshSale.external_id || sale.id;
+      const url = await uploadContractToStorage(storageFileId, pdfBlob);
+
+      const { error: updateError } = await supabase
+        .from('user_sales')
+        .update({ contract_url: url, updated_at: new Date().toISOString() })
+        .eq('id', sale.id);
+
+      if (updateError) throw updateError;
+
+      showToast('Zmluva vygenerovaná', 'success');
+      await loadPage();
+    } catch (err: any) {
+      showToast(err.message || 'Generovanie zmluvy zlyhalo', 'error');
+    } finally {
+      setGeneratingContractId(null);
+    }
+  };
+
+  const openPayoutModal = (sale: InvoiceSale) => {
+    setPayoutModalSale(sale);
+    setPayoutDraft(String(sale.payout || 0));
+  };
+
+  const closePayoutModal = () => {
+    if (savingPayout) return;
+    setPayoutModalSale(null);
+    setPayoutDraft('');
+  };
+
+  const savePayoutForSale = async () => {
+    if (!payoutModalSale) return;
+
+    const payout = Number(payoutDraft.replace(',', '.'));
+
+    if (!Number.isFinite(payout) || payout < 0) {
+      showToast('Payout musí byť platné číslo', 'error');
+      return;
+    }
+
+    try {
+      setSavingPayout(true);
+      const now = new Date().toISOString();
+      const { error: updateError } = await supabase
+        .from(payoutModalSale.source === 'eshop_sales' ? 'eshop_sales' : 'user_sales')
+        .update({ payout, updated_at: now })
+        .eq('id', payoutModalSale.id);
+
+      if (updateError) throw updateError;
+
+      await supabase
+        .from('invoice_documents')
+        .update({ payout, updated_at: now })
+        .eq(payoutModalSale.source === 'eshop_sales' ? 'eshop_sale_id' : 'user_sale_id', payoutModalSale.id)
+        .eq('document_type', 'fa');
+
+      showToast('Payout uložený', 'success');
+      setPayoutModalSale(null);
+      setPayoutDraft('');
+      await loadPage();
+    } catch (err: any) {
+      showToast(err.message || 'Payout sa nepodarilo uložiť', 'error');
+    } finally {
+      setSavingPayout(false);
+    }
+  };
+
+  const q = query.toLowerCase().trim();
+
+  const salesWithFa = useMemo(() => {
+    return sales.filter((sale) => sale.fa_url);
+  }, [sales]);
+
+  const contractSales = useMemo(() => {
+    return sales.filter((sale) => sale.source === 'user_sales');
+  }, [sales]);
+
+  const generatedContractCount = useMemo(() => {
+    return contractSales.filter((sale) => sale.contract_url).length;
+  }, [contractSales]);
+
+  const visibleFiles = useMemo(() => {
+    return files.filter((file) => {
+      if (!q) return true;
+      return [
+        file.name,
+        file.path,
+        file.orderNumber,
+        file.extractedProduct,
+        file.extractedTotal !== null && file.extractedTotal !== undefined ? String(file.extractedTotal) : null,
+        file.linkedSale?.name,
+        file.linkedSale?.external_id,
+        file.linkedSale?.user_email,
+      ].some((field) => field?.toLowerCase().includes(q));
     });
-    return sorted;
-  }, [filteredInvoices, sortField, sortDirection]);
+  }, [files, q]);
 
-  const paginatedInvoices = useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage;
-    return sortedInvoices.slice(start, start + itemsPerPage);
-  }, [sortedInvoices, currentPage, itemsPerPage]);
+  const visibleSalesWithFa = useMemo(() => {
+    return salesWithFa.filter((sale) => {
+      if (!q) return true;
+      return [sale.name, sale.external_id, sale.sku, sale.user_email].some((field) => field?.toLowerCase().includes(q));
+    });
+  }, [salesWithFa, q]);
 
-  const toggleSort = (field: typeof sortField) => {
-    if (sortField === field) {
-      setSortDirection(d => d === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('desc');
-    }
-    setCurrentPage(1);
-  };
+  const visibleContractSales = useMemo(() => {
+    return contractSales.filter((sale) => {
+      if (!q) return true;
+      return [sale.name, sale.external_id, sale.sku, sale.user_email].some((field) => field?.toLowerCase().includes(q));
+    });
+  }, [contractSales, q]);
 
-  const SortIcon = ({ field }: { field: typeof sortField }) => {
-    if (sortField !== field) return null;
-    return sortDirection === 'desc' ? <FaSortAmountDown className="inline ml-1 text-[10px]" /> : <FaSortAmountUp className="inline ml-1 text-[10px]" />;
-  };
+  const attachableSales = useMemo(() => sales.slice(0, 500), [sales]);
+
+  const matchedInvoiceCount = files.filter((file) => file.linkedSale || file.folder === 'matched').length;
+  const documentsCount = files.length + contractSales.length;
+  const linkedDocumentsCount = matchedInvoiceCount + generatedContractCount;
+
+  const overviewCards = [
+    {
+      label: 'Dokumenty',
+      value: documentsCount,
+      detail: `${files.length} FA · ${contractSales.length} zmluvy`,
+      icon: FaFileInvoice,
+      tone: 'bg-pink-50 text-pink-600',
+      action: () => setViewMode('files'),
+    },
+    {
+      label: 'Faktúry',
+      value: files.length,
+      detail: `${matchedInvoiceCount} spárované`,
+      icon: FaFilePdf,
+      tone: 'bg-rose-50 text-rose-600',
+      action: () => setViewMode('files'),
+    },
+    {
+      label: 'Spárované',
+      value: linkedDocumentsCount,
+      detail: `${matchedInvoiceCount} FA · ${generatedContractCount} zmluvy`,
+      icon: FaCheckCircle,
+      tone: 'bg-emerald-50 text-emerald-600',
+      action: () => setViewMode('files'),
+    },
+    {
+      label: 'Zmluvy',
+      value: generatedContractCount,
+      detail: `${contractSales.length - generatedContractCount} treba vygenerovať`,
+      icon: FaFileContract,
+      tone: 'bg-indigo-50 text-indigo-600',
+      action: () => setViewMode('contracts'),
+    },
+  ];
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-gray-300 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-gray-300 border-t-pink-500" />
           <h3 className="text-lg font-semibold text-gray-900">Loading invoices...</h3>
         </div>
       </div>
@@ -203,15 +611,12 @@ export default function InvoicesPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="text-center max-w-md">
-          <FaExclamationTriangle className="text-red-500 text-4xl mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Error loading invoices</h3>
-          <p className="text-gray-600 mb-4">{error}</p>
-          <button
-            onClick={handleRetry}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+        <div className="max-w-md text-center">
+          <FaExclamationTriangle className="mx-auto mb-4 text-4xl text-red-500" />
+          <h3 className="mb-2 text-lg font-semibold text-gray-900">Error loading invoices</h3>
+          <p className="mb-4 text-gray-600">{error}</p>
+          <button onClick={loadPage} className="rounded-lg bg-pink-600 px-4 py-2 font-semibold text-white hover:bg-pink-700">
             Retry
           </button>
         </div>
@@ -221,34 +626,31 @@ export default function InvoicesPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 sticky top-0 z-40 shadow-lg">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-4">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center space-x-2 sm:space-x-4">
-              <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-pink-400 to-rose-500 rounded-2xl shadow-lg">
-                <FaFileInvoice className="text-white text-xl" />
+      <header className="sticky top-0 z-40 bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 shadow-lg">
+        <div className="mx-auto max-w-[1680px] px-3 py-3 sm:px-6 sm:py-4 lg:px-8">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-pink-400 to-rose-500 shadow-lg">
+                <FaFileInvoice className="text-xl text-white" />
               </div>
               <div>
-                <h1 className="text-lg sm:text-2xl font-bold text-white tracking-tight">
-                  Invoices
-                </h1>
-                <p className="text-xs sm:text-sm text-gray-400 hidden sm:block">Invoice management and overview</p>
+                <h1 className="text-xl font-bold tracking-tight text-white sm:text-2xl">Invoices</h1>
+                <p className="hidden text-sm text-gray-400 sm:block">FA, contracts a sales bez dokumentov</p>
               </div>
             </div>
 
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center gap-2">
               <button
                 onClick={handleRefresh}
                 disabled={refreshing}
-                className="inline-flex items-center px-3 py-2 bg-white/10 text-white font-medium rounded-xl hover:bg-white/20 transition-all border border-white/20 text-sm disabled:opacity-50"
+                className="inline-flex items-center rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm font-medium text-white hover:bg-white/20 disabled:opacity-50"
               >
-                <FaSync className={`sm:mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-                <span className="hidden sm:inline">{refreshing ? 'Refreshing...' : 'Refresh'}</span>
+                <FaSync className={refreshing ? 'animate-spin sm:mr-2' : 'sm:mr-2'} />
+                <span className="hidden sm:inline">Refresh</span>
               </button>
               <button
                 onClick={handleSignOut}
-                className="inline-flex items-center px-3 py-2 bg-white/10 text-white font-medium rounded-xl hover:bg-white/20 transition-all border border-white/20 text-sm"
+                className="inline-flex items-center rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm font-medium text-white hover:bg-white/20"
               >
                 <FaSignOutAlt className="sm:mr-2" />
                 <span className="hidden sm:inline">Sign Out</span>
@@ -258,329 +660,476 @@ export default function InvoicesPage() {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-3 sm:py-6 lg:py-8">
+      <main className="mx-auto max-w-[1680px] px-2 py-3 sm:px-4 sm:py-6 lg:px-8 lg:py-8">
         <AdminNavigation />
 
-        {/* Search and Filters */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm mb-4 sm:mb-6 p-3 sm:p-4">
-          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-3 sm:mb-4">
-            <div className="flex-1 relative">
-              <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm" />
-              <input
-                type="text"
-                placeholder="Search by name, ID, SKU, or email..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
-              />
-            </div>
+        <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          {overviewCards.map((card) => (
             <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={`inline-flex items-center justify-center px-4 py-2 rounded-lg font-medium transition-all ${
-                showFilters
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
+              key={card.label}
+              type="button"
+              onClick={card.action}
+              className="rounded-xl border border-gray-200 bg-white p-4 text-left shadow-sm transition-all hover:border-gray-300 hover:shadow-md"
             >
-              <FaFilter className="mr-2" />
-              Filters
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-500">{card.label}</p>
+                  <p className="mt-1 text-3xl font-bold tracking-tight text-gray-900">{card.value}</p>
+                  <p className="mt-1 truncate text-xs text-gray-500">{card.detail}</p>
+                </div>
+                <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl ${card.tone}`}>
+                  <card.icon />
+                </div>
+              </div>
             </button>
-          </div>
-
-          {showFilters && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 pt-3 sm:pt-4 border-t border-gray-200">
-              <div>
-                <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">
-                  Status
-                </label>
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-xs sm:text-sm"
-                >
-                  <option value="">All Statuses</option>
-                  <option value="accepted">Accepted</option>
-                  <option value="processing">Processing</option>
-                  <option value="shipped">Shipped</option>
-                  <option value="delivered">Delivered</option>
-                  <option value="completed">Completed</option>
-                  <option value="cancelled">Cancelled</option>
-                  <option value="returned">Returned</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">
-                  User Email
-                </label>
-                <input
-                  type="text"
-                  placeholder="Filter by email..."
-                  value={userEmailFilter}
-                  onChange={(e) => setUserEmailFilter(e.target.value)}
-                  className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-xs sm:text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">
-                  Date From
-                </label>
-                <input
-                  type="date"
-                  value={dateFrom}
-                  onChange={(e) => setDateFrom(e.target.value)}
-                  className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-xs sm:text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">
-                  Date To
-                </label>
-                <input
-                  type="date"
-                  value={dateTo}
-                  onChange={(e) => setDateTo(e.target.value)}
-                  className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-xs sm:text-sm"
-                />
-              </div>
-            </div>
-          )}
+          ))}
         </div>
 
-        {/* Invoices */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-          {/* Mobile Cards View */}
-          <div className="md:hidden">
-            {sortedInvoices.length === 0 ? (
-              <div className="px-4 py-16 text-center">
-                <FaFileInvoice className="text-gray-300 text-3xl mx-auto mb-3" />
-                <p className="text-gray-900 font-semibold mb-1">No invoices found</p>
-                <p className="text-gray-500 text-sm">
-                  {invoices.length === 0 ? 'No invoices have been created yet.' : 'Try adjusting your filters.'}
-                </p>
+        <InvoiceEmailImportPanel onImportComplete={loadPage} />
+
+        <section className="mb-4 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm sm:p-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setViewMode('files')}
+                className={`rounded-xl px-4 py-2 text-sm font-semibold ${viewMode === 'files' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+              >
+                Importované FA
+                <span className={`ml-2 rounded-full px-2 py-0.5 text-xs ${viewMode === 'files' ? 'bg-white/20 text-white' : 'bg-white text-gray-500'}`}>
+                  {files.length}
+                </span>
+              </button>
+              <button
+                onClick={() => setViewMode('missing')}
+                className={`rounded-xl px-4 py-2 text-sm font-semibold ${viewMode === 'missing' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+              >
+                Sales s FA
+                <span className={`ml-2 rounded-full px-2 py-0.5 text-xs ${viewMode === 'missing' ? 'bg-white/20 text-white' : 'bg-white text-gray-500'}`}>
+                  {salesWithFa.length}
+                </span>
+              </button>
+              <button
+                onClick={() => setViewMode('contracts')}
+                className={`rounded-xl px-4 py-2 text-sm font-semibold ${viewMode === 'contracts' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+              >
+                Zmluvy
+                <span className={`ml-2 rounded-full px-2 py-0.5 text-xs ${viewMode === 'contracts' ? 'bg-white/20 text-white' : 'bg-white text-gray-500'}`}>
+                  {contractSales.length}
+                </span>
+              </button>
+            </div>
+
+            <div className="relative lg:w-96">
+              <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400" />
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search order, PDF, sale, email..."
+                className="w-full rounded-xl border border-gray-300 py-2 pl-9 pr-3 text-sm focus:border-pink-400 focus:outline-none focus:ring-2 focus:ring-pink-100"
+              />
+            </div>
+          </div>
+        </section>
+
+        {viewMode === 'files' && (
+          <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+            <div className="border-b border-gray-200 px-4 py-4">
+              <h2 className="text-lg font-bold text-gray-900">Importované faktúry</h2>
+              <p className="text-sm text-gray-500">Matched faktúry sú spárované so sale. Unmatched vieš pripnúť ručne.</p>
+            </div>
+
+            {visibleFiles.length === 0 ? (
+              <div className="py-16 text-center">
+                <FaFilePdf className="mx-auto mb-3 text-4xl text-gray-300" />
+                <p className="font-semibold text-gray-900">No PDFs found</p>
               </div>
             ) : (
-              <div className="divide-y divide-gray-200">
-                {paginatedInvoices.map((invoice) => (
-                  <div key={invoice.id} className="p-3">
-                    <div className="flex items-start gap-3">
-                      {invoice.image_url && (
-                        <img
-                          loading="lazy"
-                          src={invoice.image_url}
-                          alt={invoice.name}
-                          className="w-12 h-12 rounded-lg object-cover flex-shrink-0"
-                        />
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <div className="text-sm font-medium text-gray-900 truncate">{invoice.name}</div>
-                            <div className="text-[10px] text-gray-500">
-                              {invoice.size} {invoice.sku && `• ${invoice.sku}`}
-                            </div>
+              <div className="divide-y divide-gray-100">
+                {visibleFiles.map((file) => {
+                  const linkedSale = file.linkedSale;
+                  const amountMismatch = Boolean(
+                    linkedSale &&
+                    file.extractedTotal !== null &&
+                    file.extractedTotal !== undefined &&
+                    Math.abs(Number(file.extractedTotal) - Number(linkedSale.price || 0)) > 0.01
+                  );
+                  return (
+                    <div key={file.id} className="p-4">
+                      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(420px,1fr)_320px] lg:items-center">
+                        <div className="flex min-w-0 gap-3">
+                          <div className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl ${linkedSale ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
+                            {linkedSale ? <FaCheckCircle /> : <FaUnlink />}
                           </div>
-                          <span className={`inline-flex items-center flex-shrink-0 px-2 py-1 rounded-full text-[10px] font-medium ${
-                            invoice.status === 'completed' ? 'bg-green-100 text-green-800' :
-                            invoice.status === 'delivered' ? 'bg-indigo-100 text-indigo-800' :
-                            invoice.status === 'shipped' ? 'bg-purple-100 text-purple-800' :
-                            invoice.status === 'processing' ? 'bg-yellow-100 text-yellow-800' :
-                            invoice.status === 'accepted' ? 'bg-blue-100 text-blue-800' :
-                            invoice.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                            invoice.status === 'returned' ? 'bg-orange-100 text-orange-800' :
-                            'bg-gray-100 text-gray-800'
-                          }`}>
-                            {invoice.status}
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="truncate text-sm font-bold text-gray-900">{file.name}</p>
+                              <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${linkedSale ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                {linkedSale ? 'matched' : 'unmatched'}
+                              </span>
+                            </div>
+                            <p className="mt-1 text-xs text-gray-500">
+                              Order {file.orderNumber || '-'} · {formatFileSize(file.size)} · {file.updatedAt ? formatDateShort(file.updatedAt) : '-'}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="grid min-h-[64px] min-w-0 gap-3 rounded-xl bg-gray-50 px-4 py-3 sm:grid-cols-2">
+                          {linkedSale ? (
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold text-gray-900">{linkedSale.name}</p>
+                              <p className="mt-0.5 text-xs text-gray-500">
+                                {linkedSale.user_email} · {linkedSale.external_id || 'No order'} · sale {formatCurrency(linkedSale.price || 0)}
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-gray-900">Nie je pripnuté k sale</p>
+                              <p className="mt-0.5 text-xs text-gray-500">
+                                {file.orderNumber ? `Order ${file.orderNumber}` : 'Bez order number'}
+                              </p>
+                            </div>
+                          )}
+
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="truncate text-sm font-semibold text-gray-900">
+                                {file.extractedProduct || 'PDF produkt nezistený'}
+                              </p>
+                              {file.extractionStatus === 'error' && (
+                                <span className="rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-semibold text-red-700">PDF error</span>
+                              )}
+                              {file.extractionStatus === 'empty' && (
+                                <span className="rounded-full bg-gray-200 px-2 py-0.5 text-[11px] font-semibold text-gray-700">bez textu</span>
+                              )}
+                            </div>
+                            <p className={`mt-0.5 text-xs ${amountMismatch ? 'font-semibold text-amber-700' : 'text-gray-500'}`}>
+                              PDF suma {file.extractedTotal !== null && file.extractedTotal !== undefined ? formatCurrency(file.extractedTotal) : '-'}
+                              {amountMismatch ? ' · nesedí so sale' : ''}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="grid w-full grid-cols-1 gap-2 sm:w-[320px] sm:grid-cols-2 lg:justify-self-end">
+                          <a
+                            href={file.publicUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                          >
+                            Otvoriť PDF <FaExternalLinkAlt className="ml-2 text-xs" />
+                          </a>
+                          {!linkedSale && (
+                            <button
+                              onClick={() => openAttachModal(file)}
+                              className="inline-flex min-h-[44px] items-center justify-center rounded-lg bg-gray-900 px-3 py-2 text-sm font-semibold text-white hover:bg-gray-800"
+                            >
+                              <FaLink className="mr-2 text-xs" />
+                              Pripnúť
+                            </button>
+                          )}
+                          {linkedSale && <div className="hidden sm:block" />}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        )}
+
+        {viewMode === 'missing' && (
+          <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+            <div className="border-b border-gray-200 px-4 py-4">
+              <h2 className="text-lg font-bold text-gray-900">Sales s FA</h2>
+              <p className="text-sm text-gray-500">Sales, ktoré už majú pripojenú faktúru.</p>
+            </div>
+
+            {visibleSalesWithFa.length === 0 ? (
+              <div className="py-16 text-center">
+                <FaFilePdf className="mx-auto mb-3 text-4xl text-gray-300" />
+                <p className="font-semibold text-gray-900">No sales with FA</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-100">
+                {visibleSalesWithFa.map((sale) => (
+                  <div key={sale.id} className="p-4">
+                    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px_260px] lg:items-center">
+                      <div className="flex min-w-0 gap-3">
+                        {sale.image_url ? (
+                          <img src={sale.image_url} alt={sale.name} loading="lazy" className="h-12 w-12 flex-shrink-0 rounded-xl object-cover" />
+                        ) : (
+                          <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-400">
+                            <FaFileInvoice />
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-bold text-gray-900">{sale.name}</p>
+                          <p className="mt-0.5 text-xs text-gray-500">
+                            {sale.size || '-'} · {sale.sku || '-'} · {sale.user_email}
+                          </p>
+                          <p className="mt-1 font-mono text-xs text-gray-500">
+                            {sale.external_id || sale.id.slice(0, 8)} · {formatDateShort(sale.invoice_date || sale.created_at)}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-3 text-sm">
+                        <div>
+                          <p className="text-xs text-gray-500">Price</p>
+                          <p className="font-bold text-gray-900">{formatCurrency(sale.price || 0)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500">Payout</p>
+                          <p className="font-bold text-gray-900">{formatCurrency(sale.payout || 0)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500">Status</p>
+                          <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusBadge(sale.status)}`}>
+                            {sale.status}
                           </span>
                         </div>
-                        <div className="mt-2 grid grid-cols-2 gap-x-2 gap-y-1 text-xs text-gray-600">
-                          <div>Date: <span className="text-gray-900">{formatDateShort(invoice.invoice_date)}</span></div>
-                          <div className="font-mono truncate">ID: {invoice.external_id || invoice.id.slice(0, 8)}</div>
-                          <div className="truncate">User: {invoice.user_email}</div>
-                          <div>Price: <span className="font-semibold text-gray-900">{formatCurrency(invoice.price)}</span></div>
-                          <div>Payout: <span className="font-semibold text-gray-600">{formatCurrency(invoice.payout)}</span></div>
-                          <div>
-                            {invoice.contract_url ? (
-                              <a
-                                href={invoice.contract_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center text-blue-600 hover:text-blue-800"
-                              >
-                                <FaFilePdf className="mr-1" /> Contract
-                              </a>
-                            ) : (
-                              <span className="text-gray-400">No contract</span>
-                            )}
-                          </div>
-                        </div>
+                      </div>
+
+                      <div className="grid w-full grid-cols-1 gap-2 sm:w-[260px] lg:justify-self-end">
+                        <button
+                          onClick={() => openPayoutModal(sale)}
+                          className="inline-flex min-h-[44px] items-center justify-center rounded-lg bg-gray-900 px-3 py-2 text-sm font-semibold text-white hover:bg-gray-800"
+                        >
+                          Upraviť payout
+                        </button>
+                        {sale.fa_url && (
+                          <a
+                            href={sale.fa_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                          >
+                            Otvoriť FA <FaExternalLinkAlt className="ml-2 text-xs" />
+                          </a>
+                        )}
                       </div>
                     </div>
                   </div>
                 ))}
               </div>
             )}
-          </div>
+          </section>
+        )}
 
-          {/* Desktop Table View */}
-          <div className="hidden md:block overflow-x-auto">
-            <table className="w-full min-w-[700px]">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th
-                    className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                    onClick={() => toggleSort('invoice_date')}
-                  >
-                    Invoice Date <SortIcon field="invoice_date" />
-                  </th>
-                  <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    ID
-                  </th>
-                  <th
-                    className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                    onClick={() => toggleSort('name')}
-                  >
-                    Product <SortIcon field="name" />
-                  </th>
-                  <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    User
-                  </th>
-                  <th
-                    className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                    onClick={() => toggleSort('price')}
-                  >
-                    Price <SortIcon field="price" />
-                  </th>
-                  <th
-                    className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                    onClick={() => toggleSort('payout')}
-                  >
-                    Payout <SortIcon field="payout" />
-                  </th>
-                  <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Contract
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {sortedInvoices.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="px-4 py-16 text-center">
-                      <FaFileInvoice className="text-gray-300 text-3xl mx-auto mb-3" />
-                      <p className="text-gray-900 font-semibold mb-1">No invoices found</p>
-                      <p className="text-gray-500 text-sm">
-                        {invoices.length === 0 ? 'No invoices have been created yet.' : 'Try adjusting your filters.'}
-                      </p>
-                    </td>
-                  </tr>
-                ) : (
-                  paginatedInvoices.map((invoice) => (
-                    <tr key={invoice.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-3 sm:px-4 py-3 whitespace-nowrap text-xs sm:text-sm text-gray-900">
-                        {formatDateShort(invoice.invoice_date)}
-                      </td>
-                      <td className="px-3 sm:px-4 py-3 whitespace-nowrap text-xs sm:text-sm text-gray-900 font-mono">
-                        {invoice.external_id || invoice.id.slice(0, 8)}
-                      </td>
-                      <td className="px-3 sm:px-4 py-3">
-                        <div className="flex items-center space-x-2 sm:space-x-3">
-                          {invoice.image_url && (
-                            <img
-                              loading="lazy"
-                              src={invoice.image_url}
-                              alt={invoice.name}
-                              className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg object-cover flex-shrink-0"
-                            />
-                          )}
-                          <div className="min-w-0">
-                            <div className="text-xs sm:text-sm font-medium text-gray-900 truncate">
-                              {invoice.name}
-                            </div>
-                            <div className="text-[10px] sm:text-xs text-gray-500">
-                              {invoice.size} {invoice.sku && `• ${invoice.sku}`}
-                            </div>
+        {viewMode === 'contracts' && (
+          <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+            <div className="border-b border-gray-200 px-4 py-4">
+              <h2 className="text-lg font-bold text-gray-900">Zmluvy</h2>
+              <p className="text-sm text-gray-500">Všetky consign sales. Hotové zmluvy otvoríš, chýbajúce vygeneruješ.</p>
+            </div>
+
+            {visibleContractSales.length === 0 ? (
+              <div className="py-16 text-center">
+                <FaFileContract className="mx-auto mb-3 text-4xl text-gray-300" />
+                <p className="font-semibold text-gray-900">No sales found</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-100">
+                {visibleContractSales.map((sale) => (
+                  <div key={sale.id} className="p-4">
+                    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px_220px] lg:items-center">
+                      <div className="flex min-w-0 gap-3">
+                        {sale.image_url ? (
+                          <img src={sale.image_url} alt={sale.name} loading="lazy" className="h-12 w-12 flex-shrink-0 rounded-xl object-cover" />
+                        ) : (
+                          <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-400">
+                            <FaFileContract />
                           </div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-bold text-gray-900">{sale.name}</p>
+                          <p className="mt-0.5 text-xs text-gray-500">
+                            {sale.size || '-'} · {sale.sku || '-'} · {sale.user_email}
+                          </p>
+                          <p className="mt-1 font-mono text-xs text-gray-500">
+                            {sale.external_id || sale.id.slice(0, 8)} · {formatDateShort(sale.invoice_date || sale.created_at)}
+                          </p>
                         </div>
-                      </td>
-                      <td className="px-3 sm:px-4 py-3 whitespace-nowrap text-xs sm:text-sm text-gray-600">
-                        {invoice.user_email}
-                      </td>
-                      <td className="px-3 sm:px-4 py-3 whitespace-nowrap text-xs sm:text-sm font-semibold text-gray-900">
-                        {formatCurrency(invoice.price)}
-                      </td>
-                      <td className="px-3 sm:px-4 py-3 whitespace-nowrap text-xs sm:text-sm font-semibold text-gray-600">
-                        {formatCurrency(invoice.payout)}
-                      </td>
-                      <td className="px-3 sm:px-4 py-3 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-[10px] sm:text-xs font-medium ${
-                          invoice.status === 'completed' ? 'bg-green-100 text-green-800' :
-                          invoice.status === 'delivered' ? 'bg-indigo-100 text-indigo-800' :
-                          invoice.status === 'shipped' ? 'bg-purple-100 text-purple-800' :
-                          invoice.status === 'processing' ? 'bg-yellow-100 text-yellow-800' :
-                          invoice.status === 'accepted' ? 'bg-blue-100 text-blue-800' :
-                          invoice.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                          invoice.status === 'returned' ? 'bg-orange-100 text-orange-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                          {invoice.status}
-                        </span>
-                      </td>
-                      <td className="px-3 sm:px-4 py-3 whitespace-nowrap">
-                        {invoice.contract_url ? (
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div>
+                          <p className="text-xs text-gray-500">Price</p>
+                          <p className="font-bold text-gray-900">{formatCurrency(sale.price || 0)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500">Payout</p>
+                          <p className="font-bold text-gray-900">{formatCurrency(sale.payout || 0)}</p>
+                        </div>
+                        <div className="col-span-2">
+                          <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${sale.contract_url ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                            {sale.contract_url ? 'zmluva hotová' : 'bez zmluvy'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="grid w-full grid-cols-1 gap-2 sm:w-[220px] lg:justify-self-end">
+                        {sale.contract_url ? (
                           <a
-                            href={invoice.contract_url}
+                            href={sale.contract_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center text-blue-600 hover:text-blue-800 text-xs sm:text-sm"
+                            className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
                           >
-                            <FaFilePdf className="mr-1" />
-                            <span className="hidden sm:inline">View</span>
+                            Otvoriť zmluvu <FaExternalLinkAlt className="ml-2 text-xs" />
                           </a>
                         ) : (
-                          <span className="text-gray-400 text-xs sm:text-sm">—</span>
+                          <button
+                            onClick={() => generateContractForSale(sale)}
+                            disabled={generatingContractId === sale.id}
+                            className="inline-flex min-h-[44px] items-center justify-center rounded-lg bg-gray-900 px-3 py-2 text-sm font-semibold text-white hover:bg-gray-800 disabled:opacity-50"
+                          >
+                            <FaFileContract className="mr-2 text-xs" />
+                            {generatingContractId === sale.id ? 'Generujem...' : 'Vygenerovať'}
+                          </button>
                         )}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+      </main>
 
-          {/* Pagination + Summary */}
-          {sortedInvoices.length > 0 && (
-            <div className="bg-gray-50 px-3 sm:px-4 py-3 border-t border-gray-200 space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 text-xs sm:text-sm">
-                <div className="flex items-center space-x-4 text-gray-600">
-                  <div>
-                    Total Revenue: <span className="font-semibold text-gray-900">
-                      {formatCurrency(filteredInvoices.reduce((sum, inv) => sum + inv.price, 0))}
-                    </span>
-                  </div>
-                  <div>
-                    Total Payout: <span className="font-semibold text-gray-900">
-                      {formatCurrency(filteredInvoices.reduce((sum, inv) => sum + inv.payout, 0))}
-                    </span>
-                  </div>
+      {attachModalFile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 p-4">
+          <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-start justify-between gap-4 border-b border-gray-200 px-5 py-4">
+              <div className="min-w-0">
+                <h2 className="text-lg font-bold text-gray-900">Pripnúť faktúru</h2>
+                <p className="mt-1 truncate text-sm text-gray-500">
+                  {attachModalFile.name} · {attachModalFile.orderNumber ? `Order ${attachModalFile.orderNumber}` : 'Bez order number'}
+                </p>
+              </div>
+              <button
+                onClick={closeAttachModal}
+                className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+                aria-label="Zavrieť"
+              >
+                <FaTimes />
+              </button>
+            </div>
+
+            <div className="px-5 py-4">
+              <label className="mb-2 block text-sm font-semibold text-gray-900">Sale</label>
+              <select
+                value={attachTarget}
+                onChange={(event) => setAttachTarget(event.target.value)}
+                className="w-full rounded-xl border border-gray-300 px-3 py-3 text-sm focus:border-pink-400 focus:outline-none focus:ring-2 focus:ring-pink-100"
+              >
+                <option value="">Vyber sale...</option>
+                {attachableSales.map((sale) => (
+                  <option key={`${sale.source}:${sale.id}`} value={`${sale.source}:${sale.id}`}>
+                    {sale.external_id || sale.id.slice(0, 8)} · {sale.source === 'eshop_sales' ? 'Eshop' : 'Consign'} · {sale.name} · {sale.user_email}
+                  </option>
+                ))}
+              </select>
+
+              <div className="mt-4 rounded-xl bg-gray-50 px-3 py-3 text-sm text-gray-600">
+                Po pripnutí sa faktúra uloží k vybranému sale do FA URL.
+              </div>
+            </div>
+
+            <div className="flex flex-col-reverse gap-2 border-t border-gray-200 px-5 py-4 sm:flex-row sm:justify-end">
+              <button
+                onClick={closeAttachModal}
+                disabled={Boolean(attachingPath)}
+                className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Zrušiť
+              </button>
+              <button
+                onClick={attachFileToSale}
+                disabled={Boolean(attachingPath) || !attachTarget}
+                className="inline-flex items-center justify-center rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800 disabled:opacity-50"
+              >
+                <FaLink className="mr-2 text-xs" />
+                {attachingPath ? 'Pripínam...' : 'Pripnúť'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {payoutModalSale && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 p-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-start justify-between gap-4 border-b border-gray-200 px-5 py-4">
+              <div className="min-w-0">
+                <h2 className="text-lg font-bold text-gray-900">Upraviť payout</h2>
+                <p className="mt-1 truncate text-sm text-gray-500">
+                  {payoutModalSale.external_id || payoutModalSale.id.slice(0, 8)} · {payoutModalSale.name}
+                </p>
+              </div>
+              <button
+                onClick={closePayoutModal}
+                className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+                aria-label="Zavrieť"
+              >
+                <FaTimes />
+              </button>
+            </div>
+
+            <div className="space-y-4 px-5 py-4">
+              <div className="grid grid-cols-2 gap-3 rounded-xl bg-gray-50 px-3 py-3 text-sm">
+                <div>
+                  <p className="text-xs text-gray-500">Sale price</p>
+                  <p className="font-bold text-gray-900">{formatCurrency(payoutModalSale.price || 0)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Aktuálny payout</p>
+                  <p className="font-bold text-gray-900">{formatCurrency(payoutModalSale.payout || 0)}</p>
                 </div>
               </div>
-              <Pagination
-                currentPage={currentPage}
-                totalItems={sortedInvoices.length}
-                itemsPerPage={itemsPerPage}
-                onPageChange={setCurrentPage}
-                onItemsPerPageChange={(n) => { setItemsPerPage(n); setCurrentPage(1); }}
-              />
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-900">Nový payout</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={payoutDraft}
+                    onChange={(event) => setPayoutDraft(event.target.value)}
+                    className="w-full rounded-xl border border-gray-300 px-3 py-3 pr-12 text-base font-semibold text-gray-900 focus:border-pink-400 focus:outline-none focus:ring-2 focus:ring-pink-100"
+                    autoFocus
+                  />
+                  <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-500">EUR</span>
+                </div>
+              </div>
+
+              <div className="rounded-xl bg-gray-50 px-3 py-3 text-sm text-gray-600">
+                Ukladá sa priamo do sale. Ak je faktúra zaevidovaná v importe, uloží sa tam aj payout snapshot pre prehľad.
+              </div>
             </div>
-          )}
+
+            <div className="flex flex-col-reverse gap-2 border-t border-gray-200 px-5 py-4 sm:flex-row sm:justify-end">
+              <button
+                onClick={closePayoutModal}
+                disabled={savingPayout}
+                className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Zrušiť
+              </button>
+              <button
+                onClick={savePayoutForSale}
+                disabled={savingPayout}
+                className="inline-flex items-center justify-center rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800 disabled:opacity-50"
+              >
+                {savingPayout ? 'Ukladám...' : 'Uložiť payout'}
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
-

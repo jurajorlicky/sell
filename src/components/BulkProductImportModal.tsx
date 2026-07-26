@@ -28,7 +28,7 @@ interface MatchedProduct {
     image_url: string | null;
     sku: string;
   } | null;
-  status: 'matched' | 'not_found' | 'error' | 'duplicate';
+  status: 'matched' | 'not_found' | 'error';
   error?: string;
 }
 
@@ -174,28 +174,11 @@ export default function BulkProductImportModal({ isOpen, onClose, userId, userEm
         }
       });
 
-      // Check existing user_products for duplicates
-      const { data: existingProducts } = await supabase
-        .from('user_products')
-        .select('product_id, size')
-        .eq('user_id', userId)
-        .or('expires_at.is.null,expires_at.gt.' + new Date().toISOString());
-
-      const existingSet = new Set(
-        (existingProducts || []).map(ep => `${ep.product_id}|${ep.size}`)
-      );
-
       // Match each row
       const matched: MatchedProduct[] = rows.map(row => {
         const product = skuMap.get(row.sku.toLowerCase());
         if (!product) {
           return { row, product: null, status: 'not_found' as const, error: 'Product not found for this SKU' };
-        }
-
-        // Check if this product+size combo already exists for this user
-        const key = `${product.id}|${row.size}`;
-        if (existingSet.has(key)) {
-          return { row, product, status: 'duplicate' as const, error: 'User already has this product+size listed' };
         }
 
         return { row, product, status: 'matched' as const };
@@ -237,7 +220,7 @@ export default function BulkProductImportModal({ isOpen, onClose, userId, userEm
           sku: m.row.sku,
           size: m.row.size,
           price: m.row.price,
-          status: m.status === 'not_found' ? 'Not found' : 'Duplicate',
+          status: m.status === 'not_found' ? 'Not found' : 'Skipped',
           message: m.error || '',
         });
       });
@@ -327,7 +310,6 @@ export default function BulkProductImportModal({ isOpen, onClose, userId, userEm
 
   const matchedCount = matchedProducts.filter(m => m.status === 'matched').length;
   const notFoundCount = matchedProducts.filter(m => m.status === 'not_found').length;
-  const duplicateCount = matchedProducts.filter(m => m.status === 'duplicate').length;
 
   if (!isOpen) return null;
 
@@ -410,7 +392,7 @@ export default function BulkProductImportModal({ isOpen, onClose, userId, userEm
               ) : (
                 <>
                   {/* Summary Cards */}
-                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                  <div className="grid grid-cols-2 gap-2 sm:gap-3">
                     <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-center">
                       <p className="text-2xl font-bold text-green-700">{matchedCount}</p>
                       <p className="text-xs text-green-600 font-medium">Matched</p>
@@ -419,11 +401,10 @@ export default function BulkProductImportModal({ isOpen, onClose, userId, userEm
                       <p className="text-2xl font-bold text-red-700">{notFoundCount}</p>
                       <p className="text-xs text-red-600 font-medium">Not found</p>
                     </div>
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 text-center">
-                      <p className="text-2xl font-bold text-yellow-700">{duplicateCount}</p>
-                      <p className="text-xs text-yellow-600 font-medium">Duplicates</p>
-                    </div>
                   </div>
+                  <p className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800">
+                    Repeated product and size rows are allowed. Each matched row creates a separate offer.
+                  </p>
 
                   {/* Table */}
                   <div className="grid gap-2 sm:hidden">
@@ -432,8 +413,7 @@ export default function BulkProductImportModal({ isOpen, onClose, userId, userEm
                         key={idx}
                         className={`rounded-xl border p-3 ${
                           m.status === 'matched' ? 'border-green-200 bg-white' :
-                          m.status === 'not_found' ? 'border-red-200 bg-red-50' :
-                          'border-yellow-200 bg-yellow-50'
+                          'border-red-200 bg-red-50'
                         }`}
                       >
                         <div className="flex items-start justify-between gap-3">
@@ -444,10 +424,9 @@ export default function BulkProductImportModal({ isOpen, onClose, userId, userEm
                           </div>
                           <span className={`inline-flex flex-shrink-0 items-center rounded-full px-2 py-1 text-[10px] font-medium ${
                             m.status === 'matched' ? 'bg-green-100 text-green-800' :
-                            m.status === 'not_found' ? 'bg-red-100 text-red-800' :
-                            'bg-yellow-100 text-yellow-800'
+                            'bg-red-100 text-red-800'
                           }`}>
-                            {m.status === 'matched' ? 'Ready' : m.status === 'not_found' ? 'Not found' : 'Duplicate'}
+                            {m.status === 'matched' ? 'Ready' : 'Not found'}
                           </span>
                         </div>
                         <p className="mt-2 text-xs text-gray-700 break-words">{m.product?.name || '-'}</p>
@@ -472,8 +451,7 @@ export default function BulkProductImportModal({ isOpen, onClose, userId, userEm
                           {matchedProducts.map((m, idx) => (
                             <tr key={idx} className={
                               m.status === 'matched' ? 'bg-white' :
-                              m.status === 'not_found' ? 'bg-red-50' :
-                              'bg-yellow-50'
+                              'bg-red-50'
                             }>
                               <td className="px-3 py-2 text-xs text-gray-500">{m.row.rowIndex}</td>
                               <td className="px-3 py-2 text-xs font-mono text-gray-900">{m.row.sku}</td>
@@ -491,11 +469,6 @@ export default function BulkProductImportModal({ isOpen, onClose, userId, userEm
                                 {m.status === 'not_found' && (
                                   <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-red-100 text-red-800">
                                     <FaExclamationTriangle className="mr-1" /> Not found
-                                  </span>
-                                )}
-                                {m.status === 'duplicate' && (
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-yellow-100 text-yellow-800">
-                                    Duplicate
                                   </span>
                                 )}
                               </td>

@@ -24,6 +24,12 @@ interface IProfile {
   discord: string;
 }
 
+const normalizeBusinessVatType = (value?: string | null): 'NO_VAT' | 'VAT_PAYER' => {
+  return value === 'VAT_PAYER' || value === 'VAT 0%' ? 'VAT_PAYER' : 'NO_VAT';
+};
+
+const selectInputClass = 'block w-full appearance-none rounded-xl border border-slate-300 bg-white px-3 py-2.5 pr-10 text-sm font-medium text-slate-900 shadow-sm transition focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10 sm:px-4 sm:py-3 sm:text-base';
+
 export default function Profile() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -126,7 +132,7 @@ export default function Profile() {
               first_name: profileData.first_name || '',
               last_name: profileData.last_name || '',
               profile_type: profileData.profile_type || 'Personal',
-              vat_type: profileData.vat_type || '',
+              vat_type: profileData.profile_type === 'Business' ? normalizeBusinessVatType(profileData.vat_type) : 'PRIVATE',
               company_name: profileData.company_name || '',
               ico: profileData.ico || '',
               vat_number: profileData.vat_number || '',
@@ -233,13 +239,13 @@ export default function Profile() {
       setError('When selecting Business, company name is required.');
       return;
     }
+    if (profile.profile_type === 'Business' && !profile.ico) {
+      setError('Business profile requires company registration number (IČO).');
+      return;
+    }
     if (profile.profile_type === 'Business') {
-      if (profile.vat_type === 'MARGIN' && !profile.ico) {
-        setError('When selecting MARGIN, company registration number (IČO) is required.');
-        return;
-      }
-      if (profile.vat_type === 'VAT 0%' && (!profile.ico || !profile.vat_number)) {
-        setError('When selecting VAT 0%, company registration number (IČO) and VAT number are required.');
+      if (profile.vat_type === 'VAT_PAYER' && !profile.vat_number) {
+        setError('VAT number is required for VAT payer business profile.');
         return;
       }
     }
@@ -255,10 +261,10 @@ export default function Profile() {
         first_name: profile.first_name,
         last_name: profile.last_name,
         profile_type: profile.profile_type,
-        vat_type: profile.vat_type,
+        vat_type: profile.profile_type === 'Business' ? normalizeBusinessVatType(profile.vat_type) : 'PRIVATE',
         company_name: profile.profile_type === 'Business' ? profile.company_name : null,
         ico: profile.profile_type === 'Business' ? profile.ico : null,
-        vat_number: profile.vat_type === 'VAT 0%' ? profile.vat_number : null,
+        vat_number: profile.profile_type === 'Business' && profile.vat_type === 'VAT_PAYER' ? profile.vat_number : null,
         address: profile.address,
         popisne_cislo: profile.popisne_cislo,
         psc: profile.psc,
@@ -558,7 +564,7 @@ export default function Profile() {
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-sm border-b border-slate-200/50 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-4">
+        <div className="mx-auto max-w-[1680px] px-3 sm:px-6 lg:px-8 py-3 sm:py-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-2 sm:space-x-4">
               <div className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-slate-900 to-slate-700 rounded-xl">
@@ -763,7 +769,9 @@ export default function Profile() {
                     <FaBuilding className="text-slate-400 mr-2 sm:mr-3 flex-shrink-0" />
                     <div>
                       <p className="text-xs sm:text-sm font-medium text-slate-600">VAT Type</p>
-                      <p className="text-sm sm:text-base text-slate-900 font-semibold">{profile.vat_type || '—'}</p>
+                    <p className="text-sm sm:text-base text-slate-900 font-semibold">
+                      {normalizeBusinessVatType(profile.vat_type) === 'VAT_PAYER' ? 'VAT payer' : 'No VAT payer'}
+                    </p>
                     </div>
                   </div>
                   <div className="flex items-center">
@@ -773,7 +781,7 @@ export default function Profile() {
                       <p className="text-sm sm:text-base text-slate-900 font-semibold">{profile.ico || '—'}</p>
                     </div>
                   </div>
-                  {profile.vat_type === 'VAT 0%' && (
+                  {profile.vat_type === 'VAT_PAYER' && (
                     <div className="flex items-center">
                       <FaBuilding className="text-slate-400 mr-2 sm:mr-3 flex-shrink-0" />
                       <div>
@@ -919,23 +927,30 @@ export default function Profile() {
 
                   <div>
                     <label htmlFor="profile_type" className="block text-sm font-semibold text-slate-700 mb-2">
-                      Profile Type
+                      Account type
                     </label>
-                    <select
-                      id="profile_type"
-                      value={profile.profile_type}
-                      onChange={(e) => setProfile({ ...profile, profile_type: e.target.value as 'Personal' | 'Business', vat_type: e.target.value === 'Personal' ? 'PRIVATE' : '' })}
-                      className="block w-full px-4 py-3 border border-slate-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
-                    >
-                      <option value="Personal">Personal</option>
-                      <option value="Business">Business</option>
-                    </select>
+                    <div className="relative">
+                      <select
+                        id="profile_type"
+                        value={profile.profile_type}
+                        onChange={(e) => setProfile({ ...profile, profile_type: e.target.value as 'Personal' | 'Business', vat_type: e.target.value === 'Personal' ? 'PRIVATE' : normalizeBusinessVatType(profile.vat_type) })}
+                        className={selectInputClass}
+                      >
+                        <option value="Personal">Personal</option>
+                        <option value="Business">Business</option>
+                      </select>
+                      <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-400">
+                        <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                          <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                        </svg>
+                      </span>
+                    </div>
                   </div>
 
                   {profile.profile_type === 'Business' && (
                     <div>
                       <label htmlFor="company_name" className="block text-sm font-semibold text-slate-700 mb-2">
-                        Company Name
+                        Company name
                       </label>
                       <input
                         type="text"
@@ -951,18 +966,25 @@ export default function Profile() {
                   {profile.profile_type === 'Business' && (
                     <div>
                       <label htmlFor="vat_type" className="block text-sm font-semibold text-slate-700 mb-2">
-                        VAT Type
+                        VAT payer status
                       </label>
-                      <select
-                        id="vat_type"
-                        value={profile.vat_type}
-                        onChange={(e) => setProfile({ ...profile, vat_type: e.target.value })}
-                        className="block w-full px-4 py-3 border border-slate-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
-                      >
-                        <option value="">Select type</option>
-                        <option value="MARGIN">MARGIN</option>
-                        <option value="VAT 0%">VAT 0%</option>
-                      </select>
+                      <div className="relative">
+                        <select
+                          id="vat_type"
+                          value={profile.vat_type}
+                          onChange={(e) => setProfile({ ...profile, vat_type: e.target.value })}
+                          className={selectInputClass}
+                        >
+                          <option value="NO_VAT">No VAT payer</option>
+                          <option value="VAT_PAYER">VAT payer</option>
+                        </select>
+                        <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-400">
+                          <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                            <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                          </svg>
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-slate-500">VAT payer can choose Margin or VAT0 on each listing. No VAT payer listings use Margin automatically.</p>
                     </div>
                   )}
 
@@ -982,7 +1004,7 @@ export default function Profile() {
                     </div>
                   )}
 
-                  {profile.profile_type === 'Business' && profile.vat_type === 'VAT 0%' && (
+                  {profile.profile_type === 'Business' && profile.vat_type === 'VAT_PAYER' && (
                     <div>
                       <label htmlFor="vat_number" className="block text-sm font-semibold text-slate-700 mb-2">
                         VAT Number
@@ -993,7 +1015,7 @@ export default function Profile() {
                         value={profile.vat_number || ''}
                         onChange={(e) => setProfile({ ...profile, vat_number: e.target.value })}
                         className="block w-full px-4 py-3 border border-slate-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
-                        required={profile.vat_type === 'VAT 0%'}
+                        required={profile.vat_type === 'VAT_PAYER'}
                       />
                     </div>
                   )}
@@ -1058,42 +1080,49 @@ export default function Profile() {
                     <label htmlFor="krajina" className="block text-sm font-semibold text-slate-700 mb-2">
                       Country
                     </label>
-                    <select
-                      id="krajina"
-                      value={profile.krajina}
-                      onChange={(e) => setProfile({ ...profile, krajina: e.target.value })}
-                      className="block w-full px-4 py-3 border border-slate-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
-                      required
-                    >
-                      <option value="Slovakia">Slovakia</option>
-                      <option value="Czech Republic">Czech Republic</option>
-                      <option value="Poland">Poland</option>
-                      <option value="Hungary">Hungary</option>
-                      <option value="Romania">Romania</option>
-                      <option value="Austria">Austria</option>
-                      <option value="Belgium">Belgium</option>
-                      <option value="Bulgaria">Bulgaria</option>
-                      <option value="Croatia">Croatia</option>
-                      <option value="Cyprus">Cyprus</option>
-                      <option value="Denmark">Denmark</option>
-                      <option value="Estonia">Estonia</option>
-                      <option value="Finland">Finland</option>
-                      <option value="France">France</option>
-                      <option value="Germany">Germany</option>
-                      <option value="Greece">Greece</option>
-                      <option value="Ireland">Ireland</option>
-                      <option value="Italy">Italy</option>
-                      <option value="Latvia">Latvia</option>
-                      <option value="Lithuania">Lithuania</option>
-                      <option value="Luxembourg">Luxembourg</option>
-                      <option value="Malta">Malta</option>
-                      <option value="Netherlands">Netherlands</option>
-                      <option value="Portugal">Portugal</option>
-                      <option value="Slovenia">Slovenia</option>
-                      <option value="Spain">Spain</option>
-                      <option value="Sweden">Sweden</option>
-                      <option value="United Kingdom">United Kingdom</option>
-                    </select>
+                    <div className="relative">
+                      <select
+                        id="krajina"
+                        value={profile.krajina}
+                        onChange={(e) => setProfile({ ...profile, krajina: e.target.value })}
+                        className={selectInputClass}
+                        required
+                      >
+                        <option value="Slovakia">Slovakia</option>
+                        <option value="Czech Republic">Czech Republic</option>
+                        <option value="Poland">Poland</option>
+                        <option value="Hungary">Hungary</option>
+                        <option value="Romania">Romania</option>
+                        <option value="Austria">Austria</option>
+                        <option value="Belgium">Belgium</option>
+                        <option value="Bulgaria">Bulgaria</option>
+                        <option value="Croatia">Croatia</option>
+                        <option value="Cyprus">Cyprus</option>
+                        <option value="Denmark">Denmark</option>
+                        <option value="Estonia">Estonia</option>
+                        <option value="Finland">Finland</option>
+                        <option value="France">France</option>
+                        <option value="Germany">Germany</option>
+                        <option value="Greece">Greece</option>
+                        <option value="Ireland">Ireland</option>
+                        <option value="Italy">Italy</option>
+                        <option value="Latvia">Latvia</option>
+                        <option value="Lithuania">Lithuania</option>
+                        <option value="Luxembourg">Luxembourg</option>
+                        <option value="Malta">Malta</option>
+                        <option value="Netherlands">Netherlands</option>
+                        <option value="Portugal">Portugal</option>
+                        <option value="Slovenia">Slovenia</option>
+                        <option value="Spain">Spain</option>
+                        <option value="Sweden">Sweden</option>
+                        <option value="United Kingdom">United Kingdom</option>
+                      </select>
+                      <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-400">
+                        <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                          <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                        </svg>
+                      </span>
+                    </div>
                   </div>
 
                   <div>

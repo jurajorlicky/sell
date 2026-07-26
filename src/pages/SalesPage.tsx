@@ -6,6 +6,7 @@ import CreateSaleModal from '../components/CreateSaleModal';
 import AdminNavigation from '../components/AdminNavigation';
 import Pagination from '../components/Pagination';
 import { formatDate, formatCurrency } from '../lib/utils';
+import { downloadXlsx, excelDate, exportDateStamp } from '../lib/xlsxExport';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import {
   FaSearch,
@@ -43,6 +44,7 @@ interface Sale {
   carrier?: string;
   tracking_url?: string;
   label_url?: string;
+  fa_url?: string;
   contract_url?: string;
   delivered_at?: string;
   payout_date?: string;
@@ -84,7 +86,7 @@ export default function SalesPage() {
         .from('user_sales')
         .select(`
           id, product_id, name, size, price, payout, created_at, status, image_url, external_id, sku, status_notes,
-          tracking_number, carrier, tracking_url, label_url, contract_url, delivered_at, payout_date, is_manual,
+          tracking_number, carrier, tracking_url, label_url, fa_url, contract_url, delivered_at, payout_date, is_manual,
           sale_type, profiles(email)
         `)
         .order('created_at', { ascending: false });
@@ -239,34 +241,35 @@ export default function SalesPage() {
     setCurrentPage(1);
   };
 
-  const exportToCSV = () => {
-    if (filteredSales.length === 0) return;
-    
-    const headers = ['ID', 'External ID', 'Product', 'Size', 'SKU', 'Price', 'Payout', 'Status', 'User Email', 'Date'];
-    const rows = filteredSales.map(sale => [
-      sale.id,
-      sale.external_id || '',
-      sale.name,
-      sale.size,
-      sale.sku || '',
-      sale.price,
-      sale.payout,
-      sale.status,
-      sale.user_email || '',
-      sale.created_at ? new Date(sale.created_at).toISOString().split('T')[0] : ''
-    ]);
-    
-    const csvContent = [headers, ...rows]
-      .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
-      .join('\n');
-    
-    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `sales_export_${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
+  const exportToXlsx = async () => {
+    try {
+      await downloadXlsx({
+        fileName: `sales_export_${exportDateStamp()}.xlsx`,
+        sheetName: 'Sales',
+        rows: sortedSales,
+        columns: [
+          { header: 'ID', value: sale => sale.id, width: 38 },
+          { header: 'External ID', value: sale => sale.external_id || '', width: 18 },
+          { header: 'Product', value: sale => sale.name, width: 34 },
+          { header: 'Size', value: sale => sale.size, width: 12 },
+          { header: 'SKU', value: sale => sale.sku || '', width: 18 },
+          { header: 'Price', value: sale => Number(sale.price || 0), width: 14, numberFormat: '#,##0.00 [$€-1]' },
+          { header: 'Payout', value: sale => Number(sale.payout || 0), width: 14, numberFormat: '#,##0.00 [$€-1]' },
+          { header: 'Status', value: sale => sale.status, width: 16 },
+          { header: 'User Email', value: sale => sale.user_email || '', width: 30 },
+          { header: 'Created', value: sale => excelDate(sale.created_at), width: 19, numberFormat: 'yyyy-mm-dd hh:mm' },
+          { header: 'Delivered', value: sale => excelDate(sale.delivered_at), width: 19, numberFormat: 'yyyy-mm-dd hh:mm' },
+          { header: 'Payout Date', value: sale => excelDate(sale.payout_date), width: 16, numberFormat: 'yyyy-mm-dd' },
+          { header: 'Tracking Number', value: sale => sale.tracking_number || '', width: 22 },
+          { header: 'Carrier', value: sale => sale.carrier || '', width: 15 },
+          { header: 'Manual Sale', value: sale => Boolean(sale.is_manual), width: 13 },
+          { header: 'Notes', value: sale => sale.status_notes || '', width: 36 },
+        ],
+      });
+    } catch (err: any) {
+      console.error('Error exporting sales to XLSX:', err);
+      setError('Error exporting sales to XLSX: ' + (err?.message || 'Unknown error'));
+    }
   };
 
   // Calculate statistics
@@ -297,59 +300,56 @@ export default function SalesPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-gray-300 border-t-green-500 rounded-full animate-spin mx-auto mb-4"></div>
           <h3 className="text-lg font-semibold text-gray-900 mb-2">Loading sales</h3>
-          <p className="text-sm text-gray-600">Please wait...</p>
+          <p className="text-sm text-gray-500">Please wait...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-4">
+      <header className="bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 sticky top-0 z-40 shadow-lg">
+        <div className="mx-auto max-w-[1680px] px-3 sm:px-6 lg:px-8 py-3 sm:py-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-2 sm:space-x-4">
-              <div className="relative">
-                <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-green-600 via-emerald-600 to-green-800 rounded-2xl shadow-lg">
-                  <FaShoppingCart className="text-gray-900 text-xl" />
-                </div>
-                <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-slate-800 animate-pulse"></div>
+              <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-green-400 to-emerald-500 rounded-2xl shadow-lg">
+                <FaShoppingCart className="text-white text-xl" />
               </div>
               <div>
-                <h1 className="text-lg sm:text-2xl font-bold text-gray-900">
+                <h1 className="text-lg sm:text-2xl font-bold text-white tracking-tight">
                   Sales Management
                 </h1>
-                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">Manage and overview of sold products</p>
+                <p className="text-xs sm:text-sm text-gray-400 hidden sm:block">Manage and overview of sold products</p>
               </div>
             </div>
-            
-            <div className="flex items-center space-x-1 sm:space-x-3">
+
+            <div className="flex items-center space-x-2">
               <button
                 onClick={() => setShowCreateSaleModal(true)}
-                className="inline-flex items-center px-2 py-2 sm:px-4 bg-black text-white font-semibold rounded-xl hover:bg-gray-800 transition-all duration-200 shadow-lg transform hover:scale-105"
+                className="inline-flex items-center px-3 py-2 bg-white/10 text-white font-medium rounded-xl hover:bg-white/20 transition-all border border-white/20 text-sm"
                 title="Create new sale"
               >
-                <FaPlus className="text-sm sm:mr-2" />
+                <FaPlus className="sm:mr-2" />
                 <span className="hidden sm:inline">New Sale</span>
               </button>
               <button
                 onClick={handleRefresh}
                 disabled={refreshing}
-                className="inline-flex items-center px-2 py-2 sm:px-4 bg-black text-white font-semibold rounded-xl hover:bg-gray-800 transition-all duration-200 disabled:opacity-50"
+                className="inline-flex items-center px-3 py-2 bg-white/10 text-white font-medium rounded-xl hover:bg-white/20 transition-all border border-white/20 text-sm disabled:opacity-50"
               >
-                <FaSync className={`text-sm sm:mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                <FaSync className={`sm:mr-2 ${refreshing ? 'animate-spin' : ''}`} />
                 <span className="hidden sm:inline">{refreshing ? 'Refreshing...' : 'Refresh'}</span>
               </button>
               <button
                 onClick={handleSignOut}
-                className="inline-flex items-center px-2 py-2 sm:px-4 bg-black text-white font-semibold rounded-xl hover:bg-gray-800 transition-all duration-200 shadow-lg transform hover:scale-105"
+                className="inline-flex items-center px-3 py-2 bg-white/10 text-white font-medium rounded-xl hover:bg-white/20 transition-all border border-white/20 text-sm"
               >
-                <FaSignOutAlt className="text-sm sm:mr-2" />
+                <FaSignOutAlt className="sm:mr-2" />
                 <span className="hidden sm:inline">Sign Out</span>
               </button>
             </div>
@@ -357,7 +357,7 @@ export default function SalesPage() {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-3 sm:py-6 lg:py-8">
+      <div className="mx-auto max-w-[1680px] px-2 sm:px-4 lg:px-8 py-3 sm:py-6 lg:py-8">
         {error && (
           <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4 backdrop-blur-sm">
             <div className="flex items-center justify-between">
@@ -465,15 +465,15 @@ export default function SalesPage() {
                 <h3 className="text-lg sm:text-xl font-bold text-gray-900">Sales ({filteredSales.length})</h3>
                 <p className="text-gray-600 text-xs sm:text-sm mt-1">Sales management and overview</p>
               </div>
-              <div className="flex items-center space-x-3">
-                <div className="relative">
+              <div className="grid w-full grid-cols-[minmax(0,1fr)_auto_auto_auto] items-center gap-2 sm:flex sm:w-auto sm:items-center sm:space-x-3 sm:gap-0">
+                <div className="relative min-w-0">
                   <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-600 text-sm" />
                   <input
                     type="text"
                     placeholder="Search sales..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-8 sm:pl-10 pr-3 sm:pr-4 py-2 bg-white border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200 text-sm sm:text-base"
+                    className="w-full pl-8 sm:pl-10 pr-3 sm:pr-4 py-2 bg-white border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200 text-sm sm:text-base"
                   />
                 </div>
                 <button
@@ -489,12 +489,13 @@ export default function SalesPage() {
                   )}
                 </button>
                 <button
-                  onClick={exportToCSV}
-                  disabled={filteredSales.length === 0}
+                  onClick={exportToXlsx}
+                  disabled={sortedSales.length === 0}
                   className="inline-flex items-center px-3 py-2 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-all duration-200 disabled:opacity-50"
-                  title="Export to CSV"
+                  title="Download filtered sales as XLSX"
                 >
                   <FaDownload className="text-gray-600 text-sm" />
+                  <span className="ml-2 hidden lg:inline text-sm text-gray-700">XLSX</span>
                 </button>
                 {hasActiveFilters && (
                   <button
@@ -559,9 +560,9 @@ export default function SalesPage() {
           {/* Filters Panel */}
           {showFilters && (
             <div className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 lg:py-4 bg-gray-50 border-b border-gray-200">
-              <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
                 {/* Status Filter */}
-                <div className="col-span-2 sm:col-span-1">
+                <div>
                   <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1 sm:mb-2">Status</label>
                   <select
                     value={statusFilter}
@@ -580,7 +581,7 @@ export default function SalesPage() {
                 </div>
 
                 {/* Date From */}
-                <div className="col-span-2 sm:col-span-1">
+                <div>
                   <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1 sm:mb-2">Date from</label>
                   <input
                     type="date"
@@ -591,7 +592,7 @@ export default function SalesPage() {
                 </div>
 
                 {/* Date To */}
-                <div className="col-span-2 sm:col-span-1">
+                <div>
                   <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1 sm:mb-2">Date to</label>
                   <input
                     type="date"
@@ -602,7 +603,7 @@ export default function SalesPage() {
                 </div>
 
                 {/* User Email Filter */}
-                <div className="col-span-2 sm:col-span-1">
+                <div>
                   <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1 sm:mb-2">User email</label>
                   <input
                     type="text"
@@ -652,12 +653,24 @@ export default function SalesPage() {
             ) : (
               <>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 lg:gap-6">
-                {paginatedSales.map((sale) => (
-                  <div
-                    key={sale.id}
-                    className="bg-white border border-gray-200 rounded-xl p-2.5 sm:p-3 lg:p-5 hover:shadow-lg transition-all duration-200 cursor-pointer"
-                    onClick={() => setSelectedSaleForStatus(sale)}
-                  >
+                {paginatedSales.map((sale) => {
+                  const missingExternalId = !String(sale.external_id || '').trim();
+                  const missingTracking = ['processing', 'shipped'].includes(sale.status) && !sale.tracking_url && !sale.tracking_number;
+                  const missingDocument = !sale.fa_url && !sale.contract_url;
+                  const waitingPayout = sale.status === 'delivered' && !sale.payout_date;
+                  const needsAttention = [
+                    missingExternalId ? 'Missing ID' : '',
+                    missingTracking ? 'Tracking' : '',
+                    missingDocument ? 'Document' : '',
+                    waitingPayout ? 'Payout' : '',
+                  ].filter(Boolean);
+
+                  return (
+                    <div
+                      key={sale.id}
+                      className="bg-white border border-gray-200 rounded-xl p-2.5 sm:p-3 lg:p-5 hover:shadow-lg transition-all duration-200 cursor-pointer"
+                      onClick={() => setSelectedSaleForStatus(sale)}
+                    >
                     {/* Product Image & Basic Info */}
                     <div className="flex items-start space-x-2 sm:space-x-3 lg:space-x-4 mb-2 sm:mb-3 lg:mb-4">
                       <div className="h-14 w-14 sm:h-16 sm:w-16 lg:h-20 lg:w-20 flex-shrink-0 overflow-hidden rounded-lg sm:rounded-xl border border-gray-200 bg-white">
@@ -691,6 +704,15 @@ export default function SalesPage() {
                         {sale.external_id && (
                           <p className="text-[10px] sm:text-xs text-gray-500 font-mono mt-0.5 truncate">ID: {sale.external_id}</p>
                         )}
+                        {needsAttention.length > 0 && (
+                          <div className="mt-1.5 flex flex-wrap gap-1 sm:hidden">
+                            {needsAttention.slice(0, 3).map(item => (
+                              <span key={item} className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800 border border-amber-100">
+                                {item}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -707,7 +729,7 @@ export default function SalesPage() {
                           </div>
 
                     {/* Tracking & Label Info */}
-                    <div className="mb-2 sm:mb-3 lg:mb-4 pb-2 sm:pb-3 lg:pb-4 border-b border-gray-200 space-y-1 sm:space-y-1.5 lg:space-y-2">
+                    <div className="hidden sm:block mb-2 sm:mb-3 lg:mb-4 pb-2 sm:pb-3 lg:pb-4 border-b border-gray-200 space-y-1 sm:space-y-1.5 lg:space-y-2">
                       <div className="flex items-center justify-between text-[10px] sm:text-xs">
                         <span className="text-gray-600 flex items-center">
                           <FaTruck className="mr-0.5 sm:mr-1 text-[10px] sm:text-xs" />
@@ -761,6 +783,26 @@ export default function SalesPage() {
                           <span className="text-gray-400 italic">not yet</span>
                         )}
                       </div>
+                      <div className="flex items-center justify-between text-[10px] sm:text-xs">
+                        <span className="text-gray-600 flex items-center">
+                          <FaFilePdf className="mr-0.5 sm:mr-1 text-[10px] sm:text-xs" />
+                          FA:
+                        </span>
+                        {sale.fa_url ? (
+                          <a
+                            href={sale.fa_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-emerald-600 hover:text-emerald-800 flex items-center space-x-1"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <FaFilePdf />
+                            <span>PDF</span>
+                          </a>
+                        ) : (
+                          <span className="text-gray-400 italic">not yet</span>
+                        )}
+                      </div>
                     </div>
 
                     {/* Payout Status Info */}
@@ -799,6 +841,12 @@ export default function SalesPage() {
                         <p className="truncate">{sale.user_email}</p>
                         <p className="mt-0.5 sm:mt-1">{formatDate(sale.created_at, false)}</p>
                       </div>
+                      <div className="sm:hidden text-right text-[10px] text-gray-500">
+                        <p>{sale.external_id || 'No ID'}</p>
+                        <p className={sale.fa_url || sale.contract_url ? 'text-emerald-600' : 'text-amber-700'}>
+                          {sale.fa_url || sale.contract_url ? 'Doc OK' : 'No doc'}
+                        </p>
+                      </div>
                     </div>
 
                     {/* Action Button */}
@@ -812,8 +860,9 @@ export default function SalesPage() {
                       <FaUserShield className="mr-1 sm:mr-1.5 lg:mr-2 text-[10px] sm:text-xs lg:text-sm" />
                       Edit
                       </button>
-                  </div>
-                ))}
+                    </div>
+                  );
+                })}
               </div>
 
               <Pagination
@@ -876,6 +925,7 @@ export default function SalesPage() {
                 currentExternalId={selectedSaleForStatus.external_id}
                 currentTrackingUrl={selectedSaleForStatus.tracking_url}
                 currentLabelUrl={selectedSaleForStatus.label_url}
+                currentFaUrl={selectedSaleForStatus.fa_url}
                 currentDeliveredAt={selectedSaleForStatus.delivered_at}
                 currentPayoutDate={selectedSaleForStatus.payout_date}
                 currentCreatedAt={selectedSaleForStatus.created_at}

@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import AdminNavigation from './AdminNavigation';
 import { formatCurrency, formatTimeAgo } from '../lib/utils';
 import { 
   FaChartBar, 
@@ -247,7 +248,7 @@ export default function AdminDashboard() {
   // Kratší loading
   if (loading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-gray-300 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
           <h3 className="text-lg font-semibold text-gray-900">Loading admin dashboard</h3>
@@ -257,32 +258,29 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Enhanced Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-4">
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 sticky top-0 z-40 shadow-lg">
+        <div className="mx-auto max-w-[1680px] px-3 sm:px-6 lg:px-8 py-3 sm:py-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-2 sm:space-x-4">
-              <div className="relative">
-                <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-600 via-purple-600 to-blue-800 rounded-2xl shadow-lg">
-                  <FaUserShield className="text-white text-xl" />
-                </div>
-                <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-slate-800 animate-pulse"></div>
+              <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-400 to-purple-500 rounded-2xl shadow-lg">
+                <FaUserShield className="text-white text-xl" />
               </div>
               <div>
-                <h1 className="text-lg sm:text-2xl font-bold text-gray-900">
+                <h1 className="text-lg sm:text-2xl font-bold text-white tracking-tight">
                   Admin Dashboard
                 </h1>
-                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">System management and data analysis</p>
+                <p className="text-xs sm:text-sm text-gray-400 hidden sm:block">System management and data analysis</p>
               </div>
             </div>
-            
-            <div className="flex items-center space-x-1 sm:space-x-3">
-               <button
+
+            <div className="flex items-center space-x-2">
+              <button
                 onClick={handleSignOut}
-                className="inline-flex items-center px-2 py-2 sm:px-4 bg-black text-white font-semibold rounded-xl hover:bg-gray-800 transition-all duration-200 shadow-lg transform hover:scale-105"
+                className="inline-flex items-center px-3 py-2 bg-white/10 text-white font-medium rounded-xl hover:bg-white/20 transition-all border border-white/20 text-sm"
               >
-                <FaSignOutAlt className="text-sm sm:mr-2" />
+                <FaSignOutAlt className="sm:mr-2" />
                 <span className="hidden sm:inline">Sign Out</span>
               </button>
             </div>
@@ -290,41 +288,8 @@ export default function AdminDashboard() {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
-        {/* Navigation Tabs */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm mb-8 overflow-hidden">
-          <div className="flex overflow-x-auto">
-            {[
-              { id: 'overview', label: 'Overview', icon: FaChartBar, path: '/admin' },
-              { id: 'products', label: 'Products', icon: FaShoppingBag, path: '/admin/products' },
-              { id: 'listed-products', label: 'Listings', icon: FaList, path: '/admin/listed-products' },
-              { id: 'sales', label: 'Sales', icon: FaShoppingCart, path: '/admin/sales' },
-              { id: 'users', label: 'Users', icon: FaUsers, path: '/admin/users' },
-              { id: 'invoices', label: 'Invoices', icon: FaFileInvoice, path: '/admin/invoices' },
-              { id: 'settings', label: 'Settings', icon: FaCog, path: '/admin/settings' },
-              { id: 'system-status', label: 'System', icon: FaServer, path: '/admin/system-status' },
-            ].map((tab) => {
-              const isActive = location.pathname === tab.path;
-              return (
-                <Link
-                  key={tab.id}
-                  to={tab.path}
-                  className={`relative flex items-center px-4 sm:px-6 py-3 sm:py-4 font-semibold transition-all duration-300 min-w-max ${
-                    isActive ? 'text-black' : 'text-gray-600 hover:text-black hover:bg-gray-50'
-                  }`}
-                >
-                  <tab.icon className={`text-base sm:text-sm mr-2 ${isActive ? 'text-black' : 'text-gray-600'}`} />
-                  <span className={`text-sm sm:text-base ${isActive ? 'text-black font-bold' : 'text-gray-600'}`}>
-                    {tab.label}
-                  </span>
-                  {isActive && (
-                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-black rounded-full"></div>
-                  )}
-                </Link>
-              );
-            })}
-          </div>
-        </div>
+      <div className="mx-auto max-w-[1680px] px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
+        <AdminNavigation />
 
         {/* Overview Dashboard */}
         <div className="space-y-8">

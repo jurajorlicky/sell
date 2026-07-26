@@ -9,6 +9,12 @@ export interface PurchaseAgreementData {
   price: number;
   isManual?: boolean; // If true, use payout instead of price and show "Payout" label
   payout?: number; // Payout amount for manual sales
+  items?: Array<{
+    productName: string;
+    size: string;
+    price: number;
+    payout?: number;
+  }>;
   // Buyer (Company - AirKicks)
   buyerName: string;
   buyerCIN?: string;
@@ -225,16 +231,29 @@ export async function generatePurchaseAgreement(data: PurchaseAgreementData): Pr
       doc.line(margin, yPos - 2, pageWidth - margin, yPos - 2);
       yPos += 2;
 
-      // Table data: product name with wrap so long names don't overlap SIZE/PRICE
+      // Table data: support one or more products in the same manual sale
       doc.setFont('helvetica', 'normal');
-      const nameLines = doc.splitTextToSize(fixTextForPDF(data.productName), nameMaxWidth);
-      doc.text(nameLines, col1X, yPos);
-      doc.text(data.size, col2X, yPos);
-      const displayAmount = data.payout !== undefined ? data.payout : data.price;
-      doc.text(displayAmount.toFixed(2), col3X, yPos);
-      // If name wrapped to multiple lines, move next section down so it doesn't overlap
-      const nameBlockHeight = nameLines.length * 10 * 0.35;
-      yPos += Math.max(rowHeight, nameBlockHeight) + 5;
+      const agreementItems = data.items && data.items.length > 0
+        ? data.items
+        : [{
+            productName: data.productName,
+            size: data.size,
+            price: data.price,
+            payout: data.payout
+          }];
+
+      agreementItems.forEach((item) => {
+        const nameLines = doc.splitTextToSize(fixTextForPDF(item.productName), nameMaxWidth);
+        doc.text(nameLines, col1X, yPos);
+        doc.text(fixTextForPDF(item.size || ''), col2X, yPos);
+        const displayAmount = item.payout !== undefined ? item.payout : item.price;
+        doc.text(displayAmount.toFixed(2), col3X, yPos);
+
+        const nameBlockHeight = nameLines.length * 10 * 0.35;
+        yPos += Math.max(rowHeight, nameBlockHeight) + 2;
+      });
+
+      yPos += 3;
 
       // Terms
       doc.setFontSize(9);

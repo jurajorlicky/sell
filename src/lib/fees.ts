@@ -5,7 +5,10 @@ interface AdminSettings {
   fee_percent: number;
   fee_fixed: number;
   offer_expiration_days?: number;
+  eur_to_czk_rate?: number | null;
 }
+
+export const SK_VAT_RATE = 0.23;
 
 let cachedSettings: AdminSettings | null = null;
 let cacheTimestamp: number = 0;
@@ -24,7 +27,7 @@ export async function getFees(): Promise<AdminSettings> {
   try {
     const { data, error } = await supabase
       .from('admin_settings')
-      .select('fee_percent, fee_fixed, offer_expiration_days')
+      .select('fee_percent, fee_fixed, offer_expiration_days, eur_to_czk_rate')
       .single();
 
 
@@ -34,7 +37,8 @@ export async function getFees(): Promise<AdminSettings> {
       cachedSettings = {
         fee_percent: data.fee_percent,
         fee_fixed: data.fee_fixed,
-        offer_expiration_days: data.offer_expiration_days || 30
+        offer_expiration_days: data.offer_expiration_days || 30,
+        eur_to_czk_rate: data.eur_to_czk_rate ?? null,
       };
       cacheTimestamp = now;
       logger.info('Fees loaded and cached', { cachedSettings });
@@ -42,7 +46,7 @@ export async function getFees(): Promise<AdminSettings> {
     }
 
     // Default values if no settings found
-    const defaultSettings = { fee_percent: 0.2, fee_fixed: 5 };
+    const defaultSettings = { fee_percent: 0.2, fee_fixed: 5, offer_expiration_days: 30, eur_to_czk_rate: null };
     cachedSettings = defaultSettings;
     cacheTimestamp = now;
     return defaultSettings;
@@ -55,14 +59,19 @@ export async function getFees(): Promise<AdminSettings> {
       return cachedSettings;
     }
     
-    const defaultSettings = { fee_percent: 0.2, fee_fixed: 5 };
+    const defaultSettings = { fee_percent: 0.2, fee_fixed: 5, offer_expiration_days: 30, eur_to_czk_rate: null };
     logger.warn('Using default fees due to error', { defaultSettings });
     return defaultSettings;
   }
 }
 
-export function calculatePayout(price: number, feePercent: number, feeFixed: number): number {
-  const result = price * (1 - feePercent) - feeFixed;
+export function getPayoutBasePrice(price: number, vatScheme?: 'VAT0' | 'MARGIN' | null): number {
+  return vatScheme === 'VAT0' ? price / (1 + SK_VAT_RATE) : price;
+}
+
+export function calculatePayout(price: number, feePercent: number, feeFixed: number, vatScheme?: 'VAT0' | 'MARGIN' | null): number {
+  const payoutBase = getPayoutBasePrice(price, vatScheme);
+  const result = payoutBase * (1 - feePercent) - feeFixed;
   const nonNegative = Math.max(0, result); // Ensure payout is never negative
   // Round to whole euros: if decimal part >= 0.50, round up, otherwise round down
   // Example: 2.50 → 3, 2.49 → 2, 2.60 → 3

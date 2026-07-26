@@ -68,6 +68,24 @@ export function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
+export function formatCzk(amount: number): string {
+  return new Intl.NumberFormat('cs-CZ', {
+    style: 'currency',
+    currency: 'CZK',
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
+export function czkToEur(czkAmount: number, eurToCzkRate: number): number {
+  if (!Number.isFinite(czkAmount) || !Number.isFinite(eurToCzkRate) || eurToCzkRate <= 0) return 0;
+  return Math.floor(czkAmount / eurToCzkRate);
+}
+
+export function eurToCzk(eurAmount: number, eurToCzkRate: number): number {
+  if (!Number.isFinite(eurAmount) || !Number.isFinite(eurToCzkRate) || eurToCzkRate <= 0) return 0;
+  return Math.round(eurAmount * eurToCzkRate);
+}
+
 /**
  * Format a date string as relative time (e.g. "5 minutes ago").
  */

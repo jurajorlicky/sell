@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { getFees, calculatePayout } from '../lib/fees';
-import { formatCurrency } from '../lib/utils';
+import { getFees, calculatePayout, getPayoutBasePrice, SK_VAT_RATE } from '../lib/fees';
+import { czkToEur, eurToCzk, formatCurrency, formatCzk } from '../lib/utils';
 import { useEscapeKey } from '../hooks/useEscapeKey';
-import { FaSearch, FaTimes, FaCheck, FaExclamationTriangle } from 'react-icons/fa';
+import { FaSearch, FaTimes, FaCheck, FaExclamationTriangle, FaPlus, FaTrash } from 'react-icons/fa';
 
 interface AddProductModalProps {
   isOpen: boolean;
@@ -19,6 +19,13 @@ interface AddProductModalProps {
     original_price?: number;
     payout: number;
     sku: string;
+    input_currency?: 'EUR' | 'CZK';
+    input_price?: number;
+    exchange_rate?: number;
+    is_vat0?: boolean;
+    vat_scheme?: 'VAT0' | 'MARGIN' | null;
+    created_at?: string;
+    expires_at?: string;
   }) => void;
 }
 
@@ -37,6 +44,21 @@ interface Fees {
   fee_percent: number;
   fee_fixed: number;
   offer_expiration_days?: number;
+  eur_to_czk_rate?: number | null;
+}
+
+interface QueuedProduct {
+  product: ProductPrice;
+  size: string;
+  quantity: number;
+  price: number;
+  inputPrice: number;
+  currency: 'EUR' | 'CZK';
+  originalPrice: number;
+  payout: number;
+  sku: string;
+  exchangeRate: number | null;
+  vatScheme: 'VAT0' | 'MARGIN' | null;
 }
 
 export default function AddProductModal({ isOpen, onClose, onProductAdded }: AddProductModalProps) {
@@ -52,6 +74,35 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
   const [searchLoading, setSearchLoading] = useState(false);
   const [sku, setSku] = useState<string>('');
   const [hasOtherConsignors, setHasOtherConsignors] = useState(false);
+  const [currency, setCurrency] = useState<'EUR' | 'CZK'>('EUR');
+  const [quantity, setQuantity] = useState(1);
+  const [queuedProducts, setQueuedProducts] = useState<QueuedProduct[]>([]);
+  const [isBusinessProfile, setIsBusinessProfile] = useState(false);
+  const [isVatPayerProfile, setIsVatPayerProfile] = useState(false);
+  const [vatScheme, setVatScheme] = useState<'VAT0' | 'MARGIN'>('MARGIN');
+
+  const parsePriceInput = (value: string): number => {
+    const parsed = Number(value.replace(',', '.'));
+    return Number.isFinite(parsed) ? parsed : NaN;
+  };
+
+  const handleCurrencyChange = (nextCurrency: 'EUR' | 'CZK') => {
+    if (nextCurrency === currency) return;
+    if (nextCurrency === 'CZK' && !hasExchangeRate) return;
+
+    const currentValue = parsePriceInput(newPrice);
+    if (!Number.isFinite(currentValue) || currentValue <= 0) {
+      setCurrency(nextCurrency);
+      setNewPrice('');
+      return;
+    }
+
+    const currentEurPrice = currency === 'CZK' && hasExchangeRate ? czkToEur(currentValue, exchangeRate) : currentValue;
+    const nextValue = nextCurrency === 'CZK' && hasExchangeRate ? eurToCzk(currentEurPrice, exchangeRate) : currentEurPrice;
+
+    setCurrency(nextCurrency);
+    setNewPrice(String(nextValue));
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -60,6 +111,21 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
       }).catch(err => {
         console.warn('Failed to load fees:', err);
       });
+      supabase.auth.getUser()
+        .then(async ({ data: { user } }) => {
+          if (!user) return;
+          const { data } = await supabase
+            .from('profiles')
+            .select('profile_type, vat_type')
+            .eq('id', user.id)
+            .maybeSingle();
+          const isBusiness = data?.profile_type === 'Business';
+          const isVatPayer = ['VAT_PAYER', 'VAT 0%'].includes(String(data?.vat_type || ''));
+          setIsBusinessProfile(isBusiness);
+          setIsVatPayerProfile(isBusiness && isVatPayer);
+          setVatScheme('MARGIN');
+        })
+        .catch((err) => console.warn('Failed to load profile VAT settings:', err));
     } else {
       // Reset all state when modal closes
       setSearchTerm('');
@@ -71,10 +137,17 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
       setExistingProducts([]);
       setSizes([]);
       setHasOtherConsignors(false);
+      setCurrency('EUR');
+      setQuantity(1);
+      setQueuedProducts([]);
+      setIsBusinessProfile(false);
+      setIsVatPayerProfile(false);
+      setVatScheme('MARGIN');
     }
   }, [isOpen]);
 
-  // Check if anyone (including current user) already has this product+size listed
+  // Check market offers for this product+size. Repeated listings are allowed;
+  // this only powers the pricing warning.
   useEffect(() => {
     if (!selectedProduct || !selectedSize) {
       setHasOtherConsignors(false);
@@ -98,10 +171,21 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
     return () => { cancelled = true; };
   }, [selectedProduct, selectedSize]);
 
-  const numericNewPrice = parseInt(newPrice);
+  const exchangeRate = fees.eur_to_czk_rate ?? null;
+  const hasExchangeRate = typeof exchangeRate === 'number' && Number.isFinite(exchangeRate) && exchangeRate > 0;
+  const numericInputPrice = parsePriceInput(newPrice);
+  const numericNewPrice = !isNaN(numericInputPrice)
+    ? currency === 'CZK'
+      ? hasExchangeRate
+        ? czkToEur(numericInputPrice, exchangeRate)
+        : NaN
+      : numericInputPrice
+    : NaN;
+  const effectiveVatScheme = isBusinessProfile ? (isVatPayerProfile ? vatScheme : 'MARGIN') : null;
   const computedPayout = !isNaN(numericNewPrice)
-    ? calculatePayout(numericNewPrice, fees.fee_percent, fees.fee_fixed)
+    ? calculatePayout(numericNewPrice, fees.fee_percent, fees.fee_fixed, effectiveVatScheme)
     : null;
+  const payoutBasePrice = !isNaN(numericNewPrice) ? getPayoutBasePrice(numericNewPrice, effectiveVatScheme) : null;
 
   const selectedSizeData = sizes.find((s) => s.size === selectedSize);
   const recommendedPrice = selectedSizeData?.final_price || 0;
@@ -117,7 +201,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
       priceBadge = <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 ml-2">Higher</span>;
     } else if (numericNewPrice < recommendedPrice) {
       priceColor = 'text-green-600';
-      priceMessage = `Lowest new price will be ${numericNewPrice} €`;
+      priceMessage = `Lowest new price will be ${formatCurrency(numericNewPrice)}`;
       priceBadge = <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 ml-2">Lowest</span>;
     }
   }
@@ -233,12 +317,72 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
     setError(null);
     setSearchTerm('');
     setHasOtherConsignors(false);
+    setQuantity(1);
+  };
+
+  const currentItemIsValid = Boolean(
+    selectedProduct &&
+    selectedSize &&
+    Number.isFinite(numericNewPrice) &&
+    numericNewPrice > 0 &&
+    Number.isFinite(numericInputPrice) &&
+    numericInputPrice > 0 &&
+    quantity >= 1
+  );
+
+  const getCurrentQueuedProduct = (): QueuedProduct | null => {
+    if (!selectedProduct || !currentItemIsValid) return null;
+
+    return {
+      product: selectedProduct,
+      size: selectedSize,
+      quantity,
+      price: numericNewPrice,
+      inputPrice: numericInputPrice,
+      currency,
+      originalPrice: recommendedPrice,
+      payout: computedPayout ?? 0,
+      sku,
+      exchangeRate: currency === 'CZK' ? exchangeRate : null,
+      vatScheme: effectiveVatScheme,
+    };
+  };
+
+  const handleQueueCurrentProduct = () => {
+    if (currency === 'CZK' && !hasExchangeRate) {
+      setError('CZK rate is not set. Please use EUR or ask admin to set the CZK rate.');
+      return;
+    }
+
+    const queuedProduct = getCurrentQueuedProduct();
+    if (!queuedProduct) {
+      setError('Please select a product, size and enter a valid price.');
+      return;
+    }
+
+    setQueuedProducts((current) => [...current, queuedProduct]);
+    setSelectedSize('');
+    setNewPrice('');
+    setQuantity(1);
+    setError(null);
+  };
+
+  const removeQueuedProduct = (index: number) => {
+    setQueuedProducts((current) => current.filter((_, itemIndex) => itemIndex !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!selectedProduct || !selectedSize || isNaN(numericNewPrice) || numericNewPrice <= 0) {
+    if (currency === 'CZK' && !hasExchangeRate) {
+      setError('CZK rate is not set. Please use EUR or ask admin to set the CZK rate.');
+      return;
+    }
+
+    const currentProduct = getCurrentQueuedProduct();
+    const productsToAdd = currentProduct ? [...queuedProducts, currentProduct] : queuedProducts;
+
+    if (productsToAdd.length === 0) {
       setError('Please select a product, size and enter a valid price.');
       return;
     }
@@ -255,56 +399,56 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
       } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      const newProductId = crypto.randomUUID();
-
       // Get expiration days from settings
       const expirationDays = fees.offer_expiration_days || 30;
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + expirationDays);
 
+      const rowsToInsert = productsToAdd.flatMap((item) =>
+        Array.from({ length: item.quantity }, () => ({
+          id: crypto.randomUUID(),
+          user_id: user.id,
+          product_id: item.product.product_id,
+          name: item.product.product_name,
+          size: item.size,
+          price: item.price,
+          image_url: item.product.image_url,
+          original_price: item.originalPrice,
+          payout: item.payout,
+          sku: item.sku,
+          input_currency: item.currency,
+          input_price: item.inputPrice,
+          exchange_rate: item.exchangeRate,
+          is_vat0: item.vatScheme === 'VAT0',
+          vat_scheme: item.vatScheme,
+          expires_at: expiresAt.toISOString(),
+        }))
+      );
+
       const { error: insertError } = await supabase
         .from('user_products')
-        .insert([
-          {
-            id: newProductId,
-            user_id: user.id,
-            product_id: selectedProduct.product_id,
-            name: selectedProduct.product_name,
-            size: selectedSize,
-            price: numericNewPrice,
-            image_url: selectedProduct.image_url,
-            original_price: recommendedPrice,
-            payout: computedPayout ?? 0,
-            sku: sku,
-            expires_at: expiresAt.toISOString(),
-          },
-        ])
+        .insert(rowsToInsert)
         .abortSignal(controller.signal);
 
       clearTimeout(timeoutId);
 
       if (insertError) throw insertError;
 
-      const newProduct = {
-        id: newProductId,
-        user_id: user.id,
-        product_id: selectedProduct.product_id,
-        name: selectedProduct.product_name,
-        size: selectedSize,
-        price: numericNewPrice,
-        image_url: selectedProduct.image_url,
-        original_price: recommendedPrice,
-        payout: computedPayout ?? 0,
-        sku: sku,
-        created_at: new Date().toISOString(),
-        expires_at: expiresAt.toISOString(),
-      };
-
-      onProductAdded(newProduct);
+      rowsToInsert.forEach((row) => {
+        onProductAdded({
+          ...row,
+          exchange_rate: row.exchange_rate ?? undefined,
+          created_at: new Date().toISOString(),
+        });
+      });
       setSelectedProduct(null);
       setSelectedSize('');
       setNewPrice('');
       setSku('');
+      setCurrency('EUR');
+      setQuantity(1);
+      setQueuedProducts([]);
+      setVatScheme('MARGIN');
       onClose();
     } catch (err: any) {
       clearTimeout(timeoutId);
@@ -350,6 +494,45 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
 
         <div className="p-4 sm:p-6 overflow-y-auto max-h-[calc(95vh-120px)] sm:max-h-[calc(90vh-140px)]">
           <form onSubmit={handleSubmit} className="space-y-6">
+            {queuedProducts.length > 0 && (
+              <div className="border border-slate-200 rounded-xl overflow-hidden">
+                <div className="flex items-center justify-between bg-slate-50 px-4 py-3 border-b border-slate-200">
+                  <h3 className="text-sm font-semibold text-slate-900">Products to add</h3>
+                  <span className="text-xs font-medium text-slate-500">
+                    {queuedProducts.reduce((sum, item) => sum + item.quantity, 0)} pcs
+                  </span>
+                </div>
+                <div className="divide-y divide-slate-200">
+                  {queuedProducts.map((item, index) => (
+                    <div key={`${item.product.product_id}-${item.size}-${index}`} className="flex items-center gap-3 px-4 py-3">
+                      <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-white">
+                        <img
+                          src={item.product.image_url || '/default-image.png'}
+                          alt=""
+                          className="h-full w-full object-contain p-1"
+                        />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-slate-900">{item.product.product_name}</p>
+                        <p className="text-xs text-slate-500">
+                          Size {item.size} · {item.quantity}× · {formatCurrency(item.price)} each
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeQueuedProduct(index)}
+                        className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Remove item"
+                        aria-label="Remove item"
+                      >
+                        <FaTrash className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {!selectedProduct ? (
               <>
                 <div>
@@ -456,7 +639,6 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
                       setNewPrice('');
                     }}
                     className="block w-full px-3 sm:px-4 py-2 sm:py-3 border border-slate-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent text-sm sm:text-base appearance-none"
-                    required
                   >
                     <option value="">Select size</option>
                     {sizes.map((size, index) => (
@@ -478,36 +660,96 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
                         </div>
                         <div className="ml-3">
                           <p className="text-xs sm:text-sm font-medium text-blue-800">
-                            {hasOtherConsignors ? 'Lowest market price' : 'Market price'}: <span className="font-bold">{recommendedPrice} €</span>
+                            {hasOtherConsignors ? 'Lowest market price' : 'Market price'}:{' '}
+                            <span className="font-bold">{formatCurrency(recommendedPrice)}</span>
+                            {currency === 'CZK' && hasExchangeRate && (
+                              <span className="ml-2 text-blue-700">({formatCzk(eurToCzk(recommendedPrice, exchangeRate))})</span>
+                            )}
                           </p>
                         </div>
                       </div>
                     </div>
                     
                     <div>
-                      <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-3">
-                        Your sale price
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="number"
-                          value={newPrice}
-                          onChange={(e) => setNewPrice(e.target.value.replace(/[^0-9]/g, ''))}
-                          className={`block w-full px-3 sm:px-4 py-2 sm:py-3 border rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent text-sm sm:text-base ${priceColor === 'text-red-600' ? 'border-red-300' : priceColor === 'text-green-600' ? 'border-green-300' : 'border-slate-300'} appearance-none`}
-                          placeholder="Enter price in euros"
-                          min="1"
-                          inputMode="numeric"
-                          required
-                        />
-                        <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                          <span className="text-slate-500 text-sm">€</span>
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <label className="block text-xs sm:text-sm font-semibold text-slate-700">
+                          Your sale price
+                        </label>
+                        <div className="inline-flex rounded-xl border border-slate-300 bg-slate-100 p-1">
+                          {(['EUR', 'CZK'] as const).map((option) => (
+                            <button
+                              key={option}
+                              type="button"
+                              onClick={() => handleCurrencyChange(option)}
+                              disabled={option === 'CZK' && !hasExchangeRate}
+                              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                                currency === option ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'
+                              } ${option === 'CZK' && !hasExchangeRate ? 'cursor-not-allowed opacity-40 hover:text-slate-500' : ''}`}
+                            >
+                              {option}
+                            </button>
+                          ))}
                         </div>
                       </div>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={newPrice}
+                          onChange={(e) => setNewPrice(e.target.value.replace(',', '.').replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1'))}
+                          className={`block w-full px-3 sm:px-4 py-2 sm:py-3 pr-12 border rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent text-sm sm:text-base ${priceColor === 'text-red-600' ? 'border-red-300' : priceColor === 'text-green-600' ? 'border-green-300' : 'border-slate-300'} appearance-none`}
+                          placeholder={currency === 'CZK' ? 'Enter price in CZK' : 'Enter price in EUR'}
+                          pattern="[0-9]*[.]?[0-9]*"
+                          inputMode="numeric"
+                        />
+                        <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
+                          <span className="rounded-lg bg-slate-50 px-2 py-1 text-sm font-semibold text-slate-500">{currency === 'CZK' ? 'Kč' : '€'}</span>
+                        </div>
+                      </div>
+                      {!isNaN(numericInputPrice) && numericInputPrice > 0 && (
+                        <div className="mt-2 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                          Stored as <span className="font-semibold text-slate-900">{formatCurrency(numericNewPrice)}</span>
+                          {currency === 'CZK' && hasExchangeRate && (
+                            <span> from {formatCzk(numericInputPrice)} at {exchangeRate} CZK/EUR</span>
+                          )}
+                          {currency === 'CZK' && hasExchangeRate && (
+                            <span className="ml-2">Display: {formatCurrency(numericNewPrice)} / {formatCzk(eurToCzk(numericNewPrice, exchangeRate))}</span>
+                          )}
+                        </div>
+                      )}
                       
                       {priceMessage && (
                         <div className={`mt-2 flex items-center text-sm ${priceColor}`}>
                           {priceBadge}
                           <span className="ml-2">{priceMessage}</span>
+                        </div>
+                      )}
+
+                      {isVatPayerProfile && (
+                        <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
+                          <div className="mb-3">
+                            <p className="text-sm font-semibold text-slate-800">Business VAT mode</p>
+                            <p className="text-xs text-slate-500">VAT payer listing. Choose margin sale or VAT0. VAT0 uses Slovak VAT {Math.round(SK_VAT_RATE * 100)}% base in payout calculation.</p>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            {[
+                              { value: 'MARGIN' as const, label: 'Margin', desc: 'No VAT base deduction' },
+                              { value: 'VAT0' as const, label: 'VAT0', desc: `Base ${formatCurrency(payoutBasePrice ?? 0)}` },
+                            ].map((option) => (
+                              <button
+                                key={option.value}
+                                type="button"
+                                onClick={() => setVatScheme(option.value)}
+                                className={`rounded-xl border px-3 py-2 text-left transition ${
+                                  vatScheme === option.value
+                                    ? 'border-slate-900 bg-slate-900 text-white'
+                                    : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-300'
+                                }`}
+                              >
+                                <span className="block text-sm font-semibold">{option.label}</span>
+                                <span className={`block text-xs ${vatScheme === option.value ? 'text-slate-200' : 'text-slate-500'}`}>{option.desc}</span>
+                              </button>
+                            ))}
+                          </div>
                         </div>
                       )}
                       
@@ -518,11 +760,63 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
                               <p className="text-xs sm:text-sm font-medium text-green-800">Your payout</p>
                               <p className="text-xs text-green-600">After fees ({fees.fee_percent * 100}% + {fees.fee_fixed}€)</p>
                             </div>
-                            <p className="text-base sm:text-lg font-bold text-green-900">{formatCurrency(computedPayout)}</p>
+                            <p className="text-base sm:text-lg font-bold text-green-900">
+                              {formatCurrency(computedPayout)}
+                              {currency === 'CZK' && hasExchangeRate && (
+                                <span className="ml-2 text-sm font-semibold text-green-700">
+                                  {formatCzk(eurToCzk(computedPayout, exchangeRate))}
+                                </span>
+                              )}
+                            </p>
                           </div>
                         </div>
                       )}
                     </div>
+
+                    <div>
+                      <label htmlFor="product-quantity" className="block text-xs sm:text-sm font-semibold text-slate-700 mb-3">
+                        Quantity
+                      </label>
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setQuantity((current) => Math.max(1, current - 1))}
+                          disabled={quantity <= 1}
+                          className="h-11 w-11 border border-slate-300 rounded-lg text-lg font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+                          aria-label="Decrease quantity"
+                        >
+                          −
+                        </button>
+                        <input
+                          id="product-quantity"
+                          type="number"
+                          min="1"
+                          max="100"
+                          value={quantity}
+                          onChange={(e) => setQuantity(Math.min(100, Math.max(1, Number(e.target.value) || 1)))}
+                          className="h-11 w-20 border border-slate-300 rounded-lg text-center text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-slate-900"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setQuantity((current) => Math.min(100, current + 1))}
+                          disabled={quantity >= 100}
+                          className="h-11 w-11 border border-slate-300 rounded-lg text-lg font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+                          aria-label="Increase quantity"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleQueueCurrentProduct}
+                      disabled={!currentItemIsValid}
+                      className="w-full inline-flex items-center justify-center px-4 py-3 border border-slate-900 text-sm font-semibold text-slate-900 rounded-xl hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <FaPlus className="mr-2" />
+                      Add another size or product
+                    </button>
                   </div>
                 )}
               </div>
@@ -559,7 +853,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
               </button>
               <button
                 type="submit"
-                disabled={loading || !selectedProduct || !selectedSize || !newPrice}
+                disabled={loading || (queuedProducts.length === 0 && !currentItemIsValid)}
                 className="px-4 sm:px-6 py-2 sm:py-3 text-sm font-semibold text-white bg-gradient-to-r from-slate-900 to-slate-700 hover:from-slate-800 hover:to-slate-600 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
               >
                 {loading ? (
@@ -573,8 +867,9 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
                 ) : (
                   <>
                     <FaCheck className="mr-2" />
-                    <span className="hidden sm:inline">Add Product</span>
-                    <span className="sm:hidden">Add</span>
+                    <span>
+                      Add {queuedProducts.reduce((sum, item) => sum + item.quantity, 0) + (currentItemIsValid ? quantity : 0)} product{queuedProducts.reduce((sum, item) => sum + item.quantity, 0) + (currentItemIsValid ? quantity : 0) === 1 ? '' : 's'}
+                    </span>
                   </>
                 )}
               </button>

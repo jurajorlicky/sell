@@ -1,0 +1,2 @@
+ALTER TABLE eshop_sales
+ADD COLUMN IF NOT EXISTS payout numeric NOT NULL DEFAULT 0;

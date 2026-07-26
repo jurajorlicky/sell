@@ -11,9 +11,9 @@ import {
   FaCloudDownloadAlt,
   FaTimes,
   FaSave,
-  FaEuroSign,
   FaEye,
-  FaTags
+  FaTags,
+  FaCheck
 } from 'react-icons/fa';
 
 const PRODUCT_IMPORT_FUNCTION_URL = 'https://ddzmuxcavpgbzhirzlqt.supabase.co/functions/v1/dynamic-endpoint?commit=1';
@@ -35,6 +35,7 @@ interface ImportStatus {
   message: string;
   details?: string;
   changes?: ImportChanges;
+  result?: ImportResult;
 }
 
 interface ImportChanges {
@@ -42,17 +43,34 @@ interface ImportChanges {
   removedProducts: Product[];
 }
 
+interface ImportVariantChange {
+  product_id: number;
+  size: string;
+  sku?: string;
+  name?: string;
+  from_price?: number | null;
+  to_price?: number | null;
+  from_status?: string | null;
+  to_status?: string | null;
+  reason?: string;
+}
+
+interface ImportResult {
+  updatedVariants?: ImportVariantChange[];
+  removedVariants?: ImportVariantChange[];
+  deactivatedVariants?: ImportVariantChange[];
+  skippedExpressVariants?: ImportVariantChange[];
+}
+
 interface ProductSizeRow {
   product_id: string;
   size: string;
   original_price: number | null;
-  price: number | null;
   status: string | null;
   sku: string | null;
   final_price?: number | null;
   final_status?: string | null;
   owner?: string | null;
-  priceInput: string;
   statusInput: string;
 }
 
@@ -73,13 +91,71 @@ const formatPrice = (value: number | null | undefined): string => {
   return `${Number(value).toFixed(2)} EUR`;
 };
 
-const parsePriceInput = (value: string): number | null => {
-  const normalized = value.trim().replace(',', '.');
-  if (!normalized) return null;
-
-  const parsed = Number.parseFloat(normalized);
-  return Number.isFinite(parsed) ? Math.round(parsed * 100) / 100 : null;
+const formatImportChangeLabel = (change: ImportVariantChange): string => {
+  const sku = change.sku || String(change.product_id);
+  const name = change.name || 'Unknown product';
+  return `${sku} - ${name} - ${change.size}`;
 };
+
+function ImportVariantList({
+  title,
+  changes,
+  tone,
+}: {
+  title: string;
+  changes: ImportVariantChange[] | undefined;
+  tone: 'green' | 'red' | 'amber' | 'purple';
+}) {
+  const toneClass = {
+    green: 'border-green-200 text-green-700',
+    red: 'border-red-200 text-red-700',
+    amber: 'border-amber-200 text-amber-700',
+    purple: 'border-purple-200 text-purple-700',
+  }[tone];
+
+  const visibleChanges = changes || [];
+
+  return (
+    <div className={`rounded-lg border bg-white/80 p-3 ${toneClass}`}>
+      <div className="mb-2 text-xs font-semibold uppercase">
+        {title} ({visibleChanges.length})
+      </div>
+      {visibleChanges.length > 0 ? (
+        <ul className="max-h-40 space-y-2 overflow-auto text-xs text-gray-700">
+          {visibleChanges.slice(0, 50).map((change, index) => (
+            <li key={`${title}-${change.product_id}-${change.size}-${index}`} className="rounded-md bg-gray-50 p-2">
+              <div className="font-medium text-gray-900">{formatImportChangeLabel(change)}</div>
+              <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-gray-500">
+                {(change.from_price !== undefined || change.to_price !== undefined) && (
+                  <span>{formatPrice(change.from_price)} {'->'} {formatPrice(change.to_price)}</span>
+                )}
+                {(change.from_status || change.to_status) && (
+                  <span>{change.from_status || '-'} {'->'} {change.to_status || '-'}</span>
+                )}
+                {change.reason && <span>{change.reason}</span>}
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-xs text-gray-500">No items.</p>
+      )}
+      {visibleChanges.length > 50 && (
+        <p className="mt-2 text-xs text-gray-500">Showing first 50 only.</p>
+      )}
+    </div>
+  );
+}
+
+const ACTIVE_STATUSES = ['Skladom', 'Skladom Expres'];
+
+const normalizeStatus = (value: string | null | undefined): string | null => {
+  const normalized = (value || '').trim();
+  return normalized || null;
+};
+
+const isActiveStatus = (value: string | null | undefined): boolean =>
+  ACTIVE_STATUSES.includes(normalizeStatus(value) || '');
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -98,6 +174,8 @@ export default function ProductsPage() {
   const [productSizes, setProductSizes] = useState<ProductSizeRow[]>([]);
   const [loadingSizes, setLoadingSizes] = useState(false);
   const [savingSizes, setSavingSizes] = useState(false);
+  const [selectedSizes, setSelectedSizes] = useState<Set<string>>(new Set());
+  const [bulkStatusInput, setBulkStatusInput] = useState('Skladom');
 
   const loadProducts = useCallback(async (): Promise<Product[]> => {
     try {
@@ -201,10 +279,13 @@ export default function ProductsPage() {
       const priceSummary = typeof result === 'string' || !options.expectPriceImport
         ? ''
         : ` Prices imported: ${result?.priceImported ?? 'unknown'}, skipped express: ${result?.priceSkippedExpress ?? 'unknown'}, preserved: ${result?.pricePreserved ?? 'unknown'}.`;
+      const staleSummary = typeof result === 'string'
+        ? ''
+        : ` Stale sizes deleted: ${result?.staleVariantsDeleted ?? 0}, deactivated: ${result?.staleVariantsDeactivated ?? 0}.`;
       const modeWarning = isMissingPriceImportMode
         ? ' Price import mode was not confirmed by the Edge Function. Update the Supabase function code from the draft.'
         : '';
-      const summary = `${message} New: ${changes.newProducts.length}, removed: ${changes.removedProducts.length}.${priceSummary}${modeWarning}`;
+      const summary = `${message} New: ${changes.newProducts.length}, removed: ${changes.removedProducts.length}.${priceSummary}${staleSummary}${modeWarning}`;
 
       setImportStatus({
         state: 'success',
@@ -214,6 +295,7 @@ export default function ProductsPage() {
         message: summary,
         details: responseDetails,
         changes,
+        result: typeof result === 'string' ? undefined : result,
       });
       setSuccessMessage(summary);
     } catch (err: any) {
@@ -268,7 +350,7 @@ export default function ProductsPage() {
       const [sizesRes, finalPricesRes] = await Promise.all([
         supabase
           .from('product_sizes')
-          .select('product_id, size, original_price, price, status, sku')
+          .select('product_id, size, original_price, status, sku')
           .eq('product_id', product.id)
           .order('size', { ascending: true }),
         supabase
@@ -289,24 +371,23 @@ export default function ProductsPage() {
 
       const rows = (sizesRes.data || []).map((row: any) => {
         const finalRow = finalBySize.get(String(row.size || ''));
-        const price = row.price === null || row.price === undefined ? null : Number(row.price);
 
         return {
           product_id: String(row.product_id),
           size: String(row.size || ''),
           original_price: row.original_price === null || row.original_price === undefined ? null : Number(row.original_price),
-          price,
           status: row.status || '',
           sku: row.sku || product.sku || '',
           final_price: finalRow?.final_price === null || finalRow?.final_price === undefined ? null : Number(finalRow?.final_price),
           final_status: finalRow?.final_status || '',
           owner: finalRow?.owner || null,
-          priceInput: price === null ? '' : String(price),
           statusInput: row.status || '',
         };
       });
 
       setProductSizes(rows);
+      setSelectedSizes(new Set());
+      setBulkStatusInput('Skladom');
     } catch (err: any) {
       console.error('Error loading product sizes:', err.message);
       setError('Error loading product sizes: ' + err.message);
@@ -318,18 +399,61 @@ export default function ProductsPage() {
   const openProductDetail = async (product: Product) => {
     setSelectedProduct(product);
     setProductSizes([]);
+    setSelectedSizes(new Set());
+    setBulkStatusInput('Skladom');
     await loadProductSizes(product);
   };
 
   const closeProductDetail = () => {
     setSelectedProduct(null);
     setProductSizes([]);
+    setSelectedSizes(new Set());
+    setBulkStatusInput('Skladom');
   };
 
-  const updateSizeDraft = (size: string, field: 'priceInput' | 'statusInput', value: string) => {
+  const updateSizeDraft = (size: string, field: 'statusInput', value: string) => {
     setProductSizes(prev =>
       prev.map(row => row.size === size ? { ...row, [field]: value } : row)
     );
+  };
+
+  const toggleSizeSelection = (size: string) => {
+    setSelectedSizes(prev => {
+      const next = new Set(prev);
+      if (next.has(size)) {
+        next.delete(size);
+      } else {
+        next.add(size);
+      }
+      return next;
+    });
+  };
+
+  const selectSizes = (sizes: string[]) => {
+    setSelectedSizes(new Set(sizes));
+  };
+
+  const applyBulkStatus = () => {
+    if (selectedSizes.size === 0) {
+      setError('Select at least one size first.');
+      return;
+    }
+
+    setError(null);
+    setProductSizes(prev =>
+      prev.map(row => selectedSizes.has(row.size) ? { ...row, statusInput: bulkStatusInput } : row)
+    );
+  };
+
+  const toggleSizeActive = (size: string, currentlyActive: boolean) => {
+    updateSizeDraft(size, 'statusInput', currentlyActive ? 'Vypredané' : 'Skladom');
+  };
+
+  const isSizeDirty = (row: ProductSizeRow): boolean => {
+    const nextStatus = normalizeStatus(row.statusInput);
+    const currentStatus = normalizeStatus(row.status);
+
+    return nextStatus !== currentStatus;
   };
 
   const saveProductSizes = async () => {
@@ -340,14 +464,18 @@ export default function ProductsPage() {
       setError(null);
       setSuccessMessage(null);
 
-      for (const row of productSizes) {
-        const parsedPrice = parsePriceInput(row.priceInput);
-        const nextStatus = row.statusInput.trim();
+      const changedRows = productSizes.filter(isSizeDirty);
+      if (changedRows.length === 0) {
+        setSuccessMessage('No size changes to save.');
+        return;
+      }
+
+      await Promise.all(changedRows.map(async (row) => {
+        const nextStatus = normalizeStatus(row.statusInput);
 
         const { data: updatedRows, error: updateError } = await supabase
           .from('product_sizes')
           .update({
-            price: parsedPrice,
             status: nextStatus || null,
           })
           .eq('product_id', selectedProduct.id)
@@ -358,10 +486,10 @@ export default function ProductsPage() {
         if (!updatedRows || updatedRows.length === 0) {
           throw new Error(`No row was updated for size ${row.size}. Check product_sizes update policy/RLS.`);
         }
-      }
+      }));
 
       await loadProductSizes(selectedProduct);
-      setSuccessMessage(`Saved prices and statuses for ${selectedProduct.name}.`);
+      setSuccessMessage(`Saved ${changedRows.length} size ${changedRows.length === 1 ? 'change' : 'changes'} for ${selectedProduct.name}.`);
     } catch (err: any) {
       console.error('Error saving product sizes:', err.message);
       setError('Error saving product sizes: ' + err.message);
@@ -406,6 +534,10 @@ export default function ProductsPage() {
       field?.toLowerCase().includes(searchTerm.toLowerCase())
     )
   );
+  const selectedSizeCount = selectedSizes.size;
+  const dirtySizeCount = productSizes.filter(isSizeDirty).length;
+  const activeSizeCount = productSizes.filter(row => isActiveStatus(row.statusInput)).length;
+  const feedPriceCount = productSizes.filter(row => row.original_price !== null && row.original_price !== undefined).length;
 
   if (loading) {
     return (
@@ -423,7 +555,7 @@ export default function ProductsPage() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 sticky top-0 z-40 shadow-lg">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-4">
+        <div className="mx-auto max-w-[1680px] px-3 sm:px-6 lg:px-8 py-3 sm:py-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-2 sm:space-x-4">
               <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-purple-400 to-violet-500 rounded-2xl shadow-lg">
@@ -458,7 +590,7 @@ export default function ProductsPage() {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-3 sm:py-6 lg:py-8">
+      <div className="mx-auto max-w-[1680px] px-2 sm:px-4 lg:px-8 py-3 sm:py-6 lg:py-8">
         {error && (
           <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4 backdrop-blur-sm">
             <div className="flex items-center justify-between">
@@ -571,6 +703,30 @@ export default function ProductsPage() {
                         <p className="mt-2 text-xs text-gray-500">Showing first 25 only.</p>
                       )}
                     </div>
+                  </div>
+                )}
+                {importStatus.result && (
+                  <div className="grid gap-3 lg:grid-cols-2">
+                    <ImportVariantList
+                      title="Updated sizes"
+                      changes={importStatus.result.updatedVariants}
+                      tone="green"
+                    />
+                    <ImportVariantList
+                      title="Removed sizes"
+                      changes={importStatus.result.removedVariants}
+                      tone="red"
+                    />
+                    <ImportVariantList
+                      title="Deactivated sizes"
+                      changes={importStatus.result.deactivatedVariants}
+                      tone="amber"
+                    />
+                    <ImportVariantList
+                      title="Skipped Skladom Expres"
+                      changes={importStatus.result.skippedExpressVariants}
+                      tone="purple"
+                    />
                   </div>
                 )}
                 {importStatus.details && (
@@ -815,7 +971,7 @@ export default function ProductsPage() {
               </div>
 
               {!loadingSizes && productSizes.length > 0 && (
-                <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
                   <div className="rounded-xl bg-gray-50 px-3 py-2">
                     <div className="text-[10px] font-semibold uppercase text-gray-500 sm:text-[11px]">Sizes</div>
                     <div className="text-base font-bold text-gray-900 sm:text-lg">{productSizes.length}</div>
@@ -827,12 +983,16 @@ export default function ProductsPage() {
                   <div className="rounded-xl bg-green-50 px-3 py-2">
                     <div className="text-[10px] font-semibold uppercase text-green-700 sm:text-[11px]">Stock</div>
                     <div className="text-base font-bold text-green-900 sm:text-lg">
-                      {productSizes.filter(row => row.final_status === 'Skladom' || row.final_status === 'Skladom Expres').length}
+                      {productSizes.filter(row => isActiveStatus(row.final_status)).length}
                     </div>
                   </div>
                   <div className="rounded-xl bg-gray-50 px-3 py-2">
-                    <div className="text-[10px] font-semibold uppercase text-gray-500 sm:text-[11px]">Default</div>
-                    <div className="text-base font-bold text-gray-900 sm:text-lg">{productSizes.filter(row => row.priceInput.trim()).length}</div>
+                    <div className="text-[10px] font-semibold uppercase text-gray-500 sm:text-[11px]">Feed price</div>
+                    <div className="text-base font-bold text-gray-900 sm:text-lg">{feedPriceCount}</div>
+                  </div>
+                  <div className="rounded-xl bg-amber-50 px-3 py-2">
+                    <div className="text-[10px] font-semibold uppercase text-amber-700 sm:text-[11px]">Changed</div>
+                    <div className="text-base font-bold text-amber-900 sm:text-lg">{dirtySizeCount}</div>
                   </div>
                 </div>
               )}
@@ -841,7 +1001,7 @@ export default function ProductsPage() {
           footer={(
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="hidden text-xs text-gray-600 sm:block">
-                  Final price uses the lowest active consigner offer first, then this default price.
+                  Final price uses the lowest active consigner offer first, then the feed price. Selected: {selectedSizeCount}, changed statuses: {dirtySizeCount}.
                 </p>
                 <div className="grid grid-cols-2 gap-2 sm:flex">
                   <button
@@ -857,7 +1017,7 @@ export default function ProductsPage() {
                     className="inline-flex items-center justify-center rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <FaSave className={`mr-2 ${savingSizes ? 'animate-pulse' : ''}`} />
-                    {savingSizes ? 'Saving...' : 'Save sizes'}
+                    {savingSizes ? 'Saving...' : 'Save statuses'}
                   </button>
                 </div>
               </div>
@@ -873,26 +1033,117 @@ export default function ProductsPage() {
                 </div>
               ) : (
                 <>
+                  <div className="mb-4 rounded-2xl border border-gray-200 bg-gray-50 p-3 sm:p-4">
+                    <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                      <div className="grid grid-cols-3 gap-2 text-center sm:w-auto sm:min-w-[260px]">
+                        <div className="rounded-xl bg-white px-3 py-2 shadow-sm">
+                          <div className="text-[10px] font-semibold uppercase text-gray-500">Selected</div>
+                          <div className="text-lg font-bold text-gray-900">{selectedSizeCount}</div>
+                        </div>
+                        <div className="rounded-xl bg-white px-3 py-2 shadow-sm">
+                          <div className="text-[10px] font-semibold uppercase text-gray-500">Active</div>
+                          <div className="text-lg font-bold text-gray-900">{activeSizeCount}</div>
+                        </div>
+                        <div className="rounded-xl bg-white px-3 py-2 shadow-sm">
+                          <div className="text-[10px] font-semibold uppercase text-gray-500">Feed priced</div>
+                          <div className="text-lg font-bold text-gray-900">{feedPriceCount}</div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => selectSizes(productSizes.map(row => row.size))}
+                          className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-100"
+                        >
+                          All
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => selectSizes(productSizes.filter(row => isActiveStatus(row.statusInput)).map(row => row.size))}
+                          className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-100"
+                        >
+                          Active
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => selectSizes([])}
+                          className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-100"
+                        >
+                          Clear
+                        </button>
+                      </div>
+
+                      <div className="grid gap-2 sm:grid-cols-[minmax(170px,1fr)_auto] xl:min-w-[360px]">
+                        <select
+                          value={bulkStatusInput}
+                          onChange={(event) => setBulkStatusInput(event.target.value)}
+                          className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                        >
+                          <option value="">No status</option>
+                          <option value="Skladom">Skladom</option>
+                          <option value="Skladom Expres">Skladom Expres</option>
+                          <option value="Vypredané">Vypredané</option>
+                          <option value="Nedostupné">Nedostupné</option>
+                        </select>
+                        <button
+                          type="button"
+                          onClick={applyBulkStatus}
+                          disabled={selectedSizeCount === 0}
+                          className="rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-900 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          Set status
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="grid gap-3 md:hidden">
                     {productSizes.map((row) => {
                       const hasConsignerPrice = Boolean(row.owner);
+                      const isSelected = selectedSizes.has(row.size);
+                      const isActive = isActiveStatus(row.statusInput);
+                      const isDirty = isSizeDirty(row);
                       return (
-                        <div key={row.size} className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+                        <div key={row.size} className={`rounded-xl border bg-white p-3 shadow-sm ${
+                          isSelected ? 'border-purple-300 ring-2 ring-purple-100' : 'border-gray-200'
+                        }`}>
                           <div className="mb-3 flex items-start justify-between gap-3">
-                            <div>
-                              <div className="text-[11px] font-semibold uppercase text-gray-500">Size</div>
-                              <div className="text-lg font-bold text-gray-900">{row.size}</div>
+                            <div className="flex min-w-0 items-start gap-3">
+                              <button
+                                type="button"
+                                onClick={() => toggleSizeSelection(row.size)}
+                                className={`mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border text-sm transition ${
+                                  isSelected
+                                    ? 'border-purple-500 bg-purple-600 text-white'
+                                    : 'border-gray-300 bg-white text-transparent hover:border-gray-500'
+                                }`}
+                                aria-label={`Select size ${row.size}`}
+                              >
+                                <FaCheck />
+                              </button>
+                              <div className="min-w-0">
+                                <div className="text-[11px] font-semibold uppercase text-gray-500">Size</div>
+                                <div className="text-lg font-bold text-gray-900">{row.size}</div>
+                                {isDirty && <div className="mt-0.5 text-xs font-semibold text-amber-700">Unsaved change</div>}
+                              </div>
                             </div>
-                            <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
-                              hasConsignerPrice ? 'bg-purple-50 text-purple-700' : 'bg-gray-100 text-gray-700'
-                            }`}>
-                              {hasConsignerPrice ? 'Consigner' : 'Default'}
-                            </span>
+                            <button
+                              type="button"
+                              onClick={() => toggleSizeActive(row.size, isActive)}
+                              className={`flex-shrink-0 rounded-full px-3 py-1.5 text-xs font-bold ${
+                                isActive
+                                  ? 'bg-gray-900 text-white'
+                                  : 'bg-gray-100 text-gray-600'
+                              }`}
+                            >
+                              {isActive ? 'Active' : 'Off'}
+                            </button>
                           </div>
 
                           <div className="grid grid-cols-2 gap-2 text-sm">
                             <div className="rounded-lg bg-gray-50 p-2">
-                              <div className="text-[11px] font-semibold uppercase text-gray-500">Original</div>
+                              <div className="text-[11px] font-semibold uppercase text-gray-500">Feed price</div>
                               <div className="font-semibold text-gray-900">{formatPrice(row.original_price)}</div>
                             </div>
                             <div className="rounded-lg bg-gray-50 p-2">
@@ -903,23 +1154,8 @@ export default function ProductsPage() {
                           </div>
 
                           <div className="mt-3 grid gap-3">
-                            <label className="block">
-                              <span className="mb-1 block text-xs font-semibold text-gray-600">Default shop price</span>
-                              <div className="relative">
-                                <FaEuroSign className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-gray-400" />
-                                <input
-                                  type="number"
-                                  inputMode="decimal"
-                                  step="0.01"
-                                  value={row.priceInput}
-                                  onChange={(event) => updateSizeDraft(row.size, 'priceInput', event.target.value)}
-                                  className="w-full rounded-xl border border-gray-300 py-2.5 pl-8 pr-3 text-sm text-gray-900 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20"
-                                  placeholder="Fallback price"
-                                />
-                              </div>
-                            </label>
-                            <label className="block">
-                              <span className="mb-1 block text-xs font-semibold text-gray-600">Default status</span>
+                            <label className="block rounded-xl border border-gray-200 bg-gray-50 p-2">
+                              <span className="mb-1 block text-xs font-semibold text-gray-600">Status</span>
                               <select
                                 value={row.statusInput}
                                 onChange={(event) => updateSizeDraft(row.size, 'statusInput', event.target.value)}
@@ -937,6 +1173,11 @@ export default function ProductsPage() {
                           <div className="mt-3 flex flex-wrap gap-2 text-xs text-gray-600">
                             <span className="rounded-full bg-gray-100 px-2 py-1">Final status: {row.final_status || '-'}</span>
                             <span className="rounded-full bg-gray-100 px-2 py-1 font-mono">SKU: {row.sku || '-'}</span>
+                            <span className={`rounded-full px-2 py-1 font-semibold ${
+                              hasConsignerPrice ? 'bg-purple-50 text-purple-700' : 'bg-gray-100 text-gray-700'
+                            }`}>
+                              {hasConsignerPrice ? 'Consigner price' : 'Feed price'}
+                            </span>
                           </div>
                         </div>
                       );
@@ -947,9 +1188,10 @@ export default function ProductsPage() {
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">
                         <tr>
+                          <th className="px-3 py-3 text-left text-xs font-semibold uppercase text-gray-600">Pick</th>
                           <th className="px-3 py-3 text-left text-xs font-semibold uppercase text-gray-600">Size</th>
-                          <th className="px-3 py-3 text-left text-xs font-semibold uppercase text-gray-600">Original</th>
-                          <th className="px-3 py-3 text-left text-xs font-semibold uppercase text-gray-600">Default price</th>
+                          <th className="px-3 py-3 text-left text-xs font-semibold uppercase text-gray-600">Active</th>
+                          <th className="px-3 py-3 text-left text-xs font-semibold uppercase text-gray-600">Feed price</th>
                           <th className="px-3 py-3 text-left text-xs font-semibold uppercase text-gray-600">Final price</th>
                           <th className="px-3 py-3 text-left text-xs font-semibold uppercase text-gray-600">Status</th>
                           <th className="px-3 py-3 text-left text-xs font-semibold uppercase text-gray-600">Final status</th>
@@ -960,24 +1202,43 @@ export default function ProductsPage() {
                       <tbody className="divide-y divide-gray-100">
                         {productSizes.map((row) => {
                           const hasConsignerPrice = Boolean(row.owner);
+                          const isSelected = selectedSizes.has(row.size);
+                          const isActive = isActiveStatus(row.statusInput);
+                          const isDirty = isSizeDirty(row);
                           return (
-                            <tr key={row.size} className="align-top hover:bg-gray-50/70">
-                              <td className="px-3 py-3 text-sm font-semibold text-gray-900">{row.size}</td>
-                              <td className="px-3 py-3 text-sm text-gray-700">{formatPrice(row.original_price)}</td>
+                            <tr key={row.size} className={`align-top hover:bg-gray-50/70 ${isSelected ? 'bg-purple-50/50' : ''}`}>
                               <td className="px-3 py-3">
-                                <div className="relative w-32">
-                                  <FaEuroSign className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-gray-400" />
-                                  <input
-                                    type="number"
-                                    inputMode="decimal"
-                                    step="0.01"
-                                    value={row.priceInput}
-                                    onChange={(event) => updateSizeDraft(row.size, 'priceInput', event.target.value)}
-                                    className="w-full rounded-lg border border-gray-300 py-2 pl-8 pr-2 text-sm text-gray-900 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20"
-                                    placeholder="Fallback"
-                                  />
-                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => toggleSizeSelection(row.size)}
+                                  className={`flex h-9 w-9 items-center justify-center rounded-xl border text-sm transition ${
+                                    isSelected
+                                      ? 'border-purple-500 bg-purple-600 text-white'
+                                      : 'border-gray-300 bg-white text-transparent hover:border-gray-500'
+                                  }`}
+                                  aria-label={`Select size ${row.size}`}
+                                >
+                                  <FaCheck />
+                                </button>
                               </td>
+                              <td className="px-3 py-3 text-sm font-semibold text-gray-900">
+                                <div>{row.size}</div>
+                                {isDirty && <div className="mt-1 text-xs font-semibold text-amber-700">Unsaved</div>}
+                              </td>
+                              <td className="px-3 py-3">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleSizeActive(row.size, isActive)}
+                                  className={`rounded-full px-3 py-1.5 text-xs font-bold ${
+                                    isActive
+                                      ? 'bg-gray-900 text-white'
+                                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                  }`}
+                                >
+                                  {isActive ? 'Active' : 'Off'}
+                                </button>
+                              </td>
+                              <td className="px-3 py-3 text-sm text-gray-700">{formatPrice(row.original_price)}</td>
                               <td className="px-3 py-3 text-sm">
                                 <div className="font-semibold text-gray-900">{formatPrice(row.final_price)}</div>
                                 {hasConsignerPrice && (
@@ -1002,7 +1263,7 @@ export default function ProductsPage() {
                                 <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
                                   hasConsignerPrice ? 'bg-purple-50 text-purple-700' : 'bg-gray-100 text-gray-700'
                                 }`}>
-                                  {hasConsignerPrice ? 'Consigner' : 'Default'}
+                                  {hasConsignerPrice ? 'Consigner' : 'Feed'}
                                 </span>
                               </td>
                               <td className="px-3 py-3 text-sm font-mono text-gray-600">{row.sku || '-'}</td>
