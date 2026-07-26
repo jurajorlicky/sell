@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import SalesStatusBadge from './SalesStatusBadge';
 import SalesStatusTimeline from './SalesStatusTimeline';
 import { formatDate, formatCurrency } from '../lib/utils';
+import { resolveInvoiceReferences } from '../lib/storageUrls';
 import { FaArrowLeft, FaSignOutAlt, FaShoppingCart, FaUser, FaExclamationTriangle, FaEye, FaFilePdf, FaLink, FaTruck, FaBox, FaStickyNote, FaSearch, FaFilter, FaTimes, FaClock } from 'react-icons/fa';
 
 interface UserSale {
@@ -78,7 +79,11 @@ export default function UserSales() {
         return !sale.sale_type || sale.sale_type === 'operational';
       });
       
-      setSales(filteredData);
+      const signedInvoiceUrls = await resolveInvoiceReferences(filteredData.map(sale => sale.fa_url));
+      setSales(filteredData.map(sale => ({
+        ...sale,
+        fa_url: signedInvoiceUrls.get(sale.fa_url || '') || sale.fa_url,
+      })));
     } catch (err) {
       setError('Error loading your sales.');
     }

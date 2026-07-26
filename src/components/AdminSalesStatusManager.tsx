@@ -6,6 +6,7 @@ import { sendStatusChangeEmail, sendTrackingEmail } from '../lib/email';
 import { logger } from '../lib/logger';
 import { generatePurchaseAgreement, uploadContractToStorage } from '../lib/pdfGenerator';
 import { useToast } from './Toast';
+import { resolveInvoiceReferences } from '../lib/storageUrls';
 import { FaSave, FaStickyNote, FaTruck, FaBox, FaLink, FaTimes, FaPlus, FaEdit, FaFilePdf, FaUpload, FaTrash, FaClock, FaFileContract, FaFileInvoice } from 'react-icons/fa';
 
 interface ManualSaleItem {
@@ -123,7 +124,8 @@ export default function AdminSalesStatusManager({
           if (data.tracking_url) setTrackingUrl(data.tracking_url);
           if (data.label_url) setLabelUrl(data.label_url);
           if (data.fa_url) {
-            setFaUrl(data.fa_url);
+            const signedInvoiceUrls = await resolveInvoiceReferences([data.fa_url]);
+            setFaUrl(signedInvoiceUrls.get(data.fa_url) || data.fa_url);
             setDocumentMode('fa');
           }
           if (data.contract_url) {

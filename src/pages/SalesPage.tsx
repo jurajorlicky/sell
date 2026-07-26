@@ -7,6 +7,7 @@ import AdminNavigation from '../components/AdminNavigation';
 import Pagination from '../components/Pagination';
 import { formatDate, formatCurrency } from '../lib/utils';
 import { downloadXlsx, excelDate, exportDateStamp } from '../lib/xlsxExport';
+import { resolveInvoiceReferences } from '../lib/storageUrls';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import {
   FaSearch,
@@ -111,8 +112,10 @@ export default function SalesPage() {
 
       if (error) throw error;
 
+      const signedInvoiceUrls = await resolveInvoiceReferences(filteredData.map((sale: any) => sale.fa_url));
       const enriched = filteredData.map((sale: any) => ({
         ...sale,
+        fa_url: signedInvoiceUrls.get(sale.fa_url) || sale.fa_url,
         user_email: sale.profiles?.email || 'N/A',
       }));
 

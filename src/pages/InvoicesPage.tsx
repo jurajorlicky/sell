@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   FaCheckCircle,
+  FaDownload,
   FaExclamationTriangle,
   FaExternalLinkAlt,
   FaFileContract,
@@ -19,6 +20,20 @@ import { useToast } from '../components/Toast';
 import { generatePurchaseAgreement, uploadContractToStorage } from '../lib/pdfGenerator';
 import { supabase } from '../lib/supabase';
 import { formatCurrency, formatDateShort } from '../lib/utils';
+import {
+  createInvoiceSignedUrlMap,
+  invoiceStoragePathFromReference,
+  invoiceStorageReference,
+  resolveInvoiceReferences,
+} from '../lib/storageUrls';
+import {
+  downloadAccountingWorkbook,
+  excelDate,
+  exportDateStamp,
+  type AccountingItemRow,
+  type AccountingOrderRow,
+  type InvoiceAuditRow,
+} from '../lib/xlsxExport';
 
 interface InvoiceSale {
   id: string;
@@ -63,10 +78,12 @@ interface ImportedInvoice {
   extractedItems?: Array<{ product?: string; total?: number | null }> | null;
   extractionStatus?: string | null;
   extractionError?: string | null;
+  source?: string | null;
   linkedSale?: InvoiceSale | null;
 }
 
 type ViewMode = 'files' | 'missing' | 'contracts';
+type InvoiceFilter = 'all' | 'unmatched' | 'mismatch' | 'error';
 
 const normalizeOrderNumber = (value?: string | null) => {
   if (!value) return null;
@@ -75,7 +92,9 @@ const normalizeOrderNumber = (value?: string | null) => {
 
 const extractOrderNumber = (value: string) => {
   const patterns = [
+    /(?:order|objedn[aá]vka|invoice|fakt[uú]ra|fa)[^a-z0-9]{0,10}([a-z0-9][a-z0-9_-]{4,})/i,
     /(?:^|[^0-9])((?:202\d{5})(?:[_-]\d+)?)(?=$|[^0-9])/,
+    /(?:^|[^0-9])(\d{6,12})(?=$|[^0-9])/,
   ];
 
   for (const pattern of patterns) {
@@ -118,6 +137,7 @@ export default function InvoicesPage() {
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('files');
+  const [invoiceFilter, setInvoiceFilter] = useState<InvoiceFilter>('all');
   const [attachModalFile, setAttachModalFile] = useState<ImportedInvoice | null>(null);
   const [attachTarget, setAttachTarget] = useState('');
   const [attachingPath, setAttachingPath] = useState<string | null>(null);
@@ -125,51 +145,76 @@ export default function InvoicesPage() {
   const [payoutModalSale, setPayoutModalSale] = useState<InvoiceSale | null>(null);
   const [payoutDraft, setPayoutDraft] = useState('');
   const [savingPayout, setSavingPayout] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const linkFilesToSales = useCallback((nextFiles: ImportedInvoice[], nextSales: InvoiceSale[]) => {
     return nextFiles.map((file) => {
-      const linkedByUrl = nextSales.find((sale) => sale.fa_url && sale.fa_url.includes(`/invoices/${file.path}`));
+      const linkedByUrl = nextSales.find((sale) =>
+        invoiceStoragePathFromReference(sale.fa_url) === file.path ||
+        Boolean(sale.fa_url?.includes(`/invoices/${file.path}`))
+      );
       const linkedByOrder = file.orderNumber
         ? nextSales.find((sale) => saleMatchesOrder(sale, file.orderNumber as string))
         : null;
+      const normalizedExtractedProduct = file.extractedProduct?.trim().toLowerCase();
+      const amountAndProductMatches = file.extractedTotal !== null && file.extractedTotal !== undefined
+        ? nextSales.filter((sale) => {
+          const amountMatches = Math.abs(Number(sale.price || 0) - Number(file.extractedTotal)) <= 0.01;
+          if (!amountMatches) return false;
+          if (!normalizedExtractedProduct) return true;
+          const saleName = sale.name.toLowerCase();
+          return saleName.includes(normalizedExtractedProduct) || normalizedExtractedProduct.includes(saleName);
+        })
+        : [];
+      const linkedByDetails = amountAndProductMatches.length === 1 ? amountAndProductMatches[0] : null;
 
       return {
         ...file,
-        linkedSale: linkedByUrl || linkedByOrder || null,
+        linkedSale: linkedByUrl || linkedByOrder || linkedByDetails || null,
       };
     });
   }, []);
 
   const loadSales = useCallback(async () => {
-    const { data: userSales, error: salesError } = await supabase
-      .from('user_sales')
-      .select(`
-        id, user_id, name, size, price, payout, invoice_date, created_at, status, image_url,
-        external_id, sku, fa_url, contract_url, is_manual, manual_sale_items, profiles(email)
-      `)
-      .order('created_at', { ascending: false })
-      .limit(1000);
+    const userSales: any[] = [];
+    const eshopSales: any[] = [];
+    const pageSize = 1000;
 
-    if (salesError) throw salesError;
+    for (let from = 0; ; from += pageSize) {
+      const { data, error: salesError } = await supabase
+        .from('user_sales')
+        .select(`
+          id, user_id, name, size, price, payout, invoice_date, created_at, status, image_url,
+          external_id, sku, fa_url, contract_url, is_manual, manual_sale_items, profiles(email)
+        `)
+        .order('created_at', { ascending: false })
+        .range(from, from + pageSize - 1);
+      if (salesError) throw salesError;
+      userSales.push(...(data || []));
+      if (!data || data.length < pageSize) break;
+    }
 
-    const { data: eshopSales, error: eshopError } = await supabase
-      .from('eshop_sales')
-      .select(`
-        id, order_number, product_name, size, price, payout, status, image_url,
-        customer_email, sku, fa_url, order_created_at, created_at
-      `)
-      .order('created_at', { ascending: false })
-      .limit(1000);
+    for (let from = 0; ; from += pageSize) {
+      const { data, error: eshopError } = await supabase
+        .from('eshop_sales')
+        .select(`
+          id, order_number, product_name, size, price, payout, status, image_url,
+          customer_email, sku, fa_url, order_created_at, created_at
+        `)
+        .order('created_at', { ascending: false })
+        .range(from, from + pageSize - 1);
+      if (eshopError) throw eshopError;
+      eshopSales.push(...(data || []));
+      if (!data || data.length < pageSize) break;
+    }
 
-    if (eshopError) throw eshopError;
-
-    const normalizedUserSales = (userSales || []).map((sale: any) => ({
+    const normalizedUserSales = userSales.map((sale: any) => ({
       ...sale,
       source: 'user_sales' as const,
       user_email: sale.profiles?.email || 'N/A',
     }));
 
-    const normalizedEshopSales = (eshopSales || []).map((sale: any) => ({
+    const normalizedEshopSales = eshopSales.map((sale: any) => ({
       id: sale.id,
       source: 'eshop_sales' as const,
       name: sale.product_name,
@@ -191,7 +236,12 @@ export default function InvoicesPage() {
       profiles: null,
     }));
 
-    return [...normalizedEshopSales, ...normalizedUserSales] as InvoiceSale[];
+    const normalizedSales = [...normalizedEshopSales, ...normalizedUserSales] as InvoiceSale[];
+    const signedInvoiceUrls = await resolveInvoiceReferences(normalizedSales.map(sale => sale.fa_url));
+    return normalizedSales.map(sale => ({
+      ...sale,
+      fa_url: signedInvoiceUrls.get(sale.fa_url || '') || sale.fa_url,
+    }));
   }, []);
 
   const loadFilesFromStorage = useCallback(async () => {
@@ -199,29 +249,33 @@ export default function InvoicesPage() {
     const loaded: ImportedInvoice[] = [];
 
     for (const folder of folders) {
-      const { data, error: listError } = await supabase.storage
-        .from('invoices')
-        .list(folder, {
-          limit: 100,
-          sortBy: { column: 'updated_at', order: 'desc' },
-        });
+      const pageSize = 1000;
+      for (let offset = 0; ; offset += pageSize) {
+        const { data, error: listError } = await supabase.storage
+          .from('invoices')
+          .list(folder, {
+            limit: pageSize,
+            offset,
+            sortBy: { column: 'updated_at', order: 'desc' },
+          });
 
-      if (listError) throw listError;
+        if (listError) throw listError;
 
-      for (const item of data || []) {
-        if (!item.name || item.name === '.emptyFolderPlaceholder') continue;
-        const path = `${folder}/${item.name}`;
-        const publicUrl = supabase.storage.from('invoices').getPublicUrl(path).data.publicUrl;
-        loaded.push({
-          id: path,
-          name: item.name,
-          path,
-          folder,
-          orderNumber: extractOrderNumber(item.name),
-          publicUrl,
-          updatedAt: item.updated_at || item.created_at || null,
-          size: Number(item.metadata?.size || 0),
-        });
+        for (const item of data || []) {
+          if (!item.name || item.name === '.emptyFolderPlaceholder') continue;
+          const path = `${folder}/${item.name}`;
+          loaded.push({
+            id: path,
+            name: item.name,
+            path,
+            folder,
+            orderNumber: extractOrderNumber(item.name),
+            publicUrl: '',
+            updatedAt: item.updated_at || item.created_at || null,
+            size: Number(item.metadata?.size || 0),
+          });
+        }
+        if (!data || data.length < pageSize) break;
       }
     }
 
@@ -231,21 +285,36 @@ export default function InvoicesPage() {
   const loadFiles = useCallback(async () => {
     const storageFiles = await loadFilesFromStorage();
 
-    const { data: documentRows, error: documentsError } = await supabase
-      .from('invoice_documents')
-      .select('id, storage_path, file_name, order_number, public_url, status, updated_at, imported_at, extracted_product, extracted_total, extracted_items, extraction_status, extraction_error')
-      .eq('document_type', 'fa')
-      .order('imported_at', { ascending: false })
-      .limit(250);
+    const documentRows: any[] = [];
+    let documentsError: any = null;
+    const pageSize = 500;
+    for (let from = 0; ; from += pageSize) {
+      const response = await supabase
+        .from('invoice_documents')
+        .select('id, storage_path, file_name, order_number, status, source, updated_at, imported_at, extracted_product, extracted_total, extracted_items, extraction_status, extraction_error')
+        .eq('document_type', 'fa')
+        .order('imported_at', { ascending: false })
+        .range(from, from + pageSize - 1);
+      if (response.error) {
+        documentsError = response.error;
+        break;
+      }
+      documentRows.push(...(response.data || []));
+      if (!response.data || response.data.length < pageSize) break;
+    }
 
     const tableIsMissing = documentsError && /invoice_documents|schema cache|does not exist|not found/i.test(documentsError.message || '');
     if (documentsError && !tableIsMissing) throw documentsError;
+    const signedUrls = await createInvoiceSignedUrlMap([
+      ...storageFiles.map(file => file.path),
+      ...documentRows.map(row => row.storage_path).filter(Boolean),
+    ]);
 
     const byPath = new Map<string, ImportedInvoice>();
-    storageFiles.forEach((file) => byPath.set(file.path, file));
+    storageFiles.forEach((file) => byPath.set(file.path, { ...file, publicUrl: signedUrls.get(file.path) || '' }));
 
     if (!documentsError) {
-      (documentRows || []).forEach((row: any) => {
+      documentRows.forEach((row: any) => {
         const path = row.storage_path;
         if (!path) return;
 
@@ -257,7 +326,7 @@ export default function InvoicesPage() {
           path,
           folder,
           orderNumber: normalizeOrderNumber(row.order_number) || fallback?.orderNumber || extractOrderNumber(path),
-          publicUrl: row.public_url || fallback?.publicUrl || supabase.storage.from('invoices').getPublicUrl(path).data.publicUrl,
+          publicUrl: signedUrls.get(path) || fallback?.publicUrl || '',
           updatedAt: row.updated_at || row.imported_at || fallback?.updatedAt || null,
           size: fallback?.size || 0,
           extractedProduct: row.extracted_product || null,
@@ -265,6 +334,7 @@ export default function InvoicesPage() {
           extractedItems: Array.isArray(row.extracted_items) ? row.extracted_items : [],
           extractionStatus: row.extraction_status || null,
           extractionError: row.extraction_error || null,
+          source: row.source || null,
           linkedSale: fallback?.linkedSale || null,
         });
       });
@@ -327,9 +397,10 @@ export default function InvoicesPage() {
     try {
       setAttachingPath(attachModalFile.id);
       const [source, saleId] = target.split(':');
+      const stableInvoiceReference = invoiceStorageReference(attachModalFile.path);
       const { error: updateError } = await supabase
         .from(source === 'eshop_sales' ? 'eshop_sales' : 'user_sales')
-        .update({ fa_url: attachModalFile.publicUrl, updated_at: new Date().toISOString() })
+        .update({ fa_url: stableInvoiceReference, updated_at: new Date().toISOString() })
         .eq('id', saleId);
 
       if (updateError) throw updateError;
@@ -342,7 +413,7 @@ export default function InvoicesPage() {
           status: 'matched',
           bucket: 'invoices',
           storage_path: attachModalFile.path,
-          public_url: attachModalFile.publicUrl,
+          public_url: stableInvoiceReference,
           file_name: attachModalFile.name,
           order_number: attachModalFile.orderNumber,
           matched_target: source === 'eshop_sales' ? 'eshop_sales' : 'user_sales',
@@ -529,6 +600,15 @@ export default function InvoicesPage() {
 
   const visibleFiles = useMemo(() => {
     return files.filter((file) => {
+      const mismatch = Boolean(
+        file.linkedSale &&
+        file.extractedTotal !== null &&
+        file.extractedTotal !== undefined &&
+        Math.abs(Number(file.extractedTotal) - Number(file.linkedSale.price || 0)) > 0.01
+      );
+      if (invoiceFilter === 'unmatched' && file.linkedSale) return false;
+      if (invoiceFilter === 'mismatch' && !mismatch) return false;
+      if (invoiceFilter === 'error' && file.extractionStatus !== 'error') return false;
       if (!q) return true;
       return [
         file.name,
@@ -541,7 +621,7 @@ export default function InvoicesPage() {
         file.linkedSale?.user_email,
       ].some((field) => field?.toLowerCase().includes(q));
     });
-  }, [files, q]);
+  }, [files, invoiceFilter, q]);
 
   const visibleSalesWithFa = useMemo(() => {
     return salesWithFa.filter((sale) => {
@@ -558,6 +638,123 @@ export default function InvoicesPage() {
   }, [contractSales, q]);
 
   const attachableSales = useMemo(() => sales.slice(0, 500), [sales]);
+
+  const exportAccountingXlsx = async () => {
+    try {
+      setExporting(true);
+      const exportSales = q
+        ? sales.filter(sale => [sale.name, sale.external_id, sale.sku, sale.user_email]
+          .some(field => field?.toLowerCase().includes(q)))
+        : sales;
+      const exportFiles = visibleFiles;
+      const accountingItems: AccountingItemRow[] = exportSales.map(sale => {
+        const taxableMargin = Math.max(0, Number(sale.price || 0) - Number(sale.payout || 0));
+        const vatBase = taxableMargin / 1.23;
+        return {
+          orderNumber: sale.external_id || sale.id,
+          originalOrderNumber: '',
+          orderDate: excelDate(sale.invoice_date || sale.created_at),
+          product: sale.name,
+          size: sale.size || '',
+          sku: sale.sku || '',
+          quantity: 1,
+          itemRevenue: Number(sale.price || 0),
+          currency: 'EUR',
+          status: sale.status,
+          customer: '',
+          customerEmail: sale.user_email,
+          linkedSaleId: sale.id,
+          consignorEmail: sale.source === 'user_sales' ? sale.user_email : '',
+          payout: Number(sale.payout || 0),
+          profit: Number(sale.price || 0) - Number(sale.payout || 0),
+          matchStatus: sale.source === 'user_sales' ? 'matched' : sale.payout > 0 ? 'matched' : 'unmatched',
+          vatScheme: 'MARGIN',
+          vatBase,
+          vatAmount: taxableMargin - vatBase,
+          invoiceUrl: sale.fa_url || '',
+          trackingNumber: '',
+          importedAt: excelDate(sale.created_at),
+          notes: sale.is_manual ? 'Manual sale' : '',
+        };
+      });
+
+      const groupedItems = accountingItems.reduce((map, item) => {
+        const current = map.get(item.orderNumber) || [];
+        current.push(item);
+        map.set(item.orderNumber, current);
+        return map;
+      }, new Map<string, AccountingItemRow[]>());
+      const accountingOrders: AccountingOrderRow[] = Array.from(groupedItems.entries()).map(([orderNumber, items]) => {
+        const matchingFile = exportFiles.find(file => file.orderNumber === normalizeOrderNumber(orderNumber));
+        const itemRevenue = items.reduce((sum, item) => sum + item.itemRevenue, 0);
+        const payout = items.reduce((sum, item) => sum + item.payout, 0);
+        const invoiceTotal = matchingFile?.extractedTotal !== null && matchingFile?.extractedTotal !== undefined
+          ? Number(matchingFile.extractedTotal)
+          : null;
+        return {
+          orderNumber,
+          orderDate: items[0]?.orderDate || null,
+          customer: '',
+          customerEmail: items[0]?.customerEmail || '',
+          currency: 'EUR',
+          status: Array.from(new Set(items.map(item => item.status))).join(', '),
+          shoptetStatus: '',
+          itemCount: items.length,
+          quantity: items.reduce((sum, item) => sum + item.quantity, 0),
+          itemRevenue,
+          orderTotal: itemRevenue,
+          extraTotal: 0,
+          payout,
+          profit: itemRevenue - payout,
+          matchedItems: items.filter(item => item.matchStatus === 'matched').length,
+          unmatchedItems: items.filter(item => item.matchStatus !== 'matched').length,
+          invoiceStatus: matchingFile ? matchingFile.linkedSale ? 'matched' : 'unmatched' : items.some(item => item.invoiceUrl) ? 'linked' : 'missing',
+          invoiceTotal,
+          invoiceDifference: invoiceTotal === null ? null : invoiceTotal - itemRevenue,
+          invoiceUrl: matchingFile?.publicUrl || items.find(item => item.invoiceUrl)?.invoiceUrl || '',
+          trackingNumber: '',
+          notes: '',
+        };
+      });
+
+      const invoiceAudit: InvoiceAuditRow[] = exportFiles.map(file => {
+        const sale = file.linkedSale;
+        const saleAmount = sale ? Number(sale.price || 0) : null;
+        const extractedAmount = file.extractedTotal !== null && file.extractedTotal !== undefined
+          ? Number(file.extractedTotal)
+          : null;
+        return {
+          fileName: file.name,
+          orderNumber: file.orderNumber || '',
+          source: file.source || 'storage',
+          matchStatus: sale ? 'matched' : 'unmatched',
+          saleSource: sale?.source || '',
+          product: file.extractedProduct || sale?.name || '',
+          customerEmail: sale?.user_email || '',
+          saleAmount,
+          extractedAmount,
+          difference: saleAmount !== null && extractedAmount !== null ? extractedAmount - saleAmount : null,
+          payout: sale ? Number(sale.payout || 0) : null,
+          extractionStatus: file.extractionStatus || '',
+          extractionError: file.extractionError || '',
+          importedAt: excelDate(file.updatedAt),
+          invoiceUrl: file.publicUrl,
+        };
+      });
+
+      await downloadAccountingWorkbook({
+        fileName: `invoice_audit_${exportDateStamp()}.xlsx`,
+        orders: accountingOrders,
+        items: accountingItems,
+        invoices: invoiceAudit,
+      });
+      showToast('Invoice audit XLSX downloaded', 'success');
+    } catch (err: any) {
+      showToast(err.message || 'XLSX export failed', 'error');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const matchedInvoiceCount = files.filter((file) => file.linkedSale || file.folder === 'matched').length;
   const documentsCount = files.length + contractSales.length;
@@ -719,14 +916,25 @@ export default function InvoicesPage() {
               </button>
             </div>
 
-            <div className="relative lg:w-96">
-              <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400" />
-              <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search order, PDF, sale, email..."
-                className="w-full rounded-xl border border-gray-300 py-2 pl-9 pr-3 text-sm focus:border-pink-400 focus:outline-none focus:ring-2 focus:ring-pink-100"
-              />
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <div className="relative lg:w-96">
+                <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400" />
+                <input
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Search order, PDF, sale, email..."
+                  className="w-full rounded-xl border border-gray-300 py-2 pl-9 pr-3 text-sm focus:border-pink-400 focus:outline-none focus:ring-2 focus:ring-pink-100"
+                />
+              </div>
+              <button
+                onClick={exportAccountingXlsx}
+                disabled={exporting || (!sales.length && !files.length)}
+                className="inline-flex items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50 disabled:opacity-50"
+                title="Download accounting workbook with invoice audit"
+              >
+                <FaDownload className={`mr-2 ${exporting ? 'animate-pulse' : ''}`} />
+                {exporting ? 'Exporting...' : 'Accounting XLSX'}
+              </button>
             </div>
           </div>
         </section>
@@ -734,8 +942,32 @@ export default function InvoicesPage() {
         {viewMode === 'files' && (
           <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
             <div className="border-b border-gray-200 px-4 py-4">
-              <h2 className="text-lg font-bold text-gray-900">Importované faktúry</h2>
-              <p className="text-sm text-gray-500">Matched faktúry sú spárované so sale. Unmatched vieš pripnúť ručne.</p>
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">Importované faktúry</h2>
+                  <p className="text-sm text-gray-500">Matched faktúry sú spárované so sale. Unmatched vieš pripnúť ručne.</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {([
+                    ['all', 'All'],
+                    ['unmatched', 'Unmatched'],
+                    ['mismatch', 'Amount mismatch'],
+                    ['error', 'PDF errors'],
+                  ] as Array<[InvoiceFilter, string]>).map(([value, label]) => (
+                    <button
+                      key={value}
+                      onClick={() => setInvoiceFilter(value)}
+                      className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                        invoiceFilter === value
+                          ? 'bg-gray-900 text-white'
+                          : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
             {visibleFiles.length === 0 ? (

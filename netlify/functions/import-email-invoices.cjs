@@ -1,5 +1,6 @@
 const { ImapFlow } = require('imapflow');
 const { createClient } = require('@supabase/supabase-js');
+const { createHash } = require('crypto');
 const pdfParse = require('pdf-parse');
 
 const corsHeaders = {
@@ -329,8 +330,10 @@ const makePath = ({ type, matched, orderNumber, filename, index }) => {
   return `${folder}/${base}${suffix}.pdf`;
 };
 
-const getPublicUrl = (supabase, bucket, path) =>
-  supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
+const getDocumentReference = (supabase, bucket, path) =>
+  bucket === 'invoices'
+    ? `invoice://${path}`
+    : supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
 
 const upsertInvoiceDocument = async (supabase, result, publicUrl) => {
   if (result.type !== 'invoice' || result.bucket !== 'invoices' || !result.path || !publicUrl) return;
@@ -355,6 +358,7 @@ const upsertInvoiceDocument = async (supabase, result, publicUrl) => {
     extracted_items: result.extractedItems || [],
     extraction_status: result.extractionStatus || 'pending',
     extraction_error: result.extractionError || null,
+    content_sha256: result.contentSha256 || null,
     imported_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
@@ -652,7 +656,27 @@ const runInvoiceImport = async ({ event = {}, body: bodyOverride = null, skipAdm
               result.extractedItems = extraction.items;
               result.extractionStatus = extraction.status;
               result.extractionError = extraction.error;
+              result.contentSha256 = createHash('sha256').update(content).digest('hex');
               result.orderCandidates = extractOrderNumbers(attachment.filename, subject, messageText, extraction.text);
+
+              const { data: duplicateDocument, error: duplicateLookupError } = await supabase
+                .from('invoice_documents')
+                .select('storage_path, order_number, status')
+                .eq('content_sha256', result.contentSha256)
+                .maybeSingle();
+              const duplicateColumnMissing = duplicateLookupError &&
+                /content_sha256|schema cache|does not exist|not found/i.test(duplicateLookupError.message || '');
+              if (duplicateLookupError && !duplicateColumnMissing) throw duplicateLookupError;
+              if (duplicateDocument) {
+                result.path = duplicateDocument.storage_path;
+                result.orderNumber = duplicateDocument.order_number;
+                result.status = 'skipped';
+                result.message = 'Duplicate PDF already imported';
+                result.publicUrl = `invoice://${duplicateDocument.storage_path}`;
+                summary.skipped += 1;
+                results.push(result);
+                continue;
+              }
             }
 
             const match = await findSaleByOrderNumbers(supabase, result.orderCandidates);
@@ -696,7 +720,7 @@ const runInvoiceImport = async ({ event = {}, body: bodyOverride = null, skipAdm
               if (String(uploadError.message || '').toLowerCase().includes('already exists')) {
                 result.status = 'skipped';
                 result.message = 'File already exists';
-                result.publicUrl = getPublicUrl(supabase, bucket, path);
+                result.publicUrl = getDocumentReference(supabase, bucket, path);
                 summary.skipped += 1;
                 results.push(result);
                 continue;
@@ -704,7 +728,7 @@ const runInvoiceImport = async ({ event = {}, body: bodyOverride = null, skipAdm
               throw uploadError;
             }
 
-            const publicUrl = getPublicUrl(supabase, bucket, path);
+            const publicUrl = getDocumentReference(supabase, bucket, path);
             result.publicUrl = publicUrl;
 
             if (sale) {
