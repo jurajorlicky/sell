@@ -297,6 +297,9 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
       })) : [];
       
       setSizes(sortedSizes);
+      if (sortedSizes.length > 0) {
+        setSelectedSize(sortedSizes[0].size);
+      }
       setSku(product.sku || 'Unknown SKU');
     } catch (err: any) {
       clearTimeout(timeoutId);
@@ -387,10 +390,25 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
       setExistingProducts([]);
       setSku('');
       setHasOtherConsignors(false);
+      setSelectedSize('');
+      setNewPrice('');
+      setQuantity(1);
+    } else {
+      // Find next size of this product that hasn't been queued yet
+      const queuedSizesForProduct = new Set(
+        [...queuedProducts, queuedProduct]
+          .filter((p) => p.product.product_id === queuedProduct.product.product_id)
+          .map((p) => p.size)
+      );
+      const nextSize = sizes.find((s) => !queuedSizesForProduct.has(s.size));
+      if (nextSize) {
+        setSelectedSize(nextSize.size);
+      } else {
+        setSelectedSize('');
+      }
+      // Preserve newPrice so user doesn't have to re-enter the same price!
+      setQuantity(1);
     }
-    setSelectedSize('');
-    setNewPrice('');
-    setQuantity(1);
     setError(null);
     setSuccessMessage(null);
   };
@@ -735,24 +753,91 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
                 </div>
 
                 <div>
-                  <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-3">
-                    Size
-                  </label>
-                  <select
-                    value={selectedSize}
-                    onChange={(e) => {
-                      setSelectedSize(e.target.value);
-                      setNewPrice('');
-                    }}
-                    className="block w-full px-3 sm:px-4 py-2 sm:py-3 border border-slate-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent text-sm sm:text-base appearance-none"
-                  >
-                    <option value="">Select size</option>
-                    {sizes.map((size, index) => (
-                      <option key={index} value={size.size}>
-                        {size.size}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-xs sm:text-sm font-semibold text-slate-700">
+                      Select size
+                    </label>
+                    {selectedSize && (
+                      <span className="text-xs font-semibold text-slate-800 bg-slate-100 px-2 py-0.5 rounded-md">
+                        Selected: EU {selectedSize}
+                      </span>
+                    )}
+                  </div>
+
+                  {sizes.length > 0 ? (
+                    <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2 max-h-48 overflow-y-auto p-1.5 border border-slate-200 rounded-2xl bg-slate-50/50">
+                      {sizes.map((sizeItem) => {
+                        const isSelected = selectedSize === sizeItem.size;
+                        const queuedCount = queuedProducts
+                          .filter(
+                            (qp) =>
+                              qp.product.product_id === selectedProduct.product_id &&
+                              qp.size === sizeItem.size
+                          )
+                          .reduce((sum, qp) => sum + qp.quantity, 0);
+
+                        return (
+                          <button
+                            key={sizeItem.size}
+                            type="button"
+                            onClick={() => setSelectedSize(sizeItem.size)}
+                            className={`relative flex flex-col items-center justify-center py-2 px-1.5 rounded-xl border text-center transition-all ${
+                              isSelected
+                                ? 'border-slate-900 bg-slate-900 text-white shadow-sm ring-2 ring-slate-900 ring-offset-1'
+                                : queuedCount > 0
+                                ? 'border-emerald-300 bg-emerald-50 text-emerald-900 hover:border-emerald-400'
+                                : 'border-slate-200 bg-white hover:border-slate-400 text-slate-800 hover:bg-slate-50'
+                            }`}
+                          >
+                            <span className="text-xs sm:text-sm font-bold">{sizeItem.size}</span>
+                            {sizeItem.final_price ? (
+                              <span
+                                className={`text-[10px] truncate max-w-full ${
+                                  isSelected ? 'text-slate-300' : 'text-slate-500'
+                                }`}
+                              >
+                                {formatCurrency(sizeItem.final_price)}
+                              </span>
+                            ) : null}
+                            {queuedCount > 0 && (
+                              <span className="absolute -top-1.5 -right-1.5 bg-emerald-600 text-white text-[9px] font-bold rounded-full h-4 min-w-[16px] px-1 flex items-center justify-center shadow-xs">
+                                {queuedCount}×
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-500">No sizes found for this product.</p>
+                  )}
+
+                  {queuedProducts.filter(p => p.product.product_id === selectedProduct.product_id).length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1.5 mt-2.5 pt-2 border-t border-slate-100">
+                      <span className="text-xs text-slate-500 font-medium">Ready to save:</span>
+                      {queuedProducts
+                        .filter(p => p.product.product_id === selectedProduct.product_id)
+                        .map((item, idx) => {
+                          const originalIdx = queuedProducts.indexOf(item);
+                          return (
+                            <span
+                              key={`${item.size}-${idx}`}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-xs font-semibold text-emerald-900"
+                            >
+                              <span>EU {item.size} ({item.quantity}×) · {formatCurrency(item.price)}</span>
+                              <button
+                                type="button"
+                                onClick={() => removeQueuedProduct(originalIdx)}
+                                className="text-emerald-700 hover:text-red-600 font-bold ml-0.5 text-xs"
+                                title="Remove"
+                              >
+                                ×
+                              </button>
+                            </span>
+                          );
+                        })}
+                    </div>
+                  )}
                 </div>
 
                 {selectedSize && (
@@ -860,17 +945,17 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
                       )}
                       
                       {computedPayout !== null && (
-                        <div className="mt-3 bg-green-50 rounded-xl p-4">
+                        <div className="mt-3 bg-emerald-50/90 border border-emerald-200/70 rounded-2xl p-4">
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="text-xs sm:text-sm font-medium text-green-800">Your payout</p>
-                              <p className="text-xs text-green-600">After fees ({fees.fee_percent * 100}% + {fees.fee_fixed}€)</p>
+                              <p className="text-xs sm:text-sm font-semibold text-emerald-900">Your payout</p>
+                              <p className="text-xs text-emerald-700">After fees ({fees.fee_percent * 100}% + {fees.fee_fixed}€)</p>
                             </div>
-                            <p className="text-base sm:text-lg font-bold text-green-900">
+                            <p className="text-base sm:text-lg font-bold text-emerald-900">
                               {formatCurrency(computedPayout)}
                               {currency === 'CZK' && hasExchangeRate && (
-                                <span className="ml-2 text-sm font-semibold text-green-700">
-                                  {formatCzk(eurToCzk(computedPayout, exchangeRate))}
+                                <span className="ml-2 text-sm font-semibold text-emerald-700">
+                                  ({formatCzk(eurToCzk(computedPayout, exchangeRate))})
                                 </span>
                               )}
                             </p>
@@ -879,16 +964,18 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
                       )}
                     </div>
 
-                    <div>
-                      <label htmlFor="product-quantity" className="block text-xs sm:text-sm font-semibold text-slate-700 mb-3">
-                        Quantity
-                      </label>
-                      <div className="flex items-center gap-3">
+                    {/* Quantity Selector Card */}
+                    <div className="flex items-center justify-between p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl">
+                      <div>
+                        <span className="block text-xs sm:text-sm font-semibold text-slate-800">Quantity</span>
+                        <span className="block text-[11px] sm:text-xs text-slate-500">Number of pairs of this size</span>
+                      </div>
+                      <div className="inline-flex items-center rounded-xl border border-slate-300/80 bg-white p-1 shadow-xs">
                         <button
                           type="button"
                           onClick={() => setQuantity((current) => Math.max(1, current - 1))}
                           disabled={quantity <= 1}
-                          className="h-11 w-11 border border-slate-300 rounded-lg text-lg font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+                          className="h-8 w-8 rounded-lg flex items-center justify-center text-slate-700 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition text-base font-bold select-none"
                           aria-label="Decrease quantity"
                         >
                           −
@@ -900,13 +987,13 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
                           max="100"
                           value={quantity}
                           onChange={(e) => setQuantity(Math.min(100, Math.max(1, Number(e.target.value) || 1)))}
-                          className="h-11 w-20 border border-slate-300 rounded-lg text-center text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-slate-900"
+                          className="w-12 text-center font-bold text-slate-900 bg-transparent text-sm focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         />
                         <button
                           type="button"
                           onClick={() => setQuantity((current) => Math.min(100, current + 1))}
                           disabled={quantity >= 100}
-                          className="h-11 w-11 border border-slate-300 rounded-lg text-lg font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+                          className="h-8 w-8 rounded-lg flex items-center justify-center text-slate-700 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition text-base font-bold select-none"
                           aria-label="Increase quantity"
                         >
                           +
@@ -914,24 +1001,25 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+                    {/* Queue Actions */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
                       <button
                         type="button"
                         onClick={() => handleQueueCurrentProduct('same')}
                         disabled={!currentItemIsValid}
-                        className="w-full inline-flex items-center justify-center px-4 py-3 border border-slate-300 text-sm font-semibold text-slate-800 bg-white rounded-xl hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm"
+                        className="w-full inline-flex items-center justify-center px-4 py-2.5 border border-slate-200/90 text-xs sm:text-sm font-semibold text-slate-700 bg-white rounded-xl hover:bg-slate-50 hover:border-slate-300 disabled:opacity-40 disabled:cursor-not-allowed transition shadow-xs"
                       >
-                        <FaPlus className="mr-2 text-slate-500" />
-                        + Add another size
+                        <FaPlus className="mr-2 text-xs text-slate-400" />
+                        Add another size
                       </button>
                       <button
                         type="button"
                         onClick={() => handleQueueCurrentProduct('different')}
                         disabled={!currentItemIsValid}
-                        className="w-full inline-flex items-center justify-center px-4 py-3 border border-slate-900 text-sm font-semibold text-white bg-slate-900 rounded-xl hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm"
+                        className="w-full inline-flex items-center justify-center px-4 py-2.5 border border-slate-200/90 text-xs sm:text-sm font-semibold text-slate-700 bg-white rounded-xl hover:bg-slate-50 hover:border-slate-300 disabled:opacity-40 disabled:cursor-not-allowed transition shadow-xs"
                       >
-                        <FaSearch className="mr-2" />
-                        + Add another product
+                        <FaSearch className="mr-2 text-xs text-slate-400" />
+                        Add another product
                       </button>
                     </div>
                   </div>
@@ -964,23 +1052,23 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2.5 text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-xl transition-colors"
+                className="px-3 py-2 text-xs sm:text-sm font-semibold text-slate-500 hover:text-slate-800 rounded-xl transition-colors"
               >
                 Cancel
               </button>
-              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+              <div className="flex items-center gap-2 sm:gap-3 ml-auto">
                 <button
                   type="button"
                   onClick={() => saveProducts(false)}
                   disabled={loading || totalProductsCount === 0}
-                  className="px-4 py-2.5 text-sm font-semibold text-slate-800 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                  className="px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-xl transition shadow-xs disabled:opacity-40 disabled:cursor-not-allowed flex items-center"
                 >
                   {loading ? 'Saving...' : 'Save & add more'}
                 </button>
                 <button
                   type="submit"
                   disabled={loading || totalProductsCount === 0}
-                  className="px-4 sm:px-6 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-slate-900 to-slate-700 hover:from-slate-800 hover:to-slate-600 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center shadow-sm"
+                  className="px-4 sm:px-5 py-2.5 text-xs sm:text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-xl transition shadow-sm disabled:opacity-40 disabled:cursor-not-allowed flex items-center"
                 >
                   {loading ? (
                     <>
@@ -988,11 +1076,11 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
-                      Adding...
+                      Saving...
                     </>
                   ) : (
                     <>
-                      <FaCheck className="mr-2" />
+                      <FaCheck className="mr-1.5 text-xs" />
                       <span>
                         Save & close ({totalProductsCount} {totalProductsCount === 1 ? 'pc' : 'pcs'})
                       </span>
