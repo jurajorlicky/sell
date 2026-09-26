@@ -184,21 +184,32 @@ export default function EshopSalesPage() {
     for (let offset = 0; offset < orderNumbers.length; offset += 100) {
       const { data, error: linkedError } = await supabase
         .from('user_sales')
-        .select('id, product_id, name, size, sku, price, payout, status, external_id, profiles(email)')
+        .select('id, product_id, name, size, sku, price, payout, status, external_id, profiles(email, profile_type, vat_type)')
         .in('external_id', orderNumbers.slice(offset, offset + 100));
       if (linkedError) throw linkedError;
       candidates.push(...(data || []));
     }
 
-    const productIds = Array.from(new Set(candidates.map(row => row.product_id).filter(Boolean)));
+    const numericProductIds = Array.from(new Set(
+      candidates
+        .map(row => parseInt(String(row.product_id), 10))
+        .filter(num => Number.isInteger(num))
+    ));
     const productMeta = new Map<string, { vat_scheme?: 'VAT0' | 'MARGIN' | null; input_currency?: 'EUR' | 'CZK' | null }>();
-    for (let offset = 0; offset < productIds.length; offset += 100) {
-      const { data, error: productError } = await supabase
-        .from('user_products')
-        .select('id, vat_scheme, input_currency')
-        .in('id', productIds.slice(offset, offset + 100));
-      if (productError) throw productError;
-      (data || []).forEach((row: any) => productMeta.set(row.id, row));
+    if (numericProductIds.length > 0) {
+      for (let offset = 0; offset < numericProductIds.length; offset += 100) {
+        const { data, error: productError } = await supabase
+          .from('user_products')
+          .select('product_id, vat_scheme, input_currency')
+          .in('product_id', numericProductIds.slice(offset, offset + 100));
+        if (!productError && data) {
+          data.forEach((row: any) => {
+            if (row.product_id && !productMeta.has(String(row.product_id))) {
+              productMeta.set(String(row.product_id), row);
+            }
+          });
+        }
+      }
     }
 
     const byOrder = candidates.reduce((map, candidate) => {
@@ -219,7 +230,11 @@ export default function EshopSalesPage() {
         nextLinked[sale.id] = null;
         return;
       }
-      const meta = productMeta.get(linkedRow.product_id) || {};
+      const profile = linkedRow.profiles as any;
+      const isVatPayer = profile?.profile_type === 'Business' && ['VAT_PAYER', 'VAT 0%'].includes(String(profile?.vat_type || ''));
+      const meta = productMeta.get(String(linkedRow.product_id)) || {};
+      const vatScheme: 'VAT0' | 'MARGIN' = meta.vat_scheme || (isVatPayer ? 'VAT0' : 'MARGIN');
+
       nextLinked[sale.id] = {
         id: linkedRow.id,
         name: linkedRow.name,
@@ -229,9 +244,9 @@ export default function EshopSalesPage() {
         payout: Number(linkedRow.payout || 0),
         status: linkedRow.status,
         external_id: linkedRow.external_id,
-        user_email: (linkedRow.profiles as any)?.email || '',
+        user_email: profile?.email || '',
         product_id: linkedRow.product_id,
-        vat_scheme: meta.vat_scheme || 'MARGIN',
+        vat_scheme: vatScheme,
         input_currency: meta.input_currency || 'EUR',
       };
     });
