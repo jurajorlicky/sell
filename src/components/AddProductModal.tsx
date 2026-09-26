@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { getFees, calculatePayout, getPayoutBasePrice, SK_VAT_RATE } from '../lib/fees';
 import { czkToEur, eurToCzk, formatCurrency, formatCzk } from '../lib/utils';
 import { useEscapeKey } from '../hooks/useEscapeKey';
-import { FaSearch, FaTimes, FaCheck, FaExclamationTriangle, FaPlus, FaTrash } from 'react-icons/fa';
+import { FaSearch, FaTimes, FaCheck, FaCheckCircle, FaExclamationTriangle, FaPlus, FaTrash } from 'react-icons/fa';
 
 interface AddProductModalProps {
   isOpen: boolean;
@@ -80,6 +80,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
   const [isBusinessProfile, setIsBusinessProfile] = useState(false);
   const [isVatPayerProfile, setIsVatPayerProfile] = useState(false);
   const [vatScheme, setVatScheme] = useState<'VAT0' | 'MARGIN'>('MARGIN');
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const parsePriceInput = (value: string): number => {
     const parsed = Number(value.replace(',', '.'));
@@ -318,6 +319,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
     setSearchTerm('');
     setHasOtherConsignors(false);
     setQuantity(1);
+    setSuccessMessage(null);
   };
 
   const currentItemIsValid = Boolean(
@@ -348,7 +350,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
     };
   };
 
-  const handleQueueCurrentProduct = () => {
+  const handleQueueCurrentProduct = (target: 'same' | 'different' = 'same') => {
     if (currency === 'CZK' && !hasExchangeRate) {
       setError('CZK rate is not set. Please use EUR or ask admin to set the CZK rate.');
       return;
@@ -360,20 +362,58 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
       return;
     }
 
-    setQueuedProducts((current) => [...current, queuedProduct]);
+    setQueuedProducts((current) => {
+      const existingIndex = current.findIndex(
+        (item) =>
+          item.product.product_id === queuedProduct.product.product_id &&
+          item.size === queuedProduct.size &&
+          item.price === queuedProduct.price &&
+          item.vatScheme === queuedProduct.vatScheme &&
+          item.currency === queuedProduct.currency
+      );
+      if (existingIndex >= 0) {
+        return current.map((item, idx) =>
+          idx === existingIndex
+            ? { ...item, quantity: Math.min(100, item.quantity + queuedProduct.quantity) }
+            : item
+        );
+      }
+      return [...current, queuedProduct];
+    });
+
+    if (target === 'different') {
+      setSelectedProduct(null);
+      setSearchTerm('');
+      setExistingProducts([]);
+      setSku('');
+      setHasOtherConsignors(false);
+    }
     setSelectedSize('');
     setNewPrice('');
     setQuantity(1);
     setError(null);
+    setSuccessMessage(null);
+  };
+
+  const updateQueuedQuantity = (index: number, delta: number) => {
+    setQueuedProducts((current) =>
+      current.map((item, idx) => {
+        if (idx !== index) return item;
+        const nextQty = Math.max(1, Math.min(100, item.quantity + delta));
+        return { ...item, quantity: nextQty };
+      })
+    );
   };
 
   const removeQueuedProduct = (index: number) => {
     setQueuedProducts((current) => current.filter((_, itemIndex) => itemIndex !== index));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const totalProductsCount =
+    queuedProducts.reduce((sum, item) => sum + item.quantity, 0) +
+    (currentItemIsValid ? quantity : 0);
 
+  const saveProducts = async (closeAfterSave: boolean) => {
     if (currency === 'CZK' && !hasExchangeRate) {
       setError('CZK rate is not set. Please use EUR or ask admin to set the CZK rate.');
       return;
@@ -388,10 +428,11 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
     }
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
 
     setLoading(true);
     setError(null);
+    setSuccessMessage(null);
 
     try {
       const {
@@ -399,7 +440,6 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
       } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      // Get expiration days from settings
       const expirationDays = fees.offer_expiration_days || 30;
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + expirationDays);
@@ -441,19 +481,27 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
           created_at: new Date().toISOString(),
         });
       });
+
       setSelectedProduct(null);
       setSelectedSize('');
       setNewPrice('');
       setSku('');
+      setSearchTerm('');
+      setExistingProducts([]);
       setCurrency('EUR');
       setQuantity(1);
       setQueuedProducts([]);
       setVatScheme('MARGIN');
-      onClose();
+
+      if (closeAfterSave) {
+        onClose();
+      } else {
+        setSuccessMessage(`Successfully added ${rowsToInsert.length} product(s)! You can search and add more.`);
+      }
     } catch (err: any) {
       clearTimeout(timeoutId);
-      console.error('Error in handleSubmit:', err);
-      
+      console.error('Error in saveProducts:', err);
+
       if (err.name === 'AbortError') {
         setError('Adding product is taking too long. Please try again.');
       } else {
@@ -462,6 +510,11 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    saveProducts(true);
   };
 
   const handleRetry = () => {
@@ -494,18 +547,44 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
 
         <div className="p-4 sm:p-6 overflow-y-auto max-h-[calc(95vh-120px)] sm:max-h-[calc(90vh-140px)]">
           <form onSubmit={handleSubmit} className="space-y-6">
-            {queuedProducts.length > 0 && (
-              <div className="border border-slate-200 rounded-xl overflow-hidden">
-                <div className="flex items-center justify-between bg-slate-50 px-4 py-3 border-b border-slate-200">
-                  <h3 className="text-sm font-semibold text-slate-900">Products to add</h3>
-                  <span className="text-xs font-medium text-slate-500">
-                    {queuedProducts.reduce((sum, item) => sum + item.quantity, 0)} pcs
-                  </span>
+            {successMessage && (
+              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center justify-between">
+                <div className="flex items-center">
+                  <FaCheckCircle className="h-5 w-5 text-emerald-600 flex-shrink-0" />
+                  <p className="ml-3 text-sm font-medium text-emerald-900">{successMessage}</p>
                 </div>
-                <div className="divide-y divide-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setSuccessMessage(null)}
+                  className="text-emerald-700 hover:text-emerald-900 p-1 rounded-lg"
+                  aria-label="Dismiss message"
+                >
+                  <FaTimes className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+
+            {queuedProducts.length > 0 && (
+              <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                <div className="flex items-center justify-between bg-slate-50 px-4 py-3 border-b border-slate-200">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-900 text-[10px] font-bold text-white">
+                      {queuedProducts.reduce((sum, item) => sum + item.quantity, 0)}
+                    </span>
+                    <h3 className="text-sm font-semibold text-slate-900">Products ready to add</h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setQueuedProducts([])}
+                    className="text-xs font-medium text-slate-500 hover:text-red-600 transition-colors"
+                  >
+                    Clear all
+                  </button>
+                </div>
+                <div className="divide-y divide-slate-200 max-h-60 overflow-y-auto">
                   {queuedProducts.map((item, index) => (
-                    <div key={`${item.product.product_id}-${item.size}-${index}`} className="flex items-center gap-3 px-4 py-3">
-                      <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-white">
+                    <div key={`${item.product.product_id}-${item.size}-${index}`} className="flex items-center gap-3 px-4 py-3 bg-white hover:bg-slate-50/50 transition-colors">
+                      <div className="h-11 w-11 flex-shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-white">
                         <img
                           src={item.product.image_url || '/default-image.png'}
                           alt=""
@@ -514,14 +593,41 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-semibold text-slate-900">{item.product.product_name}</p>
-                        <p className="text-xs text-slate-500">
-                          Size {item.size} · {item.quantity}× · {formatCurrency(item.price)} each
-                        </p>
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500">
+                          <span className="font-semibold text-slate-700">Size {item.size}</span>
+                          <span>·</span>
+                          <span>{formatCurrency(item.price)}/pc</span>
+                          <span>·</span>
+                          <span className="text-emerald-600 font-medium">Payout: {formatCurrency(item.payout * item.quantity)}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => updateQueuedQuantity(index, -1)}
+                          disabled={item.quantity <= 1}
+                          className="h-7 w-7 rounded-lg border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition text-sm font-bold"
+                          title="Decrease quantity"
+                        >
+                          −
+                        </button>
+                        <span className="w-7 text-center text-xs font-bold text-slate-900">
+                          {item.quantity}×
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => updateQueuedQuantity(index, 1)}
+                          disabled={item.quantity >= 100}
+                          className="h-7 w-7 rounded-lg border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition text-sm font-bold"
+                          title="Increase quantity"
+                        >
+                          +
+                        </button>
                       </div>
                       <button
                         type="button"
                         onClick={() => removeQueuedProduct(index)}
-                        className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors ml-1"
                         title="Remove item"
                         aria-label="Remove item"
                       >
@@ -808,15 +914,26 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
                       </div>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={handleQueueCurrentProduct}
-                      disabled={!currentItemIsValid}
-                      className="w-full inline-flex items-center justify-center px-4 py-3 border border-slate-900 text-sm font-semibold text-slate-900 rounded-xl hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                    >
-                      <FaPlus className="mr-2" />
-                      Add another size or product
-                    </button>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+                      <button
+                        type="button"
+                        onClick={() => handleQueueCurrentProduct('same')}
+                        disabled={!currentItemIsValid}
+                        className="w-full inline-flex items-center justify-center px-4 py-3 border border-slate-300 text-sm font-semibold text-slate-800 bg-white rounded-xl hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm"
+                      >
+                        <FaPlus className="mr-2 text-slate-500" />
+                        + Add another size
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleQueueCurrentProduct('different')}
+                        disabled={!currentItemIsValid}
+                        className="w-full inline-flex items-center justify-center px-4 py-3 border border-slate-900 text-sm font-semibold text-white bg-slate-900 rounded-xl hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm"
+                      >
+                        <FaSearch className="mr-2" />
+                        + Add another product
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -843,36 +960,46 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
               </div>
             )}
 
-            <div className="flex justify-end space-x-3 pt-4 border-t border-slate-200">
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-200">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 sm:px-6 py-2 sm:py-3 text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-xl transition-colors"
+                className="px-4 py-2.5 text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-xl transition-colors"
               >
                 Cancel
               </button>
-              <button
-                type="submit"
-                disabled={loading || (queuedProducts.length === 0 && !currentItemIsValid)}
-                className="px-4 sm:px-6 py-2 sm:py-3 text-sm font-semibold text-white bg-gradient-to-r from-slate-900 to-slate-700 hover:from-slate-800 hover:to-slate-600 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-              >
-                {loading ? (
-                  <>
-                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Adding...
-                  </>
-                ) : (
-                  <>
-                    <FaCheck className="mr-2" />
-                    <span>
-                      Add {queuedProducts.reduce((sum, item) => sum + item.quantity, 0) + (currentItemIsValid ? quantity : 0)} product{queuedProducts.reduce((sum, item) => sum + item.quantity, 0) + (currentItemIsValid ? quantity : 0) === 1 ? '' : 's'}
-                    </span>
-                  </>
-                )}
-              </button>
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                <button
+                  type="button"
+                  onClick={() => saveProducts(false)}
+                  disabled={loading || totalProductsCount === 0}
+                  className="px-4 py-2.5 text-sm font-semibold text-slate-800 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                >
+                  {loading ? 'Saving...' : 'Save & add more'}
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading || totalProductsCount === 0}
+                  className="px-4 sm:px-6 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-slate-900 to-slate-700 hover:from-slate-800 hover:to-slate-600 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center shadow-sm"
+                >
+                  {loading ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Adding...
+                    </>
+                  ) : (
+                    <>
+                      <FaCheck className="mr-2" />
+                      <span>
+                        Save & close ({totalProductsCount} {totalProductsCount === 1 ? 'pc' : 'pcs'})
+                      </span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </form>
         </div>
