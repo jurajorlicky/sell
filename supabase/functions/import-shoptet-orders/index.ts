@@ -90,6 +90,11 @@ const normalizeKey = (value: string | null | undefined): string =>
     .replace(/[^a-z0-9]+/g, " ")
     .trim()
 
+const buildLineItemKey = (rawSku: string | null, size: string | null, productName: string): string => {
+  const identity = normalizeKey(rawSku) || normalizeKey(productName) || "unknown-product"
+  return `${identity}::${normalizeKey(size) || "no-size"}`
+}
+
 const extractBaseSku = (code: string | null): string | null => {
   if (!code) return null
   const base = code.split("/")[0]?.replace(/\.$/, "").trim()
@@ -279,7 +284,6 @@ function parseOrders(xmlText: string, products: Awaited<ReturnType<typeof loadPr
     const orderExtraTotal = Math.round((orderTotal - orderProductTotal) * 100) / 100
     const orderItemCount = productItems.length
 
-    let productLineIndex = 0
     for (const item of productItems) {
       const productName = text(item.NAME as XmlValue)
       const rawSku = emptyToNull(item.CODE as XmlValue)
@@ -288,8 +292,7 @@ function parseOrders(xmlText: string, products: Awaited<ReturnType<typeof loadPr
       const quantity = toInteger(item.AMOUNT as XmlValue, 1)
       const price = getItemPrice(item)
       const product = matchProduct(products, productName, baseSku)
-      const lineItemKey = `${orderNumber}:${rawSku || "no-code"}:${size || "no-size"}:${productLineIndex}`
-      productLineIndex++
+      const lineItemKey = buildLineItemKey(rawSku, size, productName)
 
       rows.push({
         orderNumber,
@@ -432,26 +435,14 @@ serve(async (req) => {
         continue
       }
 
-      if (existing) {
-        const { error } = await supabaseAdmin
-          .from("eshop_sales")
-          .update(dbRow)
-          .eq("id", existing.id)
-
-        if (error) {
-          errors.push({ orderNumber: row.orderNumber, lineItemKey: row.lineItemKey, error: error.message })
-        } else {
-          updated++
-        }
-        continue
-      }
-
       const { error } = await supabaseAdmin
         .from("eshop_sales")
-        .insert(dbRow)
+        .upsert(dbRow, { onConflict: "order_number,line_item_key" })
 
       if (error) {
         errors.push({ orderNumber: row.orderNumber, lineItemKey: row.lineItemKey, error: error.message })
+      } else if (existing) {
+        updated++
       } else {
         inserted++
       }

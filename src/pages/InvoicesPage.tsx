@@ -13,6 +13,8 @@ import {
   FaSync,
   FaTimes,
   FaUnlink,
+  FaChevronDown,
+  FaChevronRight,
 } from 'react-icons/fa';
 import AdminNavigation from '../components/AdminNavigation';
 import InvoiceEmailImportPanel from '../components/InvoiceEmailImportPanel';
@@ -42,6 +44,7 @@ interface InvoiceSale {
   size: string | null;
   price: number;
   payout: number;
+  order_total?: number | null;
   invoice_date: string | null;
   created_at: string;
   status: string;
@@ -111,6 +114,16 @@ const saleMatchesOrder = (sale: InvoiceSale, orderNumber: string) => {
   return Boolean(sale.external_id?.toLowerCase().includes(orderNumber.toLowerCase()));
 };
 
+const expectedInvoiceAmount = (sale: InvoiceSale, allSales: InvoiceSale[]) => {
+  if (sale.source === 'eshop_sales') {
+    if (sale.order_total !== null && sale.order_total !== undefined) return Number(sale.order_total);
+    return allSales
+      .filter(item => item.source === 'eshop_sales' && item.external_id === sale.external_id)
+      .reduce((sum, item) => sum + Number(item.price || 0), 0);
+  }
+  return Number(sale.payout || sale.price || 0);
+};
+
 const formatFileSize = (bytes: number) => {
   if (!bytes) return '-';
   if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
@@ -146,6 +159,7 @@ export default function InvoicesPage() {
   const [payoutDraft, setPayoutDraft] = useState('');
   const [savingPayout, setSavingPayout] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [expandedInvoiceGroup, setExpandedInvoiceGroup] = useState<string | null>(null);
 
   const linkFilesToSales = useCallback((nextFiles: ImportedInvoice[], nextSales: InvoiceSale[]) => {
     return nextFiles.map((file) => {
@@ -159,7 +173,7 @@ export default function InvoicesPage() {
       const normalizedExtractedProduct = file.extractedProduct?.trim().toLowerCase();
       const amountAndProductMatches = file.extractedTotal !== null && file.extractedTotal !== undefined
         ? nextSales.filter((sale) => {
-          const amountMatches = Math.abs(Number(sale.price || 0) - Number(file.extractedTotal)) <= 0.01;
+          const amountMatches = Math.abs(expectedInvoiceAmount(sale, nextSales) - Number(file.extractedTotal)) <= 0.02;
           if (!amountMatches) return false;
           if (!normalizedExtractedProduct) return true;
           const saleName = sale.name.toLowerCase();
@@ -199,7 +213,7 @@ export default function InvoicesPage() {
         .from('eshop_sales')
         .select(`
           id, order_number, product_name, size, price, payout, status, image_url,
-          customer_email, sku, fa_url, order_created_at, created_at
+          customer_email, sku, fa_url, order_created_at, order_total, created_at
         `)
         .order('created_at', { ascending: false })
         .range(from, from + pageSize - 1);
@@ -221,6 +235,7 @@ export default function InvoicesPage() {
       size: sale.size,
       price: Number(sale.price || 0),
       payout: Number(sale.payout || 0),
+      order_total: sale.order_total !== null && sale.order_total !== undefined ? Number(sale.order_total) : null,
       invoice_date: sale.order_created_at || sale.created_at,
       created_at: sale.created_at,
       status: sale.status,
@@ -604,7 +619,7 @@ export default function InvoicesPage() {
         file.linkedSale &&
         file.extractedTotal !== null &&
         file.extractedTotal !== undefined &&
-        Math.abs(Number(file.extractedTotal) - Number(file.linkedSale.price || 0)) > 0.01
+        Math.abs(Number(file.extractedTotal) - expectedInvoiceAmount(file.linkedSale, sales)) > 0.02
       );
       if (invoiceFilter === 'unmatched' && file.linkedSale) return false;
       if (invoiceFilter === 'mismatch' && !mismatch) return false;
@@ -621,7 +636,23 @@ export default function InvoicesPage() {
         file.linkedSale?.user_email,
       ].some((field) => field?.toLowerCase().includes(q));
     });
-  }, [files, invoiceFilter, q]);
+  }, [files, invoiceFilter, q, sales]);
+
+  const invoiceGroups = useMemo(() => {
+    const grouped = new Map<string, ImportedInvoice[]>();
+    visibleFiles.forEach((file) => {
+      const key = normalizeOrderNumber(file.orderNumber) || `file:${file.id}`;
+      const current = grouped.get(key) || [];
+      current.push(file);
+      grouped.set(key, current);
+    });
+
+    return Array.from(grouped.entries()).map(([key, groupFiles]) => ({
+      key,
+      orderNumber: groupFiles.find(file => file.orderNumber)?.orderNumber || null,
+      files: [...groupFiles].sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime()),
+    }));
+  }, [visibleFiles]);
 
   const visibleSalesWithFa = useMemo(() => {
     return salesWithFa.filter((sale) => {
@@ -719,7 +750,7 @@ export default function InvoicesPage() {
 
       const invoiceAudit: InvoiceAuditRow[] = exportFiles.map(file => {
         const sale = file.linkedSale;
-        const saleAmount = sale ? Number(sale.price || 0) : null;
+        const saleAmount = sale ? expectedInvoiceAmount(sale, sales) : null;
         const extractedAmount = file.extractedTotal !== null && file.extractedTotal !== undefined
           ? Number(file.extractedTotal)
           : null;
@@ -970,98 +1001,120 @@ export default function InvoicesPage() {
               </div>
             </div>
 
-            {visibleFiles.length === 0 ? (
+            {invoiceGroups.length === 0 ? (
               <div className="py-16 text-center">
                 <FaFilePdf className="mx-auto mb-3 text-4xl text-gray-300" />
                 <p className="font-semibold text-gray-900">No PDFs found</p>
               </div>
             ) : (
               <div className="divide-y divide-gray-100">
-                {visibleFiles.map((file) => {
+                {invoiceGroups.map((group) => {
+                  const file = group.files[0];
                   const linkedSale = file.linkedSale;
+                  const expectedAmount = linkedSale ? expectedInvoiceAmount(linkedSale, sales) : null;
                   const amountMismatch = Boolean(
                     linkedSale &&
                     file.extractedTotal !== null &&
                     file.extractedTotal !== undefined &&
-                    Math.abs(Number(file.extractedTotal) - Number(linkedSale.price || 0)) > 0.01
+                    expectedAmount !== null &&
+                    Math.abs(Number(file.extractedTotal) - expectedAmount) > 0.02
                   );
+                  const totalUnknown = file.extractedTotal === null || file.extractedTotal === undefined;
+                  const hasPdfError = group.files.some(item => item.extractionStatus === 'error');
+                  const expanded = expandedInvoiceGroup === group.key;
+                  const status = hasPdfError
+                    ? { label: 'Chyba PDF', className: 'bg-red-100 text-red-700' }
+                    : !linkedSale
+                      ? { label: 'Nespárované', className: 'bg-amber-100 text-amber-700' }
+                      : amountMismatch
+                        ? { label: 'Skontrolovať sumu', className: 'bg-orange-100 text-orange-700' }
+                        : totalUnknown
+                          ? { label: 'Suma nezistená', className: 'bg-slate-100 text-slate-700' }
+                          : { label: 'Spárované', className: 'bg-emerald-100 text-emerald-700' };
                   return (
-                    <div key={file.id} className="p-4">
-                      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(420px,1fr)_320px] lg:items-center">
-                        <div className="flex min-w-0 gap-3">
-                          <div className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl ${linkedSale ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
-                            {linkedSale ? <FaCheckCircle /> : <FaUnlink />}
+                    <div key={group.key}>
+                      <div className="grid gap-3 px-3 py-3 sm:px-4 lg:grid-cols-[minmax(180px,0.8fr)_minmax(260px,1.4fr)_180px_240px] lg:items-center">
+                        <button
+                          type="button"
+                          onClick={() => setExpandedInvoiceGroup(expanded ? null : group.key)}
+                          className="flex min-w-0 items-center gap-3 text-left"
+                        >
+                          <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500">
+                            {expanded ? <FaChevronDown /> : <FaChevronRight />}
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block truncate font-mono text-sm font-bold text-gray-900">{group.orderNumber || 'Bez objednávky'}</span>
+                            <span className="mt-0.5 block text-xs text-gray-500">
+                              {group.files.length} PDF · {file.updatedAt ? formatDateShort(file.updatedAt) : '-'}
+                            </span>
+                          </span>
+                        </button>
+
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${status.className}`}>{status.label}</span>
+                            <span className="truncate text-sm font-semibold text-gray-900">{linkedSale?.name || file.extractedProduct || file.name}</span>
                           </div>
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <p className="truncate text-sm font-bold text-gray-900">{file.name}</p>
-                              <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${linkedSale ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                                {linkedSale ? 'matched' : 'unmatched'}
-                              </span>
-                            </div>
-                            <p className="mt-1 text-xs text-gray-500">
-                              Order {file.orderNumber || '-'} · {formatFileSize(file.size)} · {file.updatedAt ? formatDateShort(file.updatedAt) : '-'}
-                            </p>
-                          </div>
+                          <p className="mt-1 truncate text-xs text-gray-500">
+                            {linkedSale ? `${linkedSale.user_email} · ${linkedSale.source === 'eshop_sales' ? 'E-shop' : 'Consign'}` : 'Faktúra ešte nie je pripojená k predaju'}
+                          </p>
                         </div>
 
-                        <div className="grid min-h-[64px] min-w-0 gap-3 rounded-xl bg-gray-50 px-4 py-3 sm:grid-cols-2">
-                          {linkedSale ? (
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-semibold text-gray-900">{linkedSale.name}</p>
-                              <p className="mt-0.5 text-xs text-gray-500">
-                                {linkedSale.user_email} · {linkedSale.external_id || 'No order'} · sale {formatCurrency(linkedSale.price || 0)}
-                              </p>
-                            </div>
-                          ) : (
-                            <div className="min-w-0">
-                              <p className="text-sm font-semibold text-gray-900">Nie je pripnuté k sale</p>
-                              <p className="mt-0.5 text-xs text-gray-500">
-                                {file.orderNumber ? `Order ${file.orderNumber}` : 'Bez order number'}
-                              </p>
+                        <div className="grid grid-cols-2 gap-3 lg:block">
+                          <div>
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">PDF suma</p>
+                            <p className={`text-sm font-bold ${amountMismatch ? 'text-orange-700' : 'text-gray-900'}`}>
+                              {totalUnknown ? 'Nezistená' : formatCurrency(file.extractedTotal || 0)}
+                            </p>
+                          </div>
+                          {expectedAmount !== null && (
+                            <div className="lg:mt-1">
+                              <p className="text-[11px] text-gray-400">Očakávané {formatCurrency(expectedAmount)}</p>
                             </div>
                           )}
-
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <p className="truncate text-sm font-semibold text-gray-900">
-                                {file.extractedProduct || 'PDF produkt nezistený'}
-                              </p>
-                              {file.extractionStatus === 'error' && (
-                                <span className="rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-semibold text-red-700">PDF error</span>
-                              )}
-                              {file.extractionStatus === 'empty' && (
-                                <span className="rounded-full bg-gray-200 px-2 py-0.5 text-[11px] font-semibold text-gray-700">bez textu</span>
-                              )}
-                            </div>
-                            <p className={`mt-0.5 text-xs ${amountMismatch ? 'font-semibold text-amber-700' : 'text-gray-500'}`}>
-                              PDF suma {file.extractedTotal !== null && file.extractedTotal !== undefined ? formatCurrency(file.extractedTotal) : '-'}
-                              {amountMismatch ? ' · nesedí so sale' : ''}
-                            </p>
-                          </div>
                         </div>
 
-                        <div className="grid w-full grid-cols-1 gap-2 sm:w-[320px] sm:grid-cols-2 lg:justify-self-end">
-                          <a
-                            href={file.publicUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-                          >
+                        <div className="flex flex-wrap gap-2 lg:justify-end">
+                          <a href={file.publicUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-[40px] items-center justify-center rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
                             Otvoriť PDF <FaExternalLinkAlt className="ml-2 text-xs" />
                           </a>
                           {!linkedSale && (
-                            <button
-                              onClick={() => openAttachModal(file)}
-                              className="inline-flex min-h-[44px] items-center justify-center rounded-lg bg-gray-900 px-3 py-2 text-sm font-semibold text-white hover:bg-gray-800"
-                            >
-                              <FaLink className="mr-2 text-xs" />
-                              Pripnúť
+                            <button onClick={() => openAttachModal(file)} className="inline-flex min-h-[40px] items-center justify-center rounded-lg bg-gray-900 px-3 py-2 text-sm font-semibold text-white hover:bg-gray-800">
+                              <FaLink className="mr-2 text-xs" /> Pripnúť
                             </button>
                           )}
-                          {linkedSale && <div className="hidden sm:block" />}
                         </div>
                       </div>
+
+                      {expanded && (
+                        <div className="border-t border-gray-100 bg-gray-50/70 px-4 py-4 sm:px-6">
+                          <div className="grid gap-4 lg:grid-cols-2">
+                            <div>
+                              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">Párovanie</p>
+                              {linkedSale ? (
+                                <div className="rounded-xl border border-gray-200 bg-white p-3 text-sm">
+                                  <p className="font-semibold text-gray-900">{linkedSale.name}</p>
+                                  <p className="mt-1 text-xs text-gray-500">{linkedSale.size || '-'} · {linkedSale.sku || '-'} · {linkedSale.external_id || '-'}</p>
+                                  <p className="mt-2 text-xs text-gray-600">Cena {formatCurrency(linkedSale.price)} · payout {formatCurrency(linkedSale.payout)}</p>
+                                </div>
+                              ) : (
+                                <p className="text-sm text-gray-500">Bez automatického párovania. Použi tlačidlo Pripnúť.</p>
+                              )}
+                            </div>
+                            <div>
+                              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">Súbory</p>
+                              <div className="space-y-2">
+                                {group.files.map(item => (
+                                  <a key={item.id} href={item.publicUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-3 py-2 hover:border-gray-300">
+                                    <span className="min-w-0 truncate text-sm font-medium text-gray-800">{item.name}</span>
+                                    <span className="flex-shrink-0 text-xs text-gray-500">{formatFileSize(item.size)}</span>
+                                  </a>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}

@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useNavigate, Link } from 'react-router-dom';
-import { FaArrowLeft, FaChartLine, FaEdit, FaTrash, FaSignOutAlt, FaUser, FaEnvelope, FaPhone, FaMapMarkerAlt, FaBuilding, FaCreditCard, FaSignature, FaUpload, FaTimes } from 'react-icons/fa';
+import { FaArrowLeft, FaChartLine, FaEdit, FaTrash, FaSignOutAlt, FaUser, FaEnvelope, FaPhone, FaMapMarkerAlt, FaBuilding, FaCreditCard, FaSignature, FaTimes } from 'react-icons/fa';
 import type { User } from '@supabase/supabase-js';
 import { logger } from '../lib/logger';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 interface IProfile {
   first_name: string;
@@ -29,6 +30,45 @@ const normalizeBusinessVatType = (value?: string | null): 'NO_VAT' | 'VAT_PAYER'
 };
 
 const selectInputClass = 'block w-full appearance-none rounded-xl border border-slate-300 bg-white px-3 py-2.5 pr-10 text-sm font-medium text-slate-900 shadow-sm transition focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10 sm:px-4 sm:py-3 sm:text-base';
+
+const signatureStoragePath = (url?: string | null) => {
+  if (!url) return null;
+  const marker = '/signatures/';
+  const markerIndex = url.indexOf(marker);
+  if (markerIndex === -1) return null;
+
+  const encodedPath = url.slice(markerIndex + marker.length).split('?')[0];
+  try {
+    return decodeURIComponent(encodedPath);
+  } catch {
+    return encodedPath;
+  }
+};
+
+const canvasToBlob = (canvas: HTMLCanvasElement) => new Promise<Blob>((resolve, reject) => {
+  canvas.toBlob((blob) => {
+    if (blob) resolve(blob);
+    else reject(new Error('Error creating signature image.'));
+  }, 'image/png', 0.95);
+});
+
+const normalizeProfile = (value: IProfile): IProfile => ({
+  ...value,
+  first_name: value.first_name.trim(),
+  last_name: value.last_name.trim(),
+  company_name: value.company_name?.trim() || '',
+  ico: value.ico?.replace(/\s+/g, '') || '',
+  vat_number: value.vat_number?.replace(/\s+/g, '').toUpperCase() || '',
+  address: value.address.trim(),
+  popisne_cislo: value.popisne_cislo.trim(),
+  psc: value.psc.trim(),
+  mesto: value.mesto.trim(),
+  krajina: value.krajina.trim() || 'Slovakia',
+  email: value.email.trim().toLowerCase(),
+  telephone: value.telephone.trim(),
+  iban: value.iban.replace(/\s+/g, '').toUpperCase(),
+  discord: value.discord.trim(),
+});
 
 export default function Profile() {
   const navigate = useNavigate();
@@ -61,9 +101,12 @@ export default function Profile() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [signatureUrl, setSignatureUrl] = useState<string | null>(null);
   const [uploadingSignature, setUploadingSignature] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
   const [showSignatureModal, setShowSignatureModal] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const isDrawingRef = useRef(false);
+  const hasSignatureStrokeRef = useRef(false);
+  const profileBeforeEditRef = useRef<IProfile | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -147,29 +190,8 @@ export default function Profile() {
               discord: profileData.discord || ''
 
             });
-            // Load signature URL and refresh if needed (for signed URLs)
             const sigUrl = profileData.signature_url || null;
             setSignatureUrl(sigUrl);
-            
-            // If signature URL exists and might be expired, refresh it
-            if (sigUrl && sigUrl.includes('signatures')) {
-              // Extract file path from URL
-              const urlParts = sigUrl.split('/');
-              const filePath = urlParts.slice(-2).join('/');
-              
-              // Try to get fresh signed URL if it's a signed URL
-              if (sigUrl.includes('token=')) {
-                supabase.storage
-                  .from('signatures')
-                  .createSignedUrl(filePath, 31536000)
-                  .then(({ data, error }) => {
-                    if (!error && data?.signedUrl) {
-                      setSignatureUrl(data.signedUrl);
-                    }
-                  })
-                  .catch(err => logger.warn('Error refreshing signature URL:', err));
-              }
-            }
           } else if (isMounted) {
             setProfile((prev) => ({ ...prev, email: user.email || '' }));
             setSignatureUrl(null);
@@ -221,36 +243,74 @@ export default function Profile() {
   };
 
   const handleOpenModal = () => {
+    profileBeforeEditRef.current = { ...profile };
     setShowModal(true);
     setError(null);
     setSuccessMessage(null);
   };
 
   const handleCloseModal = () => {
+    if (savingProfile) return;
+    if (profileBeforeEditRef.current) {
+      setProfile(profileBeforeEditRef.current);
+      profileBeforeEditRef.current = null;
+    }
     setShowModal(false);
   };
+
+  useEscapeKey(handleCloseModal, showModal && !showSignatureModal);
+  useEscapeKey(() => {
+    if (!uploadingSignature) {
+      setShowSignatureModal(false);
+      clearSignature();
+    }
+  }, showSignatureModal);
+
+  useEffect(() => {
+    if (!showModal && !showSignatureModal) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [showModal, showSignatureModal]);
 
   const handleSubmitProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccessMessage(null);
 
-    if (profile.profile_type === 'Business' && !profile.company_name) {
+    const normalizedProfile = normalizeProfile(profile);
+
+    if (!normalizedProfile.first_name || !normalizedProfile.last_name) {
+      setError('First name and last name are required.');
+      return;
+    }
+    if (!normalizedProfile.address || !normalizedProfile.popisne_cislo || !normalizedProfile.psc || !normalizedProfile.mesto) {
+      setError('Complete your street, street number, postal code and city.');
+      return;
+    }
+    if (normalizedProfile.iban && !/^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(normalizedProfile.iban)) {
+      setError('Enter a valid IBAN without unsupported characters.');
+      return;
+    }
+    if (normalizedProfile.profile_type === 'Business' && !normalizedProfile.company_name) {
       setError('When selecting Business, company name is required.');
       return;
     }
-    if (profile.profile_type === 'Business' && !profile.ico) {
+    if (normalizedProfile.profile_type === 'Business' && !normalizedProfile.ico) {
       setError('Business profile requires company registration number (IČO).');
       return;
     }
-    if (profile.profile_type === 'Business') {
-      if (profile.vat_type === 'VAT_PAYER' && !profile.vat_number) {
+    if (normalizedProfile.profile_type === 'Business') {
+      if (normalizedProfile.vat_type === 'VAT_PAYER' && !normalizedProfile.vat_number) {
         setError('VAT number is required for VAT payer business profile.');
         return;
       }
     }
 
     try {
+      setSavingProfile(true);
       if (!user) {
         setError('User is not logged in.');
         return;
@@ -258,22 +318,22 @@ export default function Profile() {
 
       const updates = {
         id: user.id,
-        first_name: profile.first_name,
-        last_name: profile.last_name,
-        profile_type: profile.profile_type,
-        vat_type: profile.profile_type === 'Business' ? normalizeBusinessVatType(profile.vat_type) : 'PRIVATE',
-        company_name: profile.profile_type === 'Business' ? profile.company_name : null,
-        ico: profile.profile_type === 'Business' ? profile.ico : null,
-        vat_number: profile.profile_type === 'Business' && profile.vat_type === 'VAT_PAYER' ? profile.vat_number : null,
-        address: profile.address,
-        popisne_cislo: profile.popisne_cislo,
-        psc: profile.psc,
-        mesto: profile.mesto,
-        krajina: profile.krajina,
-        email: profile.email,
-        telephone: profile.telephone,
-        iban: profile.iban,
-        discord: profile.discord,
+        first_name: normalizedProfile.first_name,
+        last_name: normalizedProfile.last_name,
+        profile_type: normalizedProfile.profile_type,
+        vat_type: normalizedProfile.profile_type === 'Business' ? normalizeBusinessVatType(normalizedProfile.vat_type) : 'PRIVATE',
+        company_name: normalizedProfile.profile_type === 'Business' ? normalizedProfile.company_name : null,
+        ico: normalizedProfile.profile_type === 'Business' ? normalizedProfile.ico : null,
+        vat_number: normalizedProfile.profile_type === 'Business' && normalizedProfile.vat_type === 'VAT_PAYER' ? normalizedProfile.vat_number : null,
+        address: normalizedProfile.address,
+        popisne_cislo: normalizedProfile.popisne_cislo,
+        psc: normalizedProfile.psc,
+        mesto: normalizedProfile.mesto,
+        krajina: normalizedProfile.krajina,
+        email: user.email || profile.email,
+        telephone: normalizedProfile.telephone,
+        iban: normalizedProfile.iban,
+        discord: normalizedProfile.discord,
         signature_url: signatureUrl
 
       };
@@ -286,11 +346,21 @@ export default function Profile() {
         throw new Error('Error saving profile: ' + upsertError.message);
       }
 
+      setProfile({
+        ...normalizedProfile,
+        email: user.email || normalizedProfile.email,
+        company_name: normalizedProfile.profile_type === 'Business' ? normalizedProfile.company_name : '',
+        ico: normalizedProfile.profile_type === 'Business' ? normalizedProfile.ico : '',
+        vat_number: normalizedProfile.profile_type === 'Business' && normalizedProfile.vat_type === 'VAT_PAYER' ? normalizedProfile.vat_number : '',
+      });
+      profileBeforeEditRef.current = null;
       setSuccessMessage('Profile has been saved successfully!');
       setShowModal(false);
     } catch (err: any) {
       setError('Unexpected error saving profile: ' + err.message);
       logger.error('Error saving profile', err);
+    } finally {
+      setSavingProfile(false);
     }
   };
 
@@ -306,6 +376,9 @@ export default function Profile() {
         ctx.lineJoin = 'round';
         // Clear canvas when modal opens
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        hasSignatureStrokeRef.current = false;
       }
     }
   }, [showSignatureModal]);
@@ -317,6 +390,7 @@ export default function Profile() {
     if (!ctx) return;
 
     isDrawingRef.current = true;
+    hasSignatureStrokeRef.current = true;
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
@@ -358,6 +432,9 @@ export default function Profile() {
     const ctx = canvasRef.current.getContext('2d');
     if (ctx) {
       ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+      hasSignatureStrokeRef.current = false;
     }
   };
 
@@ -371,43 +448,29 @@ export default function Profile() {
       setUploadingSignature(true);
       setError(null);
 
-      // Delete old signature if exists
-      if (signatureUrl) {
-        try {
-          const urlParts = signatureUrl.split('/');
-          const oldFilePath = urlParts.slice(-2).join('/');
-          await supabase.storage
-            .from('signatures')
-            .remove([oldFilePath]);
-        } catch (deleteErr) {
-          logger.warn('Error deleting old signature:', deleteErr);
-          // Continue anyway
-        }
+      if (!hasSignatureStrokeRef.current) {
+        setError('Draw your signature before saving it.');
+        return;
       }
 
-      // Convert canvas to blob
-      canvasRef.current.toBlob(async (blob) => {
-        if (!blob) {
-          setError('Error creating signature image');
-          setUploadingSignature(false);
-          return;
-        }
+      const blob = await canvasToBlob(canvasRef.current);
+      const filePath = `${user.id}/${crypto.randomUUID()}.png`;
+      const oldFilePath = signatureStoragePath(signatureUrl);
 
-        const fileExt = 'png';
-        const fileName = `${user.id}-${Date.now()}.${fileExt}`;
-        const filePath = `${user.id}/${fileName}`;
-
-        // Upload to Supabase Storage
-        const { data: uploadData, error: uploadError } = await supabase.storage
+        const { error: uploadError } = await supabase.storage
           .from('signatures')
           .upload(filePath, blob, {
             cacheControl: '3600',
-            upsert: true
+            upsert: false,
+            contentType: 'image/png'
           });
 
         if (uploadError) {
           logger.error('Upload error:', uploadError);
-          throw new Error('Error uploading signature: ' + uploadError.message);
+          const isRlsError = uploadError.message.toLowerCase().includes('row-level security');
+          throw new Error(isRlsError
+            ? 'Signature upload is not permitted by Storage security rules. Apply the signatures storage migration.'
+            : 'Error uploading signature: ' + uploadError.message);
         }
 
         // Get public URL
@@ -421,30 +484,31 @@ export default function Profile() {
 
         const newSignatureUrl = urlData.publicUrl;
         
-        // Save to profile using upsert to ensure it's saved
-        const { data: updateData, error: updateError } = await supabase
+        const { error: updateError } = await supabase
           .from('profiles')
-          .upsert({ 
-            id: user.id,
-            signature_url: newSignatureUrl
-          }, { 
-            onConflict: 'id' 
-          });
+          .update({ signature_url: newSignatureUrl })
+          .eq('id', user.id);
 
         if (updateError) {
+          await supabase.storage.from('signatures').remove([filePath]);
           logger.error('Update error:', updateError);
           throw new Error('Error saving signature to profile: ' + updateError.message);
+        }
+
+        if (oldFilePath && oldFilePath !== filePath) {
+          const { error: removeError } = await supabase.storage.from('signatures').remove([oldFilePath]);
+          if (removeError) logger.warn('Error deleting old signature:', removeError);
         }
 
         // Update state
         setSignatureUrl(newSignatureUrl);
         setShowSignatureModal(false);
         setSuccessMessage('Signature has been saved successfully!');
-        setUploadingSignature(false);
-      }, 'image/png', 0.95);
     } catch (err: any) {
       logger.error('Error saving signature:', err);
       setError('Error saving signature: ' + (err.message || 'Unknown error'));
+      setUploadingSignature(false);
+    } finally {
       setUploadingSignature(false);
     }
   };
@@ -454,13 +518,12 @@ export default function Profile() {
 
     try {
       // Extract file path from URL
-      const urlParts = signatureUrl.split('/');
-      const filePath = urlParts.slice(-2).join('/');
+      const filePath = signatureStoragePath(signatureUrl);
 
       // Delete from storage
-      const { error: deleteError } = await supabase.storage
-        .from('signatures')
-        .remove([filePath]);
+      const { error: deleteError } = filePath
+        ? await supabase.storage.from('signatures').remove([filePath])
+        : { error: null };
 
       if (deleteError) {
         logger.warn('Error deleting signature file:', deleteError);
@@ -527,6 +590,19 @@ export default function Profile() {
       logger.error('Error deleting profile', error);
     }
   };
+
+  const requiredProfileChecks = [
+    Boolean(profile.first_name.trim()),
+    Boolean(profile.last_name.trim()),
+    Boolean(profile.address.trim()),
+    Boolean(profile.popisne_cislo.trim()),
+    Boolean(profile.psc.trim()),
+    Boolean(profile.mesto.trim()),
+    Boolean(profile.telephone.trim()),
+    Boolean(profile.iban.trim()),
+  ];
+  const completedProfileFields = requiredProfileChecks.filter(Boolean).length;
+  const profileCompletion = Math.round((completedProfileFields / requiredProfileChecks.length) * 100);
 
   // Enhanced loading
   if (loading) {
@@ -657,6 +733,26 @@ export default function Profile() {
             </div>
           </div>
         )}
+
+        <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-sm font-bold text-slate-900">Profile completeness</p>
+              <p className="mt-1 text-xs text-slate-500">Contact details and IBAN are required for smooth payouts. Signature is optional.</p>
+            </div>
+            <span className={`rounded-full px-3 py-1 text-sm font-bold ${profileCompletion === 100 ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+              {profileCompletion}%
+            </span>
+          </div>
+          <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100" aria-label={`Profile ${profileCompletion}% complete`}>
+            <div className={`h-full rounded-full transition-all ${profileCompletion === 100 ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${profileCompletion}%` }} />
+          </div>
+          {profileCompletion < 100 && (
+            <button onClick={handleOpenModal} className="mt-3 text-sm font-semibold text-slate-900 underline decoration-slate-300 underline-offset-4 hover:decoration-slate-900">
+              Complete profile
+            </button>
+          )}
+        </div>
 
         {/* Enhanced Account Information */}
         <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-slate-200/50 shadow-xl mb-8 animate-fade-in hover:shadow-2xl transition-shadow duration-300">
@@ -880,13 +976,24 @@ export default function Profile() {
 
       {/* Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-50">
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-50"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="edit-profile-title"
+          onMouseDown={(event) => { if (event.target === event.currentTarget) handleCloseModal(); }}
+        >
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden">
             <div className="flex items-center justify-between p-4 sm:p-6 border-b border-slate-200">
-              <h2 className="text-lg sm:text-2xl font-bold text-slate-900">Edit Profile</h2>
+              <div>
+                <h2 id="edit-profile-title" className="text-lg sm:text-2xl font-bold text-slate-900">Edit Profile</h2>
+                <p className="mt-1 text-xs text-slate-500">Keep these details current for payouts and contracts.</p>
+              </div>
               <button
                 onClick={handleCloseModal}
-                className="p-2 hover:bg-slate-100 rounded-xl transition-colors"
+                disabled={savingProfile}
+                aria-label="Close profile editor"
+                className="p-2 hover:bg-slate-100 rounded-xl transition-colors disabled:opacity-50"
               >
                 <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1160,6 +1267,7 @@ export default function Profile() {
                       id="telephone"
                       value={profile.telephone}
                       onChange={(e) => setProfile({ ...profile, telephone: e.target.value })}
+                      autoComplete="tel"
                       className="block w-full px-4 py-3 border border-slate-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
                     />
                   </div>
@@ -1173,9 +1281,13 @@ export default function Profile() {
                     type="text"
                     id="iban"
                     value={profile.iban}
-                    onChange={(e) => setProfile({ ...profile, iban: e.target.value })}
+                    onChange={(e) => setProfile({ ...profile, iban: e.target.value.toUpperCase() })}
+                    autoComplete="off"
+                    spellCheck={false}
+                    placeholder="SK00 0000 0000 0000 0000 0000"
                     className="block w-full px-4 py-3 border border-slate-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
                   />
+                  <p className="mt-1 text-xs text-slate-500">Spaces are removed automatically when saving.</p>
                 </div>
 
                 {/* Signature */}
@@ -1234,15 +1346,17 @@ export default function Profile() {
                   <button
                     type="button"
                     onClick={handleCloseModal}
-                    className="px-4 sm:px-6 py-2 sm:py-3 text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-xl transition-colors"
+                    disabled={savingProfile}
+                    className="px-4 sm:px-6 py-2 sm:py-3 text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-xl transition-colors disabled:opacity-50"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-4 sm:px-6 py-2 sm:py-3 text-sm font-semibold text-white bg-black hover:bg-gray-800 rounded-xl transition-all duration-200"
+                    disabled={savingProfile || uploadingSignature}
+                    className="px-4 sm:px-6 py-2 sm:py-3 text-sm font-semibold text-white bg-black hover:bg-gray-800 rounded-xl transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    Save Changes
+                    {savingProfile ? 'Saving...' : 'Save Changes'}
                   </button>
                 </div>
               </form>
@@ -1253,16 +1367,18 @@ export default function Profile() {
 
       {/* Signature Modal */}
       {showSignatureModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end justify-center p-0 sm:items-center sm:p-4 z-50">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end justify-center p-0 sm:items-center sm:p-4 z-[60]" role="dialog" aria-modal="true" aria-labelledby="signature-title">
           <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-md">
             <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200">
-              <h2 className="text-lg sm:text-xl font-bold text-gray-900">Signature</h2>
+              <h2 id="signature-title" className="text-lg sm:text-xl font-bold text-gray-900">Signature</h2>
               <button
                 onClick={() => {
                   setShowSignatureModal(false);
                   clearSignature();
                 }}
-                className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
+                disabled={uploadingSignature}
+                aria-label="Close signature editor"
+                className="p-2 hover:bg-gray-100 rounded-xl transition-colors disabled:opacity-50"
               >
                 <FaTimes className="w-5 h-5 text-gray-600" />
               </button>
@@ -1310,7 +1426,7 @@ export default function Profile() {
                     type="button"
                     onClick={saveSignature}
                     disabled={uploadingSignature}
-                    className="px-4 py-2 bg-black text-white font-semibold rounded-xl hover:bg-gray-800 transition-all disabled:opacity-50"
+                    className="px-4 py-2 bg-black text-white font-semibold rounded-xl hover:bg-gray-800 transition-all disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {uploadingSignature ? 'Saving...' : 'Save'}
                   </button>

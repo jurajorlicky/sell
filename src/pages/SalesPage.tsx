@@ -949,6 +949,7 @@ export default function SalesPage() {
                   // Refresh the sales list
                   loadSales();
                 }}
+                onSaleUpdate={loadSales}
                 onClose={() => setSelectedSaleForStatus(null)}
                 onDelete={async () => {
                   setSelectedSaleForStatus(null);

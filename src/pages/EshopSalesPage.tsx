@@ -26,6 +26,7 @@ import {
 interface EshopSale {
   id: string;
   order_number: string;
+  line_item_key?: string | null;
   product_name: string;
   size: string | null;
   sku: string | null;
@@ -86,6 +87,11 @@ interface InvoiceDocument {
   extraction_error: string | null;
 }
 
+interface InvoiceDownload {
+  url: string;
+  fileName: string;
+}
+
 interface EshopOrderGroup {
   key: string;
   orderNumber: string;
@@ -138,6 +144,9 @@ export default function EshopSalesPage() {
   const [importingOrders, setImportingOrders] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [importResult, setImportResult] = useState<string | null>(null);
+  const [invoiceBySaleId, setInvoiceBySaleId] = useState<Record<string, InvoiceDownload>>({});
+  const [invoiceByOrder, setInvoiceByOrder] = useState<Record<string, InvoiceDownload>>({});
+  const [downloadingInvoice, setDownloadingInvoice] = useState<string | null>(null);
 
   useEscapeKey(() => {
     setShowCreateModal(false);
@@ -241,7 +250,9 @@ export default function EshopSalesPage() {
         const { data, error: fetchError } = await supabase
           .from('eshop_sales')
           .select('*')
-          .order(sortField, { ascending: sortAsc })
+          .order(sortField === 'created_at' ? 'order_created_at' : sortField, { ascending: sortAsc, nullsFirst: false })
+          .order('order_number', { ascending: true })
+          .order('line_item_key', { ascending: true })
           .range(from, from + pageSize - 1);
         if (fetchError) throw fetchError;
         nextSales.push(...((data || []) as EshopSale[]));
@@ -254,7 +265,35 @@ export default function EshopSalesPage() {
         fa_url: signedInvoiceUrls.get(sale.fa_url || '') || sale.fa_url,
       }));
       setSales(resolvedSales);
-      setLinkedSales(await loadLinkedSales(resolvedSales));
+      const [nextLinkedSales, invoiceResult] = await Promise.all([
+        loadLinkedSales(resolvedSales),
+        supabase
+          .from('invoice_documents')
+          .select('storage_path, file_name, order_number, eshop_sale_id, imported_at')
+          .eq('document_type', 'fa')
+          .order('imported_at', { ascending: false })
+          .limit(2000),
+      ]);
+      setLinkedSales(nextLinkedSales);
+
+      if (!invoiceResult.error) {
+        const invoiceRows = (invoiceResult.data || []) as Array<Pick<InvoiceDocument, 'storage_path' | 'file_name' | 'order_number' | 'eshop_sale_id' | 'imported_at'>>;
+        const signedUrls = await createInvoiceSignedUrlMap(invoiceRows.map(invoice => invoice.storage_path));
+        const bySale: Record<string, InvoiceDownload> = {};
+        const byOrder: Record<string, InvoiceDownload> = {};
+        invoiceRows.forEach(invoice => {
+          const url = signedUrls.get(invoice.storage_path);
+          if (!url) return;
+          const value = { url, fileName: invoice.file_name || 'invoice.pdf' };
+          if (invoice.eshop_sale_id && !bySale[invoice.eshop_sale_id]) bySale[invoice.eshop_sale_id] = value;
+          if (invoice.order_number && !byOrder[invoice.order_number]) byOrder[invoice.order_number] = value;
+        });
+        setInvoiceBySaleId(bySale);
+        setInvoiceByOrder(byOrder);
+      } else {
+        setInvoiceBySaleId({});
+        setInvoiceByOrder({});
+      }
     } catch (err: any) {
       setError('Error loading eshop sales: ' + err.message);
     } finally {
@@ -298,18 +337,20 @@ export default function EshopSalesPage() {
       return groups;
     }, new Map<string, EshopSale[]>())
   ).map(([key, items]): EshopOrderGroup => {
-    const primary = items[0];
+    const sortedItems = [...items].sort((a, b) =>
+      String(a.sku || a.product_name).localeCompare(String(b.sku || b.product_name), undefined, { numeric: true }) ||
+      String(a.size || '').localeCompare(String(b.size || ''), undefined, { numeric: true })
+    );
+    const primary = sortedItems[0];
     const totalPrice = items.reduce((sum, item) => sum + Number(item.price || 0), 0);
     const orderTotalValue = items.find(item => item.order_total !== null && item.order_total !== undefined)?.order_total;
     const orderExtraTotal = Number(items.find(item => item.order_extra_total !== null && item.order_extra_total !== undefined)?.order_extra_total || 0);
-    const createdAt = items.reduce((latest, item) => (
-      new Date(item.created_at).getTime() > new Date(latest).getTime() ? item.created_at : latest
-    ), primary.created_at);
+    const createdAt = primary.order_created_at || primary.created_at;
 
     return {
       key,
       orderNumber: primary.order_number,
-      items,
+      items: sortedItems,
       primary,
       totalPrice,
       orderTotal: orderTotalValue !== null && orderTotalValue !== undefined ? Number(orderTotalValue) : null,
@@ -320,9 +361,10 @@ export default function EshopSalesPage() {
     if (sortField === 'price') {
       return sortAsc ? a.totalPrice - b.totalPrice : b.totalPrice - a.totalPrice;
     }
-    return sortAsc
+    const dateDifference = sortAsc
       ? new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
       : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    return dateDifference || a.orderNumber.localeCompare(b.orderNumber, undefined, { numeric: true });
   });
 
   const paginatedGroups = orderGroups.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
@@ -355,6 +397,33 @@ export default function EshopSalesPage() {
   const toggleSort = (field: 'created_at' | 'price') => {
     if (sortField === field) setSortAsc(a => !a);
     else { setSortField(field); setSortAsc(false); }
+  };
+
+  const getGroupInvoice = (group: EshopOrderGroup): InvoiceDownload | null => (
+    group.items.map(item => invoiceBySaleId[item.id]).find(Boolean) ||
+    invoiceByOrder[group.orderNumber] ||
+    group.items.map(item => item.original_order_number ? invoiceByOrder[item.original_order_number] : null).find(Boolean) ||
+    null
+  );
+
+  const downloadInvoice = async (invoice: InvoiceDownload, orderNumber: string) => {
+    try {
+      setDownloadingInvoice(orderNumber);
+      const response = await fetch(invoice.url);
+      if (!response.ok) throw new Error(`Download failed (${response.status})`);
+      const blobUrl = URL.createObjectURL(await response.blob());
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = `FA-${orderNumber}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(blobUrl);
+    } catch (downloadError: any) {
+      setError('Error downloading invoice: ' + (downloadError?.message || 'Unknown error'));
+    } finally {
+      setDownloadingInvoice(null);
+    }
   };
 
   const exportToXlsx = async () => {
@@ -783,6 +852,7 @@ export default function EshopSalesPage() {
             <div className="md:hidden divide-y divide-gray-100">
               {paginatedGroups.map(group => {
                 const primary = group.primary;
+                const invoice = getGroupInvoice(group);
                 const linkedCount = group.items.filter(sale => linkedSales[sale.id]).length;
                 const profit = group.items.reduce((sum, sale) => {
                   const linked = linkedSales[sale.id];
@@ -812,13 +882,25 @@ export default function EshopSalesPage() {
                               {group.items.length} item{group.items.length === 1 ? '' : 's'} in order
                             </h3>
                           </div>
-                          <button
-                            onClick={() => setEditingSale(primary)}
-                            className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-700"
-                            title="Edit first item"
-                          >
-                            <FaEdit />
-                          </button>
+                          <div className="flex flex-shrink-0 gap-1">
+                            {invoice && (
+                              <button
+                                onClick={() => downloadInvoice(invoice, group.orderNumber)}
+                                disabled={downloadingInvoice === group.orderNumber}
+                                className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 disabled:opacity-50"
+                                title="Download invoice"
+                              >
+                                <FaDownload className={downloadingInvoice === group.orderNumber ? 'animate-pulse' : ''} />
+                              </button>
+                            )}
+                            <button
+                              onClick={() => setEditingSale(primary)}
+                              className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100 text-gray-700"
+                              title="Edit first item"
+                            >
+                              <FaEdit />
+                            </button>
+                          </div>
                         </div>
 
                         <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-600">
@@ -905,6 +987,7 @@ export default function EshopSalesPage() {
                 <tbody className="divide-y divide-gray-100">
                   {paginatedGroups.map(group => {
                     const primary = group.primary;
+                    const invoice = getGroupInvoice(group);
                     const linkedCount = group.items.filter(sale => linkedSales[sale.id]).length;
                     const checkedCount = group.items.filter(sale => linkedSales[sale.id] !== undefined).length;
                     const profit = group.items.reduce((sum, sale) => {
@@ -1014,13 +1097,25 @@ export default function EshopSalesPage() {
                         </td>
                         <td className="px-4 py-3 text-xs text-gray-600">{formatDate(group.createdAt)}</td>
                         <td className="px-4 py-3">
-                          <button
-                            onClick={() => setEditingSale(primary)}
-                            className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                            title="Edit first item"
-                          >
-                            <FaEdit />
-                          </button>
+                          <div className="flex items-center gap-1">
+                            {invoice && (
+                              <button
+                                onClick={() => downloadInvoice(invoice, group.orderNumber)}
+                                disabled={downloadingInvoice === group.orderNumber}
+                                className="p-2 text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors disabled:opacity-50"
+                                title={`Download invoice as FA-${group.orderNumber}.pdf`}
+                              >
+                                <FaDownload className={downloadingInvoice === group.orderNumber ? 'animate-pulse' : ''} />
+                              </button>
+                            )}
+                            <button
+                              onClick={() => setEditingSale(primary)}
+                              className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                              title="Edit first item"
+                            >
+                              <FaEdit />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );

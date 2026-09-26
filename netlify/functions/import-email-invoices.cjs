@@ -174,25 +174,35 @@ const extractMoneyValues = (text) => {
 
 const extractInvoiceTotal = (text) => {
   const normalized = normalizePdfText(text);
-  const contextualPatterns = [
-    /(?:celkom k úhrade|celkom k uhrade|k úhrade|k uhrade|suma celkom|celkom|celkem k úhradě|celkem k uhrade|celkem|total due|grand total|total)[^\d]{0,90}(\d{1,3}(?:[ .]\d{3})*(?:,\d{2}|\.\d{2})|\d+(?:,\d{2}|\.\d{2}))/gi,
+  const lines = normalized.split('\n').map((line) => line.trim()).filter(Boolean);
+  const labelGroups = [
+    /(?:celkom k úhrade|celkom k uhrade|celkem k úhradě|celkem k uhrade|total due|grand total)/i,
+    /^(?:suma celkom|celkom|celkem|total)(?:\s+s\s+dph|\s+with\s+vat)?\s*[:\-]?/i,
   ];
 
-  for (const pattern of contextualPatterns) {
-    const matches = [];
-    let match = pattern.exec(normalized);
-    while (match?.[1]) {
-      const amount = parseMoney(match[1]);
-      if (amount !== null) matches.push(amount);
-      match = pattern.exec(normalized);
+  for (const labelPattern of labelGroups) {
+    for (let index = lines.length - 1; index >= 0; index--) {
+      const line = lines[index];
+      const labelMatch = line.match(labelPattern);
+      if (!labelMatch) continue;
+
+      // Only inspect the value after the total label. This avoids treating an
+      // invoice number, VAT rate or an item price elsewhere in the PDF as total.
+      const afterLabel = line.slice((labelMatch.index || 0) + labelMatch[0].length);
+      const amounts = extractMoneyValues(afterLabel);
+      if (amounts.length) return amounts[amounts.length - 1];
+
+      // Some PDF generators put the label and its value on adjacent lines.
+      const nextLineAmounts = index + 1 < lines.length ? extractMoneyValues(lines[index + 1]) : [];
+      if (nextLineAmounts.length && lines[index + 1].length < 40) {
+        return nextLineAmounts[nextLineAmounts.length - 1];
+      }
     }
-    if (matches.length) return matches[matches.length - 1];
   }
 
-  const allAmounts = extractMoneyValues(normalized)
-    .filter((amount) => amount > 0 && amount < 100000);
-
-  return allAmounts.length ? Math.max(...allAmounts) : null;
+  // No trustworthy total label: keep the amount unknown instead of producing
+  // a confident but false mismatch from the largest number in the document.
+  return null;
 };
 
 const isLikelyProductLine = (line) => {
@@ -348,7 +358,9 @@ const upsertInvoiceDocument = async (supabase, result, publicUrl) => {
     order_number: result.orderNumber,
     matched_target: result.matchedTarget || null,
     user_sale_id: result.matchedTarget === 'user_sales' ? result.matchedSaleId : null,
-    eshop_sale_id: result.matchedTarget === 'eshop_sales' ? result.matchedSaleId : null,
+    // Keep the order-level e-shop link even when the same document is also
+    // linked to the corresponding consignment sale.
+    eshop_sale_id: result.eshopSale?.id || (result.matchedTarget === 'eshop_sales' ? result.matchedSaleId : null),
     source: 'email_import',
     email_subject: result.subject || null,
     email_from: result.from || null,

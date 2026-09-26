@@ -29,6 +29,7 @@ interface AdminSalesStatusManagerProps {
   currentIsManual?: boolean;
   onStatusUpdate: (newStatus: string) => void;
   onExternalIdUpdate: (newExternalId: string) => void;
+  onSaleUpdate?: () => void;
   onClose: () => void;
   onDelete?: () => void;
 }
@@ -43,6 +44,16 @@ const statusOptions = [
   { value: 'returned', label: 'Returned' }
 ];
 
+const parseMoneyInput = (value: string): number | null => {
+  const normalized = value.trim().replace(/\s+/g, '').replace(',', '.');
+  if (!normalized) return null;
+
+  const amount = Number(normalized);
+  return Number.isFinite(amount) ? amount : null;
+};
+
+const roundMoney = (value: number): number => Math.round((value + Number.EPSILON) * 100) / 100;
+
 export default function AdminSalesStatusManager({ 
   saleId, 
   currentStatus, 
@@ -56,6 +67,7 @@ export default function AdminSalesStatusManager({
   currentIsManual = false,
   onStatusUpdate, 
   onExternalIdUpdate,
+  onSaleUpdate,
   onClose,
   onDelete
 }: AdminSalesStatusManagerProps) {
@@ -92,6 +104,8 @@ export default function AdminSalesStatusManager({
   const [originalInvoiceDate, setOriginalInvoiceDate] = useState(''); // Store original invoice date for comparison
   const [notes, setNotes] = useState('');
   const [originalNotes, setOriginalNotes] = useState(''); // Store original notes for comparison
+  const [payoutInput, setPayoutInput] = useState('');
+  const [originalPayout, setOriginalPayout] = useState<number | null>(null);
   const [sendEmail, setSendEmail] = useState(true); // Default: send email
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -145,6 +159,10 @@ export default function AdminSalesStatusManager({
           }
           setInvoiceDate(loadedInvoiceDate);
           setOriginalInvoiceDate(loadedInvoiceDate); // Store original for comparison
+
+          const loadedPayout = Number(data.payout ?? 0);
+          setPayoutInput(String(loadedPayout));
+          setOriginalPayout(loadedPayout);
           
           // Store sale data for email notifications and PDF generation
           setSaleData({
@@ -611,6 +629,10 @@ export default function AdminSalesStatusManager({
     // Compare dates properly - extract date part from both for comparison
     const currentSaleDateStr = currentCreatedAt ? isoToLocalDateString(currentCreatedAt) : '';
     const currentDeliveredAtStr = currentDeliveredAt ? isoToLocalDateString(currentDeliveredAt) : '';
+    const parsedPayout = parseMoneyInput(payoutInput);
+    const payoutChanged = originalPayout !== null && (
+      parsedPayout === null || Math.abs(roundMoney(parsedPayout) - originalPayout) > 0.0001
+    );
     
     const hasChanges = 
       selectedStatus !== currentStatus || 
@@ -620,6 +642,7 @@ export default function AdminSalesStatusManager({
       deliveredAt !== currentDeliveredAtStr ||
       saleDate !== currentSaleDateStr ||
       invoiceDate !== originalInvoiceDate ||
+      payoutChanged ||
       notes.trim() !== originalNotes.trim();
 
     if (!hasChanges) {
@@ -633,6 +656,13 @@ export default function AdminSalesStatusManager({
       });
       return; // No changes to save
     }
+
+    if (parsedPayout === null || parsedPayout < 0) {
+      setError('Payout must be a valid amount greater than or equal to 0.');
+      return;
+    }
+
+    const effectivePayout = roundMoney(parsedPayout);
 
     // Confirm before cancelling or returning a sale
     if (selectedStatus !== currentStatus && (selectedStatus === 'cancelled' || selectedStatus === 'returned')) {
@@ -663,6 +693,9 @@ export default function AdminSalesStatusManager({
       }
       if (labelUrl !== currentLabelUrl) {
         updateData.label_url = labelUrl || null;
+      }
+      if (payoutChanged) {
+        updateData.payout = effectivePayout;
       }
       // Handle saleDate (created_at) - if manually changed
       const currentSaleDateStr = currentCreatedAt ? isoToLocalDateString(currentCreatedAt) : '';
@@ -755,7 +788,7 @@ export default function AdminSalesStatusManager({
               sku: saleData.sku || null,
               image_url: saleData.image_url || null,
               source_type: 'unclaimed_order',
-              purchase_price: saleData.payout || 0,
+              purchase_price: effectivePayout,
               document_type: faUrl ? 'fa' : 'zmluva',
               status: 'available',
               notes: `Auto-added from ${selectedStatus} sale ${saleData.external_id || saleId} (${sourceMarker})`,
@@ -775,6 +808,11 @@ export default function AdminSalesStatusManager({
       if (invoiceDate !== originalInvoiceDate) {
         setOriginalInvoiceDate(invoiceDate);
       }
+      if (payoutChanged) {
+        setOriginalPayout(effectivePayout);
+        setPayoutInput(String(effectivePayout));
+        setSaleData((previous) => previous ? { ...previous, payout: effectivePayout } : previous);
+      }
       
       logger.info('Sale updated successfully');
 
@@ -788,6 +826,7 @@ export default function AdminSalesStatusManager({
       if (externalId !== currentExternalId) {
         onExternalIdUpdate(externalId);
       }
+      onSaleUpdate?.();
       setSuccess(true);
       showToast('Changes saved successfully', 'success');
       setEmailSuccess(false);
@@ -814,7 +853,7 @@ export default function AdminSalesStatusManager({
               sku: saleData.sku,
               image_url: saleData.image_url,
               price: saleData.price,
-              payout: saleData.payout,
+              payout: effectivePayout,
               external_id: saleData.external_id,
               trackingUrl: trackingUrl || undefined,
               label_url: labelUrl || undefined,
@@ -847,7 +886,7 @@ export default function AdminSalesStatusManager({
                 sku: saleData.sku,
                 image_url: saleData.image_url,
                 price: saleData.price,
-                payout: saleData.payout,
+                payout: effectivePayout,
                 external_id: saleData.external_id,
                 contract_url: contractUrl || undefined
               });
@@ -878,13 +917,17 @@ export default function AdminSalesStatusManager({
       logger.error('Error updating sales status', err);
       setError('Error updating: ' + err.message);
     } finally {
-      setDeleting(false);
+      setSaving(false);
     }
   };
 
   // Check if there are any changes to save
   const currentSaleDateStr = currentCreatedAt ? isoToLocalDateString(currentCreatedAt) : '';
   const currentDeliveredAtStr = currentDeliveredAt ? isoToLocalDateString(currentDeliveredAt) : '';
+  const parsedPayout = parseMoneyInput(payoutInput);
+  const payoutChanged = originalPayout !== null && (
+    parsedPayout === null || Math.abs(roundMoney(parsedPayout) - originalPayout) > 0.0001
+  );
   
   const hasChanges = 
     selectedStatus !== currentStatus || 
@@ -894,6 +937,7 @@ export default function AdminSalesStatusManager({
     deliveredAt !== currentDeliveredAtStr ||
     saleDate !== currentSaleDateStr ||
     invoiceDate !== originalInvoiceDate ||
+    payoutChanged ||
     notes.trim() !== originalNotes.trim();
 
   return (
@@ -942,6 +986,28 @@ export default function AdminSalesStatusManager({
             </div>
           )}
         </div>
+      </div>
+
+      {/* Financial information */}
+      <div className="bg-white rounded-xl p-4 border border-gray-200">
+        <label htmlFor={`sale-payout-${saleId}`} className="block text-sm font-semibold text-gray-900 mb-3">
+          Payout
+        </label>
+        <div className="relative">
+          <input
+            id={`sale-payout-${saleId}`}
+            type="text"
+            inputMode="decimal"
+            value={payoutInput}
+            onChange={(event) => setPayoutInput(event.target.value)}
+            placeholder="0.00"
+            className="block w-full px-4 py-3 pr-12 bg-white border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-gray-900 font-semibold"
+          />
+          <span className="absolute inset-y-0 right-4 flex items-center text-gray-500 font-medium">EUR</span>
+        </div>
+        <p className="text-xs text-gray-600 mt-2">
+          Enter the exact payout you want to pay. You can use a comma or decimal point.
+        </p>
       </div>
 
       {/* Status Selection */}

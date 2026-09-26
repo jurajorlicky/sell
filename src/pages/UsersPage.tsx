@@ -1462,6 +1462,11 @@ export default function UsersPage() {
                             )
                           );
                         }}
+                        onSaleUpdate={() => {
+                          if (selectedUser) {
+                            loadUserDetails(selectedUser.id);
+                          }
+                        }}
                         onClose={() => {
                           setSelectedSaleForStatus(null);
                           // Reload user details to get updated data

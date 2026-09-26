@@ -109,8 +109,7 @@ serve(async (req) => {
       const sku = normalizeText(item.sku)
       const price = normalizePrice(item.price)
       const quantity = normalizeInteger(item.quantity, 1)
-      const lineItemKey = normalizeText(item.lineItemKey)
-        ?? `${productName}::${size ?? ""}::${sku ?? ""}`
+      const lineItemKey = `${(sku ?? productName).trim().toLowerCase()}::${(size ?? "no-size").trim().toLowerCase()}`
 
       let existingQuery = supabaseAdmin
         .from("eshop_sales")
@@ -141,29 +140,15 @@ serve(async (req) => {
         updated_at: new Date().toISOString(),
       }
 
-      if (existingRows && existingRows.length > 0) {
-        const { error: updateError } = await supabaseAdmin
-          .from("eshop_sales")
-          .update(row)
-          .eq("id", existingRows[0].id)
-
-        if (updateError) {
-          throw updateError
-        }
-
-        results.push({ action: "updated", orderNumber, productName, size, quantity, lineItemKey })
-        continue
-      }
-
       const { error: insertError } = await supabaseAdmin
         .from("eshop_sales")
-        .insert(row)
+        .upsert(row, { onConflict: "order_number,line_item_key" })
 
       if (insertError) {
         throw insertError
       }
 
-      results.push({ action: "inserted", orderNumber, productName, size, quantity, lineItemKey })
+      results.push({ action: existingRows && existingRows.length > 0 ? "updated" : "inserted", orderNumber, productName, size, quantity, lineItemKey })
     }
 
     return json({

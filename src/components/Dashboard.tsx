@@ -41,7 +41,6 @@ interface MarketPriceData {
 
 interface UserProfile {
   iban?: string | null;
-  signature_url?: string | null;
   profile_type?: string | null;
   vat_type?: string | null;
 }
@@ -439,11 +438,11 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
       // Load products first (priority)
       await fetchProducts(user.id);
 
-      // Load profile (for IBAN / signature checks)
+      // Load profile for payout and VAT checks.
       try {
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
-          .select('iban, signature_url, profile_type, vat_type')
+          .select('iban, profile_type, vat_type')
           .eq('id', user.id)
           .maybeSingle();
         
@@ -923,8 +922,8 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
           </div>
         )}
 
-        {/* Profile completeness banner (IBAN / Signature) */}
-        {profile && (!profile.iban || !profile.signature_url) && (
+        {/* Payout reminder — signature is optional and never triggers a banner. */}
+        {profile && !profile.iban && (
           <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 sm:px-6 sm:py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="flex items-start">
               <div className="flex-shrink-0 mt-0.5 sm:mt-0">
@@ -935,9 +934,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
                   Complete your profile to receive payouts.
                 </p>
                 <p className="mt-1 text-xs sm:text-sm text-amber-800">
-                  {(!profile.iban && !profile.signature_url) && 'Please add your IBAN and upload your signature.'}
-                  {(!profile.iban && profile.signature_url) && 'Please add your IBAN to receive payouts.'}
-                  {(profile.iban && !profile.signature_url) && 'Please upload your signature for contracts.'}
+                  Please add your IBAN to receive payouts.
                 </p>
               </div>
             </div>
