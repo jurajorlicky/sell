@@ -7,7 +7,12 @@ import { logger } from '../lib/logger';
 import { generatePurchaseAgreement, uploadContractToStorage } from '../lib/pdfGenerator';
 import { useToast } from './Toast';
 import { resolveInvoiceReferences } from '../lib/storageUrls';
-import { FaSave, FaStickyNote, FaTruck, FaBox, FaLink, FaTimes, FaPlus, FaEdit, FaFilePdf, FaUpload, FaTrash, FaClock, FaFileContract, FaFileInvoice } from 'react-icons/fa';
+import { 
+  FaSave, FaStickyNote, FaTruck, FaBox, FaLink, FaTimes, FaPlus, FaEdit, 
+  FaFilePdf, FaUpload, FaTrash, FaClock, FaFileContract, FaFileInvoice,
+  FaChevronDown, FaChevronUp, FaArrowRight, FaExternalLinkAlt, FaCheckCircle, 
+  FaEnvelope, FaCheck
+} from 'react-icons/fa';
 
 interface ManualSaleItem {
   productName: string;
@@ -118,6 +123,8 @@ export default function AdminSalesStatusManager({
   const [contractUrl, setContractUrl] = useState<string | null>(null);
   const [faUrl, setFaUrl] = useState<string | null>(currentFaUrl || null);
   const [documentMode, setDocumentMode] = useState<'contract' | 'fa'>(currentFaUrl ? 'fa' : 'contract');
+  const [docTab, setDocTab] = useState<'contract' | 'fa' | 'label'>(currentFaUrl ? 'fa' : 'contract');
+  const [showTimeline, setShowTimeline] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   // Load existing notes and sale data on mount
@@ -141,10 +148,14 @@ export default function AdminSalesStatusManager({
             const signedInvoiceUrls = await resolveInvoiceReferences([data.fa_url]);
             setFaUrl(signedInvoiceUrls.get(data.fa_url) || data.fa_url);
             setDocumentMode('fa');
+            setDocTab('fa');
           }
           if (data.contract_url) {
             setContractUrl(data.contract_url);
-            if (!data.fa_url) setDocumentMode('contract');
+            if (!data.fa_url) {
+              setDocumentMode('contract');
+              setDocTab('contract');
+            }
           }
           if (data.created_at) setSaleDate(isoToLocalDateString(data.created_at));
           
@@ -624,6 +635,124 @@ export default function AdminSalesStatusManager({
     }
   };
 
+  const handleGenerateContract = async () => {
+    if (!saleData || !userProfile) {
+      setError('Error: Sale or user data not loaded');
+      return;
+    }
+    
+    try {
+      setGeneratingContract(true);
+      setError(null);
+
+      // Always load latest sale + profile data from DB so contract uses fresh values
+      const { data: freshSale, error: freshSaleError } = await supabase
+        .from('user_sales')
+        .select('id, user_id, name, size, price, is_manual, payout, created_at, external_id, invoice_date, manual_sale_items')
+        .eq('id', saleId)
+        .single();
+
+      if (freshSaleError || !freshSale) {
+        throw new Error(freshSaleError?.message || 'Failed to load latest sale data');
+      }
+
+      const { data: freshProfile, error: freshProfileError } = await supabase
+        .from('profiles')
+        .select('first_name, last_name, ico, address, popisne_cislo, psc, mesto, krajina, email, telephone, iban, signature_url')
+        .eq('id', freshSale.user_id)
+        .single();
+
+      if (freshProfileError || !freshProfile) {
+        throw new Error(freshProfileError?.message || 'Failed to load latest user profile');
+      }
+      
+      const addressBase = (freshProfile.address || '').trim();
+      const houseNumber = (freshProfile.popisne_cislo || '').trim();
+      const addressHasNumber =
+        houseNumber.length > 0 &&
+        addressBase.toLowerCase().includes(houseNumber.toLowerCase());
+      const streetAndNumber = [addressBase, addressHasNumber ? '' : houseNumber]
+        .filter(Boolean)
+        .join(' ');
+      
+      const addressParts = [];
+      if (streetAndNumber) {
+        addressParts.push(streetAndNumber);
+      }
+      if (freshProfile.psc && freshProfile.mesto) {
+        addressParts.push(`${freshProfile.psc} ${freshProfile.mesto}`);
+      } else if (freshProfile.mesto) {
+        addressParts.push(freshProfile.mesto);
+      }
+      if (freshProfile.krajina) {
+        addressParts.push(freshProfile.krajina);
+      } else {
+        addressParts.push('Slovakia');
+      }
+      
+      const sellerAddress = addressParts.join(', ');
+      const buyerAddress = 'Lysica 336, 013 05 Lysica, SLOVAKIA';
+      
+      const contractDateISO = invoiceDate 
+        ? new Date(invoiceDate + 'T12:00:00').toISOString()
+        : (freshSale.invoice_date || freshSale.created_at || new Date().toISOString());
+      
+      const { data: adminSettings } = await supabase
+        .from('admin_settings')
+        .select('buyer_signature_url')
+        .single();
+      
+      const pdfBlob = await generatePurchaseAgreement({
+        saleId: saleId,
+        externalId: freshSale.external_id || undefined,
+        formId: saleId,
+        productName: freshSale.name,
+        size: freshSale.size || '',
+        price: freshSale.price,
+        isManual: freshSale.is_manual || false,
+        payout: freshSale.payout,
+        items: Array.isArray(freshSale.manual_sale_items) ? freshSale.manual_sale_items : undefined,
+        buyerName: 'Juraj Orlicky ml.',
+        buyerCIN: '55702660',
+        buyerAddress: buyerAddress,
+        buyerEmail: 'info@airkicks.eu',
+        buyerSignatureUrl: adminSettings?.buyer_signature_url || undefined,
+        sellerName: freshProfile.first_name || '',
+        sellerSurname: freshProfile.last_name || '',
+        sellerCIN: freshProfile.ico || undefined,
+        sellerAddress: sellerAddress,
+        sellerEmail: freshProfile.email || saleData.user_email,
+        sellerPhone: freshProfile.telephone || undefined,
+        sellerIBAN: freshProfile.iban || undefined,
+        sellerSignatureUrl: freshProfile.signature_url || undefined,
+        location: freshProfile.mesto || 'Slovakia',
+        saleDate: contractDateISO
+      });
+      
+      const storageFileId = freshSale.external_id || saleId;
+      const url = await uploadContractToStorage(storageFileId, pdfBlob);
+      
+      const { error: updateError } = await supabase
+        .from('user_sales')
+        .update({ contract_url: url })
+        .eq('id', saleId);
+      
+      if (updateError) throw updateError;
+      
+      setContractUrl(url);
+      setDocumentMode('contract');
+      setDocTab('contract');
+      setSuccess(true);
+      showToast('Contract PDF generated', 'success');
+      logger.info('Contract PDF generated successfully', { saleId, url });
+    } catch (err: any) {
+      logger.error('Error generating contract', err);
+      setError('Error generating contract PDF: ' + (err.message || 'Unknown error'));
+    } finally {
+      setGeneratingContract(false);
+    }
+  };
+
 
   const handleSave = async () => {
     // Compare dates properly - extract date part from both for comparison
@@ -940,685 +1069,579 @@ export default function AdminSalesStatusManager({
     payoutChanged ||
     notes.trim() !== originalNotes.trim();
 
+  const primaryStatusFlow = ['accepted', 'processing', 'shipped', 'delivered', 'completed'];
+  const exceptionStatuses = ['cancelled', 'returned'];
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4 animate-fade-in">
+        <div className="bg-red-50 border border-red-200/80 rounded-2xl p-4 animate-fade-in">
           <div className="flex items-center">
-            <FaTimes className="text-red-500 mr-2" />
-            <p className="text-sm text-red-800 font-medium">{error}</p>
+            <FaTimes className="text-red-500 mr-2.5 flex-shrink-0" />
+            <p className="text-xs sm:text-sm text-red-800 font-medium">{error}</p>
           </div>
         </div>
       )}
 
       {success && (
-        <div className="bg-green-50 border border-green-200 rounded-xl p-4 animate-fade-in">
+        <div className="bg-emerald-50 border border-emerald-200/80 rounded-2xl p-4 animate-fade-in">
           <div className="flex items-center">
-            <svg className="w-5 h-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-            <p className="text-sm text-green-800 font-medium">Changes have been saved successfully!</p>
+            <FaCheckCircle className="text-emerald-500 mr-2.5 flex-shrink-0 text-base" />
+            <p className="text-xs sm:text-sm text-emerald-800 font-semibold">Changes have been saved successfully!</p>
           </div>
           {emailSuccess && (
-            <p className="text-xs text-green-700 mt-2 ml-7">Email notification has been sent.</p>
+            <p className="text-xs text-emerald-700 mt-1.5 ml-6">Email notification has been sent to seller.</p>
           )}
         </div>
       )}
 
-      {/* Current Status Display */}
-      <div className="bg-gradient-to-r from-slate-50 to-white rounded-xl p-4 border border-gray-200">
-        <div className="flex items-center justify-between">
+      {/* 1. Status Pipeline Flow */}
+      <div className="bg-white rounded-2xl p-4 sm:p-5 border border-gray-200/80 shadow-xs">
+        <div className="flex items-center justify-between mb-3">
           <div>
-            <p className="text-xs text-gray-600 uppercase tracking-wider mb-1">Current status</p>
-            <div className="flex items-center space-x-2">
-            <SalesStatusBadge status={currentStatus} />
-              {currentIsManual && (
-                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold bg-blue-500 text-white" title="Manual sale">
-                  M
-                </span>
-              )}
-            </div>
+            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Lifecycle Status</label>
+            <p className="text-xs text-gray-400 mt-0.5">Click to advance sale stage</p>
           </div>
-          {currentExternalId && (
-            <div className="text-right">
-              <p className="text-xs text-gray-600 uppercase tracking-wider mb-1">External ID</p>
-              <p className="text-sm font-semibold text-gray-900 font-mono">{currentExternalId}</p>
-            </div>
-          )}
+          <div className="flex items-center space-x-2">
+            <span className="text-xs text-gray-500">Current:</span>
+            <SalesStatusBadge status={currentStatus} />
+            {currentIsManual && (
+              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold bg-blue-500 text-white" title="Manual sale">
+                M
+              </span>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Financial information */}
-      <div className="bg-white rounded-xl p-4 border border-gray-200">
-        <label htmlFor={`sale-payout-${saleId}`} className="block text-sm font-semibold text-gray-900 mb-3">
-          Payout
-        </label>
-        <div className="relative">
-          <input
-            id={`sale-payout-${saleId}`}
-            type="text"
-            inputMode="decimal"
-            value={payoutInput}
-            onChange={(event) => setPayoutInput(event.target.value)}
-            placeholder="0.00"
-            className="block w-full px-4 py-3 pr-12 bg-white border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-gray-900 font-semibold"
-          />
-          <span className="absolute inset-y-0 right-4 flex items-center text-gray-500 font-medium">EUR</span>
+        {/* Primary Lifecycle Pipeline */}
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 sm:gap-2 mb-3">
+          {primaryStatusFlow.map((statusKey) => {
+            const isSelected = selectedStatus === statusKey;
+            const isCurrent = currentStatus === statusKey;
+            return (
+              <button
+                key={statusKey}
+                type="button"
+                onClick={() => setSelectedStatus(statusKey)}
+                className={`relative flex flex-col items-center justify-center py-2.5 px-2 rounded-xl border text-xs font-bold transition-all duration-150 ${
+                  isSelected
+                    ? 'bg-slate-900 text-white border-slate-900 shadow-md ring-2 ring-slate-900/10'
+                    : isCurrent
+                    ? 'bg-slate-100 text-slate-900 border-slate-300'
+                    : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:border-gray-300'
+                }`}
+              >
+                <span className="capitalize">{statusKey}</span>
+                {isCurrent && (
+                  <span className={`text-[9px] font-medium mt-0.5 ${isSelected ? 'text-slate-300' : 'text-slate-500'}`}>
+                    Active
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
-        <p className="text-xs text-gray-600 mt-2">
-          Enter the exact payout you want to pay. You can use a comma or decimal point.
-        </p>
-      </div>
 
-      {/* Status Selection */}
-      <div className="bg-white rounded-xl p-4 border border-gray-200">
-        <label className="block text-sm font-semibold text-gray-900 mb-3">
-          Sale status
-        </label>
-        <select
-          value={selectedStatus}
-          onChange={(e) => setSelectedStatus(e.target.value)}
-          className="block w-full px-4 py-3 bg-white border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-gray-900"
-        >
-          {statusOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+        {/* Exceptions & Terminal Statuses */}
+        <div className="flex items-center justify-between pt-2.5 border-t border-gray-100">
+          <span className="text-[11px] font-medium text-gray-400">Exceptions:</span>
+          <div className="flex items-center gap-2">
+            {exceptionStatuses.map((statusKey) => {
+              const isSelected = selectedStatus === statusKey;
+              return (
+                <button
+                  key={statusKey}
+                  type="button"
+                  onClick={() => setSelectedStatus(statusKey)}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold border transition-all ${
+                    isSelected
+                      ? statusKey === 'cancelled'
+                        ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
+                        : 'bg-amber-600 text-white border-amber-600 shadow-sm'
+                      : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                  }`}
+                >
+                  <span className="capitalize">{statusKey}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Status Change Notice */}
         {selectedStatus !== currentStatus && (
-          <div className="mt-3 flex items-center space-x-2 p-3 bg-green-50 rounded-lg border border-green-200">
-            <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span className="text-sm font-medium text-green-800">Zmena statusu:</span>
-            <SalesStatusBadge status={selectedStatus} />
+          <div className="mt-3.5 flex items-center justify-between p-3 bg-amber-50 rounded-xl border border-amber-200/80">
+            <div className="flex items-center space-x-2 text-xs font-semibold text-amber-900">
+              <span>Status change pending:</span>
+              <SalesStatusBadge status={currentStatus} />
+              <FaArrowRight className="text-[10px] text-amber-600" />
+              <SalesStatusBadge status={selectedStatus} />
+            </div>
+            <button
+              type="button"
+              onClick={() => setSelectedStatus(currentStatus)}
+              className="text-[11px] font-medium text-amber-700 hover:underline"
+            >
+              Reset
+            </button>
           </div>
         )}
       </div>
 
-      {/* Sale Date (always editable) */}
-      <div className="bg-white rounded-xl p-4 border border-gray-200">
-        <label className="block text-sm font-semibold text-gray-900 mb-3">
-          <FaClock className="inline mr-2 text-gray-700" />
-          Sale Date
-        </label>
-        <input
-          type="date"
-          value={saleDate}
-          onChange={(e) => setSaleDate(e.target.value)}
-          className="block w-full px-4 py-3 bg-white border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-gray-900"
-        />
-        <p className="text-xs text-gray-600 mt-2">
-          Date when the sale was created.
-        </p>
-      </div>
-
-      {/* Delivery Date & Payout Date */}
-      {selectedStatus === 'delivered' && (
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
-          <label className="block text-sm font-semibold text-gray-900 mb-3">
-            <FaBox className="inline mr-2 text-gray-700" />
-            Delivery Date
-          </label>
-          <input
-            type="date"
-            value={deliveredAt}
-            onChange={(e) => setDeliveredAt(e.target.value)}
-            className="block w-full px-4 py-3 bg-white border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-gray-900"
-          />
-          <p className="text-xs text-gray-600 mt-2">
-            Payout will be automatically paid 14 days after delivery (if the item is not returned).
-          </p>
-          {currentPayoutDate && (
-            <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-              <p className="text-xs text-gray-600 mb-1">Planned payout date:</p>
-              <p className="text-sm font-semibold text-blue-900">
-                {new Date(currentPayoutDate).toLocaleDateString('sk-SK', {
-                  day: '2-digit',
-                  month: '2-digit',
-                  year: 'numeric'
-                })}
-              </p>
-              {new Date(currentPayoutDate) > new Date() && (
-                <p className="text-xs text-gray-600 mt-1">
-                  {Math.ceil((new Date(currentPayoutDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days remaining
-                </p>
-              )}
-              {new Date(currentPayoutDate) <= new Date() && (
-                <p className="text-xs text-green-600 mt-1 font-medium">
-                  Payout is ready for payment
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* External ID */}
-      <div className="bg-white rounded-xl p-4 border border-gray-200">
-        <label className="block text-sm font-semibold text-gray-900 mb-3">
-          <FaBox className="inline mr-2 text-gray-700" />
-          External ID / Order Number
-        </label>
-        <input
-          type="text"
-          value={externalId}
-          onChange={(e) => setExternalId(e.target.value)}
-          placeholder="napr. AIR-001, ORD-12345..."
-          className="block w-full px-4 py-3 bg-white border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-gray-900 font-mono"
-        />
-        <p className="mt-2 text-xs text-gray-600">Internal order identification number</p>
-      </div>
-
-      {/* Tracking Information */}
-      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-200">
-        <div className="flex items-center mb-4">
-          <FaTruck className="text-blue-600 mr-2" />
-          <label className="block text-sm font-semibold text-gray-900">
-            Tracking Information
-          </label>
-        </div>
-        
-        <div className="space-y-4">
-          {/* Tracking URL */}
+      {/* 2. Order & Financial Details */}
+      <div className="bg-white rounded-2xl p-4 sm:p-5 border border-gray-200/80 shadow-xs">
+        <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4">Order & Financial Details</h4>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* External ID */}
           <div>
-            <label className="block text-xs font-medium text-gray-800 mb-2">
-              <FaLink className="inline mr-1" />
-              Tracking URL
+            <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+              External ID / Order Number
             </label>
             <input
-              type="url"
-              value={trackingUrl}
-              onChange={(e) => setTrackingUrl(e.target.value)}
-              placeholder="https://..."
-              className="block w-full px-4 py-3 bg-white border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-gray-900"
+              type="text"
+              value={externalId}
+              onChange={(e) => setExternalId(e.target.value)}
+              placeholder="e.g. AIR-001, ORD-12345..."
+              className="block w-full px-3.5 py-2.5 bg-gray-50/50 border border-gray-300 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-slate-900 transition-all text-sm font-mono text-gray-900"
             />
-            {trackingUrl && (
-              <a
-                href={trackingUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-2 inline-flex items-center text-xs text-blue-600 hover:text-blue-800 font-medium"
-              >
-                <FaLink className="mr-1" />
-                Open tracking link
-              </a>
+            <p className="mt-1 text-[11px] text-gray-400">Unique identifier for order synchronization</p>
+          </div>
+
+          {/* Consignor Payout */}
+          <div>
+            <label htmlFor={`sale-payout-${saleId}`} className="block text-xs font-semibold text-gray-700 mb-1.5">
+              Consignor Payout
+            </label>
+            <div className="relative">
+              <input
+                id={`sale-payout-${saleId}`}
+                type="text"
+                inputMode="decimal"
+                value={payoutInput}
+                onChange={(event) => setPayoutInput(event.target.value)}
+                placeholder="0.00"
+                className="block w-full px-3.5 py-2.5 pr-14 bg-gray-50/50 border border-gray-300 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all text-sm font-bold text-gray-900"
+              />
+              <span className="absolute inset-y-0 right-3.5 flex items-center text-xs font-bold text-gray-400">EUR</span>
+            </div>
+            <p className="mt-1 text-[11px] text-gray-400">Exact payout amount payable to the seller</p>
+          </div>
+
+          {/* Sale Date */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+              <FaClock className="inline mr-1 text-gray-400" />
+              Sale Date
+            </label>
+            <input
+              type="date"
+              value={saleDate}
+              onChange={(e) => setSaleDate(e.target.value)}
+              className="block w-full px-3.5 py-2.5 bg-gray-50/50 border border-gray-300 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-slate-900 transition-all text-sm text-gray-900"
+            />
+            <p className="mt-1 text-[11px] text-gray-400">Date when the sale occurred</p>
+          </div>
+
+          {/* Delivery Date */}
+          <div className={selectedStatus === 'delivered' ? 'p-3 bg-blue-50/60 rounded-xl border border-blue-200' : ''}>
+            <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+              <FaBox className="inline mr-1 text-blue-500" />
+              Delivery Date
+            </label>
+            <input
+              type="date"
+              value={deliveredAt}
+              onChange={(e) => setDeliveredAt(e.target.value)}
+              className="block w-full px-3.5 py-2.5 bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm text-gray-900"
+            />
+            {currentPayoutDate ? (
+              <div className="mt-2 text-[11px] text-blue-800 font-medium flex items-center justify-between">
+                <span>Planned payout: {new Date(currentPayoutDate).toLocaleDateString('sk-SK')}</span>
+                {new Date(currentPayoutDate) <= new Date() ? (
+                  <span className="text-emerald-700 font-bold">Ready for payout</span>
+                ) : (
+                  <span className="text-blue-600">
+                    {Math.ceil((new Date(currentPayoutDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))}d left
+                  </span>
+                )}
+              </div>
+            ) : (
+              <p className="mt-1 text-[11px] text-gray-400">14-day return period countdown starts upon delivery</p>
             )}
           </div>
         </div>
       </div>
 
-      {!contractUrl && !faUrl && (
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
-          <label className="block text-sm font-semibold text-gray-900 mb-3">
-            <FaFilePdf className="inline mr-2 text-gray-700" />
-            Documents
-          </label>
-          <div className="inline-flex rounded-xl border border-gray-300 p-1 bg-gray-50">
-            <button
-              type="button"
-              onClick={() => setDocumentMode('contract')}
-              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${documentMode === 'contract' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600'}`}
-            >
-              GEN CONTRACT PDF
-            </button>
-            <button
-              type="button"
-              onClick={() => setDocumentMode('fa')}
-              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${documentMode === 'fa' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600'}`}
-            >
-              UPLOAD FA
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Contract PDF Generation */}
-      {(contractUrl || (!faUrl && documentMode === 'contract')) && (
-      <div className="bg-white rounded-xl p-4 border border-gray-200">
-        <label className="block text-sm font-semibold text-gray-900 mb-3">
-          <FaFileContract className="inline mr-2 text-blue-600" />
-          PDF Contract (Purchase Agreement)
-        </label>
-        
-        {/* Contract Date Input */}
-        <div className="mb-4">
-          <label className="block text-sm font-semibold text-gray-900 mb-3">
-            <FaClock className="inline mr-2 text-gray-700" />
-            Contract Date (for PDF/Invoice)
-          </label>
-          <input
-            type="date"
-            value={invoiceDate}
-            onChange={(e) => setInvoiceDate(e.target.value)}
-            className="block w-full px-4 py-3 bg-white border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-gray-900"
-          />
-          <p className="text-xs text-gray-600 mt-2">
-            Date to display in the contract PDF. This will be saved to the invoice sale record.
-          </p>
-        </div>
-        
-        {contractUrl ? (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
-              <div className="flex items-center space-x-3">
-                <FaFileContract className="text-blue-600 text-xl" />
-                <div>
-                  <p className="text-sm font-medium text-gray-900">Contract is generated</p>
-                  <a
-                    href={contractUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-blue-600 hover:text-blue-800"
-                  >
-                    Open PDF
-                  </a>
-                </div>
-              </div>
-              <button
-                onClick={handleDeleteContract}
-                disabled={uploading}
-                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
-                title="Delete contract"
-              >
-                <FaTrash />
-              </button>
+      {/* 3. Shipping & Tracking */}
+      <div className="bg-white rounded-2xl p-4 sm:p-5 border border-gray-200/80 shadow-xs">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center space-x-2">
+            <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+              <FaTruck className="text-xs" />
             </div>
-            {uploading && (
-              <p className="text-xs text-gray-600">Deleting...</p>
-            )}
+            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Shipping & Tracking</label>
           </div>
-        ) : (
-          <div className="space-y-3">
-            <button
-              onClick={async () => {
-                if (!saleData || !userProfile) {
-                  setError('Error: Sale or user data not loaded');
-                  return;
-                }
-                
-                try {
-                  setGeneratingContract(true);
-                  setError(null);
-
-                  // Always load latest sale + profile data from DB so contract uses fresh values
-                  const { data: freshSale, error: freshSaleError } = await supabase
-                    .from('user_sales')
-                    .select('id, user_id, name, size, price, is_manual, payout, created_at, external_id, invoice_date, manual_sale_items')
-                    .eq('id', saleId)
-                    .single();
-
-                  if (freshSaleError || !freshSale) {
-                    throw new Error(freshSaleError?.message || 'Failed to load latest sale data');
-                  }
-
-                  const { data: freshProfile, error: freshProfileError } = await supabase
-                    .from('profiles')
-                    .select('first_name, last_name, ico, address, popisne_cislo, psc, mesto, krajina, email, telephone, iban, signature_url')
-                    .eq('id', freshSale.user_id)
-                    .single();
-
-                  if (freshProfileError || !freshProfile) {
-                    throw new Error(freshProfileError?.message || 'Failed to load latest user profile');
-                  }
-                  
-                  // Format seller address
-                  // Format: "Ulica číslo, PSC Mesto, Krajina"
-                  // Combine address and popisne_cislo without duplication (ulica číslo)
-                  const addressBase = (freshProfile.address || '').trim();
-                  const houseNumber = (freshProfile.popisne_cislo || '').trim();
-                  const addressHasNumber =
-                    houseNumber.length > 0 &&
-                    addressBase.toLowerCase().includes(houseNumber.toLowerCase());
-                  const streetAndNumber = [addressBase, addressHasNumber ? '' : houseNumber]
-                    .filter(Boolean)
-                    .join(' ');
-                  
-                  // Build address parts: ulica číslo, PSC Mesto, Krajina
-                  const addressParts = [];
-                  if (streetAndNumber) {
-                    addressParts.push(streetAndNumber);
-                  }
-                  if (freshProfile.psc && freshProfile.mesto) {
-                    addressParts.push(`${freshProfile.psc} ${freshProfile.mesto}`);
-                  } else if (freshProfile.mesto) {
-                    addressParts.push(freshProfile.mesto);
-                  }
-                  if (freshProfile.krajina) {
-                    addressParts.push(freshProfile.krajina);
-                  } else {
-                    addressParts.push('Slovakia');
-                  }
-                  
-                  const sellerAddress = addressParts.join(', ');
-
-                  // Format buyer address (AirKicks company info - can be configured)
-                  const buyerAddress = 'Lysica 336, 013 05 Lysica, SLOVAKIA';
-                  
-                  // Use invoice date for PDF, fallback to latest sale invoice_date/created_at
-                  const contractDateISO = invoiceDate 
-                    ? new Date(invoiceDate + 'T12:00:00').toISOString()
-                    : (freshSale.invoice_date || freshSale.created_at || new Date().toISOString());
-                  
-                  // Load buyer signature from admin settings
-                  const { data: adminSettings } = await supabase
-                    .from('admin_settings')
-                    .select('buyer_signature_url')
-                    .single();
-                  
-                  // Generate PDF with new format
-                  const pdfBlob = await generatePurchaseAgreement({
-                    saleId: saleId,
-                    externalId: freshSale.external_id || undefined,
-                    // Use sale ID as form ID shown in PDF
-                    formId: saleId,
-                    productName: freshSale.name,
-                    size: freshSale.size || '',
-                    price: freshSale.price,
-                    isManual: freshSale.is_manual || false,
-                    payout: freshSale.payout,
-                    items: Array.isArray(freshSale.manual_sale_items) ? freshSale.manual_sale_items : undefined,
-                    // Buyer (Company - AirKicks)
-                    buyerName: 'Juraj Orlicky ml.',
-                    buyerCIN: '55702660',
-                    buyerAddress: buyerAddress,
-                    buyerEmail: 'info@airkicks.eu',
-                    buyerSignatureUrl: adminSettings?.buyer_signature_url || undefined,
-                    // Seller (User/Consignor)
-                    sellerName: freshProfile.first_name || '',
-                    sellerSurname: freshProfile.last_name || '',
-                    sellerCIN: freshProfile.ico || undefined,
-                    sellerAddress: sellerAddress,
-                    sellerEmail: freshProfile.email || saleData.user_email,
-                    sellerPhone: freshProfile.telephone || undefined,
-                    sellerIBAN: freshProfile.iban || undefined,
-                    sellerSignatureUrl: freshProfile.signature_url || undefined,
-                    // Location and Date - use invoice date for contract
-                    location: freshProfile.mesto || 'Slovakia',
-                    saleDate: contractDateISO
-                  });
-                  
-                  // Decide filename: prefer externalId (form ID), fallback to saleId
-                  const storageFileId = freshSale.external_id || saleId;
-                  
-                  // Upload to storage
-                  const url = await uploadContractToStorage(storageFileId, pdfBlob);
-                  
-                  // Update database
-                  const { error: updateError } = await supabase
-                    .from('user_sales')
-                    .update({ contract_url: url })
-                    .eq('id', saleId);
-                  
-                  if (updateError) throw updateError;
-                  
-                  setContractUrl(url);
-                  setDocumentMode('contract');
-                  setSuccess(true);
-                  showToast('Contract PDF generated', 'success');
-                  logger.info('Contract PDF generated successfully', { saleId, url });
-                } catch (err: any) {
-                  logger.error('Error generating contract', err);
-                  setError('Error generating contract PDF: ' + (err.message || 'Unknown error'));
-                } finally {
-                  setGeneratingContract(false);
-                }
-              }}
-              disabled={generatingContract || !saleData || !userProfile}
-              className="w-full inline-flex items-center justify-center px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          {trackingUrl && (
+            <a
+              href={trackingUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center text-xs font-semibold text-blue-600 hover:text-blue-800"
             >
-              {generatingContract ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Generuje sa...
-                </>
-              ) : (
-                <>
-                  <FaFileContract className="mr-2" />
-                  Vygenerovať PDF zmluvu
-                </>
-              )}
-            </button>
-            <p className="text-xs text-gray-500">Generates PDF contract with sale information</p>
-          </div>
-        )}
-      </div>
-      )}
-
-      {/* Label PDF Upload */}
-      <div className="bg-white rounded-xl p-4 border border-gray-200">
-        <label className="block text-sm font-semibold text-gray-900 mb-3">
-          <FaFilePdf className="inline mr-2 text-red-600" />
-          Label PDF
-        </label>
-        
-        {labelUrl ? (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
-              <div className="flex items-center space-x-3">
-                <FaFilePdf className="text-red-600 text-xl" />
-                <div>
-                  <p className="text-sm font-medium text-gray-900">Label is uploaded</p>
-                  <a
-                    href={labelUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-blue-600 hover:text-blue-800"
-                  >
-                    Open PDF
-                  </a>
-                </div>
-              </div>
-              <button
-                onClick={handleDeleteLabel}
-                disabled={uploading}
-                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
-                title="Delete label"
-              >
-                <FaTrash />
-              </button>
-            </div>
-            {uploading && (
-              <p className="text-xs text-gray-600">Deleting...</p>
+              <FaExternalLinkAlt className="mr-1 text-[10px]" />
+              Open tracking link
+            </a>
           )}
         </div>
-        ) : (
-          <div className="space-y-3">
-            <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-xl cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
-              <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                <FaUpload className="text-gray-400 text-2xl mb-2" />
-                <p className="text-sm text-gray-600 font-medium">Kliknite pre nahranie PDF</p>
-                <p className="text-xs text-gray-500 mt-1">or drag and drop file here</p>
-              </div>
-              <input
-                type="file"
-                accept="application/pdf"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    handleFileUpload(file);
-                  } else {
-                    logger.warn('No file selected');
-                    setError('No file selected');
-                  }
-                  // Reset input to allow selecting same file again
-                  e.target.value = '';
-                }}
-                disabled={uploading}
-                className="hidden"
-                id="label-pdf-upload"
-              />
-            </label>
-            {uploading && (
-              <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
-                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-                <span>Nahráva sa...</span>
-              </div>
-            )}
-            <p className="text-xs text-gray-500">Maximum size: 10MB</p>
-          </div>
-        )}
-      </div>
 
-      {/* FA PDF */}
-      {(faUrl || (!contractUrl && documentMode === 'fa')) && (
-      <div className="bg-white rounded-xl p-4 border border-gray-200">
-        <label className="block text-sm font-semibold text-gray-900 mb-3">
-          <FaFileInvoice className="inline mr-2 text-emerald-600" />
-          FA PDF
-        </label>
-
-        {faUrl ? (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
-              <div className="flex items-center space-x-3">
-                <FaFileInvoice className="text-emerald-600 text-xl" />
-                <div>
-                  <p className="text-sm font-medium text-gray-900">FA je uložená</p>
-                  <a
-                    href={faUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-blue-600 hover:text-blue-800"
-                  >
-                    Otvoriť PDF
-                  </a>
-                </div>
-              </div>
-              <button
-                onClick={handleDeleteFa}
-                disabled={uploading}
-                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
-                title="Delete FA"
-              >
-                <FaTrash />
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-xl cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
-              <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                <FaUpload className="text-gray-400 text-2xl mb-2" />
-                <p className="text-sm text-gray-600 font-medium">Kliknite pre nahranie FA PDF</p>
-                <p className="text-xs text-gray-500 mt-1">Maximum size: 10MB</p>
-              </div>
-              <input
-                type="file"
-                accept="application/pdf"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handleFaUpload(file);
-                  e.target.value = '';
-                }}
-                disabled={uploading}
-                className="hidden"
-              />
-            </label>
-          </div>
-        )}
-      </div>
-      )}
-
-      {/* Send Email Toggle */}
-      {saleData && saleData.user_email && saleData.user_email !== 'N/A' && (
-        <div className="flex items-center space-x-3 p-4 bg-gray-50 rounded-xl border border-gray-200">
+        <div>
           <input
-            type="checkbox"
-            id="sendEmail"
-            checked={sendEmail}
-            onChange={(e) => setSendEmail(e.target.checked)}
-            className="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 focus:ring-2"
+            type="url"
+            value={trackingUrl}
+            onChange={(e) => setTrackingUrl(e.target.value)}
+            placeholder="https://tracking.dpd.de/... or https://posta.sk/..."
+            className="block w-full px-3.5 py-2.5 bg-gray-50/50 border border-gray-300 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm text-gray-900"
           />
-          <label htmlFor="sendEmail" className="text-sm font-medium text-gray-900 cursor-pointer">
-            Send email notification to {saleData.user_email}
-          </label>
+          <p className="mt-1 text-[11px] text-gray-400">Carrier package tracking URL for buyer & seller notifications</p>
         </div>
-      )}
-
-      {/* Notes */}
-      <div className="bg-white rounded-xl p-4 border border-gray-200">
-        <label className="block text-sm font-semibold text-gray-900 mb-3">
-          <FaStickyNote className="inline mr-2 text-gray-700" />
-          Note (optional)
-        </label>
-        <textarea
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          placeholder="Add a note about status change, tracking info or other details..."
-          rows={4}
-          className="block w-full px-4 py-3 bg-white border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none text-gray-900"
-        />
-        <p className="mt-2 text-xs text-gray-600">{notes.length} znakov</p>
       </div>
 
-      {/* Status History */}
-      <div className="bg-white rounded-xl p-4 border border-gray-200">
-        <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
-          <FaClock className="mr-2 text-gray-600" />
-          História zmien statusu
-        </h4>
-        <SalesStatusTimeline 
-          saleId={saleId} 
-          currentStatus={selectedStatus}
-          saleCreatedAt={saleData?.created_at || currentCreatedAt}
-        />
-      </div>
+      {/* 4. Documents Hub (Contract, Invoice FA, Shipping Label) */}
+      <div className="bg-white rounded-2xl p-4 sm:p-5 border border-gray-200/80 shadow-xs">
+        <div className="flex items-center justify-between mb-3">
+          <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Documents Hub</label>
+        </div>
 
-      {/* Action Buttons */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between pt-3 sm:pt-4 border-t border-gray-200 gap-2 sm:gap-0">
-        {onDelete && (
+        {/* Document Segmented Tabs */}
+        <div className="flex items-center p-1 bg-gray-100 rounded-xl mb-4 gap-1">
           <button
+            type="button"
+            onClick={() => setDocTab('contract')}
+            className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold transition-all flex items-center justify-center space-x-1.5 ${
+              docTab === 'contract'
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <FaFileContract className="text-[11px] text-blue-600" />
+            <span>Contract PDF</span>
+            {contractUrl && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setDocTab('fa')}
+            className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold transition-all flex items-center justify-center space-x-1.5 ${
+              docTab === 'fa'
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <FaFileInvoice className="text-[11px] text-emerald-600" />
+            <span>Invoice (FA)</span>
+            {faUrl && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setDocTab('label')}
+            className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold transition-all flex items-center justify-center space-x-1.5 ${
+              docTab === 'label'
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <FaFilePdf className="text-[11px] text-red-600" />
+            <span>Shipping Label</span>
+            {labelUrl && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>}
+          </button>
+        </div>
+
+        {/* Tab 1: Contract PDF */}
+        {docTab === 'contract' && (
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">Contract Date (for PDF)</label>
+              <input
+                type="date"
+                value={invoiceDate}
+                onChange={(e) => setInvoiceDate(e.target.value)}
+                className="block w-full sm:w-64 px-3 py-2 bg-gray-50 border border-gray-300 rounded-xl text-xs text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            {contractUrl ? (
+              <div className="flex items-center justify-between p-3.5 bg-blue-50/60 rounded-xl border border-blue-200">
+                <div className="flex items-center space-x-3">
+                  <div className="w-9 h-9 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center flex-shrink-0">
+                    <FaFileContract />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-gray-900">Purchase Agreement Generated</p>
+                    <a
+                      href={contractUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs font-semibold text-blue-600 hover:underline inline-flex items-center mt-0.5"
+                    >
+                      <FaExternalLinkAlt className="mr-1 text-[9px]" /> Open PDF
+                    </a>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleDeleteContract}
+                  disabled={uploading}
+                  className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                  title="Delete contract"
+                >
+                  <FaTrash className="text-xs" />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={handleGenerateContract}
+                disabled={generatingContract || !saleData || !userProfile}
+                className="w-full inline-flex items-center justify-center px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl transition shadow-sm disabled:opacity-50"
+              >
+                {generatingContract ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>Generating PDF Contract...</span>
+                  </>
+                ) : (
+                  <>
+                    <FaFileContract className="mr-2" />
+                    <span>Generate Purchase Agreement PDF</span>
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Tab 2: FA Invoice */}
+        {docTab === 'fa' && (
+          <div>
+            {faUrl ? (
+              <div className="flex items-center justify-between p-3.5 bg-emerald-50/60 rounded-xl border border-emerald-200">
+                <div className="flex items-center space-x-3">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0">
+                    <FaFileInvoice />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-gray-900">FA Invoice Uploaded</p>
+                    <a
+                      href={faUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs font-semibold text-emerald-700 hover:underline inline-flex items-center mt-0.5"
+                    >
+                      <FaExternalLinkAlt className="mr-1 text-[9px]" /> Open PDF
+                    </a>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleDeleteFa}
+                  disabled={uploading}
+                  className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                  title="Delete FA"
+                >
+                  <FaTrash className="text-xs" />
+                </button>
+              </div>
+            ) : (
+              <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-gray-200 border-dashed rounded-xl cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
+                <FaUpload className="text-gray-400 text-xl mb-1.5" />
+                <p className="text-xs text-gray-700 font-semibold">Click to upload FA Invoice PDF</p>
+                <p className="text-[10px] text-gray-400 mt-0.5">Maximum file size: 10MB</p>
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleFaUpload(file);
+                    e.target.value = '';
+                  }}
+                  disabled={uploading}
+                  className="hidden"
+                />
+              </label>
+            )}
+          </div>
+        )}
+
+        {/* Tab 3: Shipping Label */}
+        {docTab === 'label' && (
+          <div>
+            {labelUrl ? (
+              <div className="flex items-center justify-between p-3.5 bg-red-50/60 rounded-xl border border-red-200">
+                <div className="flex items-center space-x-3">
+                  <div className="w-9 h-9 rounded-xl bg-red-100 text-red-600 flex items-center justify-center flex-shrink-0">
+                    <FaFilePdf />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-gray-900">Shipping Label Uploaded</p>
+                    <a
+                      href={labelUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs font-semibold text-red-700 hover:underline inline-flex items-center mt-0.5"
+                    >
+                      <FaExternalLinkAlt className="mr-1 text-[9px]" /> Open PDF
+                    </a>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleDeleteLabel}
+                  disabled={uploading}
+                  className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                  title="Delete Label"
+                >
+                  <FaTrash className="text-xs" />
+                </button>
+              </div>
+            ) : (
+              <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-gray-200 border-dashed rounded-xl cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
+                <FaUpload className="text-gray-400 text-xl mb-1.5" />
+                <p className="text-xs text-gray-700 font-semibold">Click to upload Shipping Label PDF</p>
+                <p className="text-[10px] text-gray-400 mt-0.5">Maximum file size: 10MB</p>
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleFileUpload(file);
+                    e.target.value = '';
+                  }}
+                  disabled={uploading}
+                  className="hidden"
+                />
+              </label>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* 5. Notification & Internal Notes */}
+      <div className="bg-white rounded-2xl p-4 sm:p-5 border border-gray-200/80 shadow-xs space-y-4">
+        {/* Send Email Toggle */}
+        {saleData && saleData.user_email && saleData.user_email !== 'N/A' && (
+          <label className="flex items-center space-x-3 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              id="sendEmail"
+              checked={sendEmail}
+              onChange={(e) => setSendEmail(e.target.checked)}
+              className="w-4 h-4 text-slate-900 border-gray-300 rounded focus:ring-slate-900 cursor-pointer"
+            />
+            <span className="text-xs sm:text-sm font-medium text-gray-800 flex items-center">
+              <FaEnvelope className="mr-1.5 text-gray-400 text-xs" />
+              Send automated email notification to <span className="font-semibold ml-1 text-gray-900">{saleData.user_email}</span>
+            </span>
+          </label>
+        )}
+
+        {/* Note textarea */}
+        <div>
+          <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+            <FaStickyNote className="inline mr-1 text-gray-400" />
+            Internal Note / Status Comment
+          </label>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Add internal note or specifics about this status change..."
+            rows={3}
+            className="block w-full px-3.5 py-2.5 bg-gray-50/50 border border-gray-300 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-slate-900 text-xs sm:text-sm text-gray-900 resize-none"
+          />
+          <div className="flex justify-between items-center mt-1 text-[11px] text-gray-400">
+            <span>Visible to administrators in the operation log</span>
+            <span>{notes.length} characters</span>
+          </div>
+        </div>
+      </div>
+
+      {/* 6. Status History (Collapsible Accordion) */}
+      <div className="bg-white rounded-2xl border border-gray-200/80 shadow-xs overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setShowTimeline(!showTimeline)}
+          className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors text-left"
+        >
+          <div className="flex items-center space-x-2">
+            <FaClock className="text-xs text-gray-400" />
+            <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">Status Change History</span>
+          </div>
+          {showTimeline ? <FaChevronUp className="text-xs text-gray-400" /> : <FaChevronDown className="text-xs text-gray-400" />}
+        </button>
+
+        {showTimeline && (
+          <div className="p-4 pt-0 border-t border-gray-100">
+            <SalesStatusTimeline 
+              saleId={saleId} 
+              currentStatus={selectedStatus}
+              saleCreatedAt={saleData?.created_at || currentCreatedAt}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* 7. Action Footer */}
+      <div className="flex items-center justify-between pt-3 border-t border-gray-200 gap-3">
+        {onDelete ? (
+          <button
+            type="button"
             onClick={handleDeleteSale}
             disabled={saving || deleting}
-            className="inline-flex items-center justify-center px-3 sm:px-4 py-2 sm:py-2.5 text-red-600 font-medium rounded-lg sm:rounded-xl hover:bg-red-50 transition-colors border border-red-300 disabled:opacity-50 text-sm sm:text-base order-3 sm:order-1"
+            className="inline-flex items-center px-3.5 py-2 text-rose-600 hover:text-rose-700 hover:bg-rose-50 font-semibold rounded-xl transition text-xs border border-rose-200 disabled:opacity-50"
           >
-            {deleting ? (
-              <svg className="animate-spin -ml-1 mr-1.5 sm:mr-2 h-4 w-4 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-            ) : (
-              <FaTrash className="mr-1.5 sm:mr-2 text-sm sm:text-base" />
-            )}
-            <span className="text-xs sm:text-base">Delete Sale</span>
+            <FaTrash className="mr-1.5 text-xs" />
+            <span>{deleting ? 'Deleting...' : 'Delete Sale'}</span>
           </button>
-        )}
-        <div className="flex items-center space-x-2 sm:space-x-3 order-1 sm:order-2 flex-1 sm:flex-initial justify-end sm:ml-auto">
-        <button
-          onClick={onClose}
+        ) : <div />}
+
+        <div className="flex items-center space-x-2">
+          <button
+            type="button"
+            onClick={onClose}
             disabled={saving || deleting}
-            className="px-3 sm:px-4 py-2 sm:py-2.5 text-gray-800 font-medium rounded-lg sm:rounded-xl hover:bg-gray-100 transition-colors border border-gray-300 disabled:opacity-50 text-sm sm:text-base flex-1 sm:flex-initial"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={handleSave}
+            className="px-4 py-2.5 text-xs font-semibold text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition"
+          >
+            Cancel
+          </button>
+
+          <button
+            type="button"
+            onClick={handleSave}
             disabled={!hasChanges || saving || deleting}
-            className="inline-flex items-center justify-center px-4 sm:px-6 py-2 sm:py-2.5 bg-black text-white font-semibold rounded-lg sm:rounded-xl hover:bg-gray-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg transform hover:scale-105 text-sm sm:text-base flex-1 sm:flex-initial"
-        >
-          {saving ? (
-            <>
-                <svg className="animate-spin -ml-1 mr-1.5 sm:mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-                <span className="text-xs sm:text-base">Saving...</span>
-            </>
-          ) : (
-            <>
-                <FaSave className="mr-1.5 sm:mr-2 text-sm sm:text-base" />
-                <span className="text-xs sm:text-base">Save Changes</span>
-            </>
-          )}
-        </button>
+            className={`inline-flex items-center justify-center px-5 py-2.5 text-xs font-bold rounded-xl transition-all shadow-sm ${
+              hasChanges && !saving
+                ? 'bg-slate-900 text-white hover:bg-slate-800'
+                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+            }`}
+          >
+            {saving ? (
+              <>
+                <svg className="animate-spin -ml-1 mr-2 h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span>Saving...</span>
+              </>
+            ) : (
+              <>
+                <FaSave className="mr-1.5 text-xs" />
+                <span>Save Changes</span>
+              </>
+            )}
+          </button>
         </div>
       </div>
     </div>

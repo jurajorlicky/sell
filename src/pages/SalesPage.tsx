@@ -888,39 +888,68 @@ export default function SalesPage() {
           >
             <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl max-w-2xl w-full border-t sm:border border-gray-200 max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
               {/* Sticky Header */}
-              <div className="flex items-center justify-between p-3 sm:p-4 lg:p-6 border-b border-gray-200 bg-white flex-shrink-0">
-                <h2 className="text-base sm:text-lg lg:text-xl text-gray-900 font-semibold flex-1 pr-2">Sales Status Management</h2>
+              <div className="flex items-center justify-between p-4 sm:p-5 border-b border-gray-200 bg-white flex-shrink-0">
+                <div>
+                  <h2 className="text-base sm:text-lg font-bold text-gray-900">Sales Status Management</h2>
+                  <p className="text-xs text-gray-500 mt-0.5">Manage lifecycle, payouts and order fulfillment</p>
+                </div>
                 <button
                   onClick={() => setSelectedSaleForStatus(null)}
-                  className="flex-shrink-0 w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center bg-gray-800 hover:bg-gray-900 rounded-xl transition-colors shadow-lg"
+                  className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-colors flex-shrink-0"
                   aria-label="Close"
                 >
-                  <svg className="w-6 h-6 sm:w-7 sm:h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                  <FaTimes className="text-sm" />
                 </button>
               </div>
               
               {/* Scrollable Content */}
-              <div className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6">
-              {/* Sale Info */}
-              <div className="bg-gray-50 rounded-xl p-3 sm:p-4 mb-3 sm:mb-4 lg:mb-6 border border-gray-200">
-                <div className="flex items-center space-x-3 sm:space-x-4">
-                  <img 
-                    loading="lazy"
-                    src={selectedSaleForStatus.image_url || '/default-image.png'} 
-                    alt={selectedSaleForStatus.name}
-                    className="h-12 w-12 sm:h-16 sm:w-16 rounded-lg object-cover"
-                  />
-                  <div>
-                    <h3 className="text-gray-900 font-semibold text-base sm:text-lg">{selectedSaleForStatus.name}</h3>
-                    <p className="text-gray-700 text-sm">Size: {selectedSaleForStatus.size}</p>
-                    <p className="text-gray-700 text-sm">Price: {formatCurrency(selectedSaleForStatus.price)}</p>
-                    <p className="text-gray-700 text-sm">User: {selectedSaleForStatus.user_email}</p>
-                    <p className="text-gray-700 text-sm">External ID: {selectedSaleForStatus.external_id || 'N/A'}</p>
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+                {/* Sale Info Card */}
+                <div className="bg-gradient-to-r from-gray-50 to-slate-50/50 rounded-2xl p-4 border border-gray-200/80">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center space-x-3.5 min-w-0">
+                      <div className="h-14 w-14 sm:h-16 sm:w-16 flex-shrink-0 rounded-xl bg-white border border-gray-200 p-1.5 overflow-hidden">
+                        <img 
+                          loading="lazy"
+                          src={selectedSaleForStatus.image_url || '/default-image.png'} 
+                          alt={selectedSaleForStatus.name}
+                          className="h-full w-full object-contain"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = '/default-image.png';
+                          }}
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="text-sm sm:text-base font-bold text-gray-900 truncate">{selectedSaleForStatus.name}</h3>
+                        <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-800">
+                            EU {selectedSaleForStatus.size}
+                          </span>
+                          {selectedSaleForStatus.sku && (
+                            <span className="text-[11px] font-mono text-gray-500">
+                              {selectedSaleForStatus.sku}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500 truncate mt-1">
+                          Seller: <span className="text-gray-700 font-medium">{selectedSaleForStatus.user_email}</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="text-right flex-shrink-0">
+                      <span className="text-xs font-medium text-gray-500">Sale Price</span>
+                      <p className="text-base sm:text-lg font-extrabold text-gray-900">
+                        {formatCurrency(selectedSaleForStatus.price)}
+                      </p>
+                      {selectedSaleForStatus.external_id && (
+                        <span className="inline-block mt-1 text-[11px] font-mono bg-white px-2 py-0.5 rounded-md border border-gray-200 text-gray-600">
+                          {selectedSaleForStatus.external_id}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
               
               <AdminSalesStatusManager
                 saleId={selectedSaleForStatus.id}
