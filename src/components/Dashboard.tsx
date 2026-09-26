@@ -18,6 +18,8 @@ import {
   FaCog,
   FaExclamationTriangle,
   FaInfoCircle,
+  FaRedo,
+  FaClock,
 } from 'react-icons/fa';
 import { Product } from '../lib/types';
 
@@ -25,6 +27,7 @@ interface Fees {
   fee_percent: number;
   fee_fixed: number;
   eur_to_czk_rate?: number | null;
+  offer_expiration_days?: number;
 }
 interface DashboardProps {
   isAdmin: boolean;
@@ -70,6 +73,9 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
   const [displayCurrency, setDisplayCurrency] = useState<'EUR' | 'CZK'>(() => {
     return localStorage.getItem('airkicks_display_currency') === 'CZK' ? 'CZK' : 'EUR';
   });
+  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'expired'>('all');
+  const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
+  const [actionLoading, setActionLoading] = useState(false);
 
   const fetchProducts = useCallback(async (userId: string) => {
     const controller = new AbortController();
@@ -81,7 +87,6 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
         .from('user_products')
         .select('*')
         .eq('user_id', userId)
-        .or('expires_at.is.null,expires_at.gt.' + new Date().toISOString())
         .order('created_at', { ascending: false })
         .abortSignal(controller.signal);
 
@@ -553,15 +558,128 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
     }
   };
 
+  const isProductExpired = useCallback((p: Product) => {
+    return p.expires_at ? new Date(p.expires_at) < new Date() : false;
+  }, []);
+
+  const expiredProducts = useMemo(() => products.filter(isProductExpired), [products, isProductExpired]);
+  const activeProducts = useMemo(() => products.filter(p => !isProductExpired(p)), [products, isProductExpired]);
+
+  const displayedProducts = useMemo(() => {
+    if (filterStatus === 'active') return activeProducts;
+    if (filterStatus === 'expired') return expiredProducts;
+    return products;
+  }, [filterStatus, activeProducts, expiredProducts, products]);
+
   const handleDeleteProduct = async (id: string) => {
     if (!confirm('Do you really want to delete this product?')) return;
     try {
       const { error } = await supabase.from('user_products').delete().eq('id', id);
       if (error) throw error;
       setProducts(prev => prev.filter(p => p.id !== id));
+      setSelectedProductIds(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     } catch (err: any) {
       setError(err.message);
     }
+  };
+
+  const handleRenewProduct = async (id: string) => {
+    try {
+      setActionLoading(true);
+      const expirationDays = fees.offer_expiration_days || 30;
+      const nextExpiresAt = new Date();
+      nextExpiresAt.setDate(nextExpiresAt.getDate() + expirationDays);
+      const iso = nextExpiresAt.toISOString();
+
+      const { error } = await supabase
+        .from('user_products')
+        .update({ expires_at: iso })
+        .eq('id', id);
+
+      if (error) throw error;
+      setProducts(prev => prev.map(p => p.id === id ? { ...p, expires_at: iso } : p));
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleRenewMultiple = async (ids: string[]) => {
+    if (ids.length === 0) return;
+    try {
+      setActionLoading(true);
+      const expirationDays = fees.offer_expiration_days || 30;
+      const nextExpiresAt = new Date();
+      nextExpiresAt.setDate(nextExpiresAt.getDate() + expirationDays);
+      const iso = nextExpiresAt.toISOString();
+
+      const { error } = await supabase
+        .from('user_products')
+        .update({ expires_at: iso })
+        .in('id', ids);
+
+      if (error) throw error;
+      setProducts(prev => prev.map(p => ids.includes(p.id) ? { ...p, expires_at: iso } : p));
+      setSelectedProductIds(new Set());
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDeleteMultiple = async (ids: string[]) => {
+    if (ids.length === 0) return;
+    if (!confirm(`Do you really want to delete ${ids.length} selected product(s)?`)) return;
+    try {
+      setActionLoading(true);
+      const { error } = await supabase
+        .from('user_products')
+        .delete()
+        .in('id', ids);
+
+      if (error) throw error;
+      setProducts(prev => prev.filter(p => !ids.includes(p.id)));
+      setSelectedProductIds(new Set());
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleRenewAllExpired = async () => {
+    const expiredIds = expiredProducts.map(p => p.id);
+    if (expiredIds.length === 0) return;
+    await handleRenewMultiple(expiredIds);
+  };
+
+  const handleDeleteAllExpired = async () => {
+    const expiredIds = expiredProducts.map(p => p.id);
+    if (expiredIds.length === 0) return;
+    await handleDeleteMultiple(expiredIds);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedProductIds.size === displayedProducts.length && displayedProducts.length > 0) {
+      setSelectedProductIds(new Set());
+    } else {
+      setSelectedProductIds(new Set(displayedProducts.map(p => p.id)));
+    }
+  };
+
+  const toggleSelectProduct = (id: string) => {
+    setSelectedProductIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   };
 
   const handleEditProduct = (product: Product) => {
@@ -1030,16 +1148,96 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
           </div>
         )}
 
+        {/* Expired Products Warning Banner */}
+        {expiredProducts.length > 0 && (
+          <div className="mb-6 bg-amber-50 border border-amber-200 rounded-2xl p-4 sm:p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="flex items-start sm:items-center">
+              <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0 mr-3 text-amber-600">
+                <FaClock className="text-lg" />
+              </div>
+              <div>
+                <h4 className="text-sm sm:text-base font-semibold text-amber-900">
+                  You have {expiredProducts.length} expired {expiredProducts.length === 1 ? 'offer' : 'offers'}
+                </h4>
+                <p className="text-xs sm:text-sm text-amber-700 mt-0.5">
+                  Expired offers are not displayed in the eshop. You can renew them for another 30 days or delete them.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 self-end md:self-center">
+              <button
+                onClick={handleRenewAllExpired}
+                disabled={actionLoading}
+                className="inline-flex items-center px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-semibold transition shadow-sm disabled:opacity-50"
+              >
+                <FaRedo className="mr-1.5 text-xs" />
+                Renew All ({expiredProducts.length})
+              </button>
+              <button
+                onClick={handleDeleteAllExpired}
+                disabled={actionLoading}
+                className="inline-flex items-center px-3 py-2 bg-white hover:bg-red-50 text-red-600 border border-red-200 rounded-xl text-xs sm:text-sm font-semibold transition disabled:opacity-50"
+              >
+                <FaTrash className="mr-1.5 text-xs" />
+                Delete All
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Products Section */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow overflow-hidden">
           <div className="px-4 sm:px-6 py-4 border-b border-slate-100">
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center space-y-3 sm:space-y-0">
-              <div>
-                <h3 className="text-base sm:text-lg font-semibold text-slate-900">Your Products</h3>
-                {marketPricesLoading && (
-                  <p className="text-xs sm:text-sm text-slate-500 mt-1">Loading market prices...</p>
-                )}
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                <div>
+                  <h3 className="text-base sm:text-lg font-semibold text-slate-900">Your Products</h3>
+                  {marketPricesLoading && (
+                    <p className="text-xs sm:text-sm text-slate-500 mt-0.5">Loading market prices...</p>
+                  )}
+                </div>
+
+                {/* Filter Tabs */}
+                <div className="inline-flex rounded-xl bg-slate-100 p-1 self-start sm:self-center text-xs font-medium">
+                  <button
+                    type="button"
+                    onClick={() => setFilterStatus('all')}
+                    className={`px-3 py-1.5 rounded-lg transition ${
+                      filterStatus === 'all'
+                        ? 'bg-white text-slate-900 font-semibold shadow-sm'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    All ({products.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFilterStatus('active')}
+                    className={`px-3 py-1.5 rounded-lg transition ${
+                      filterStatus === 'active'
+                        ? 'bg-white text-slate-900 font-semibold shadow-sm'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Active ({activeProducts.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFilterStatus('expired')}
+                    className={`px-3 py-1.5 rounded-lg transition flex items-center ${
+                      filterStatus === 'expired'
+                        ? 'bg-white text-red-600 font-semibold shadow-sm'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Expired ({expiredProducts.length})
+                    {expiredProducts.length > 0 && (
+                      <span className="w-2 h-2 rounded-full bg-red-500 ml-1.5"></span>
+                    )}
+                  </button>
+                </div>
               </div>
+
               <button
                 onClick={handleRefresh}
                 disabled={refreshing}
@@ -1050,16 +1248,58 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
                 <span className="hidden sm:inline">{refreshing ? 'Refreshing...' : 'Refresh'}</span>
               </button>
             </div>
+
+            {/* Bulk Selection Bar */}
+            {selectedProductIds.size > 0 && (
+              <div className="mt-3 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 bg-slate-50 p-3 rounded-xl">
+                <span className="text-xs sm:text-sm font-semibold text-slate-700">
+                  {selectedProductIds.size} of {displayedProducts.length} selected
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleRenewMultiple(Array.from(selectedProductIds))}
+                    disabled={actionLoading}
+                    className="inline-flex items-center px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition disabled:opacity-50"
+                  >
+                    <FaRedo className="mr-1.5 text-[10px]" />
+                    Renew Selected (+30d)
+                  </button>
+                  <button
+                    onClick={() => handleDeleteMultiple(Array.from(selectedProductIds))}
+                    disabled={actionLoading}
+                    className="inline-flex items-center px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-semibold transition disabled:opacity-50"
+                  >
+                    <FaTrash className="mr-1.5 text-[10px]" />
+                    Delete Selected
+                  </button>
+                  <button
+                    onClick={() => setSelectedProductIds(new Set())}
+                    className="px-2.5 py-1.5 text-xs text-slate-500 hover:text-slate-800 transition"
+                  >
+                    Deselect
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
-          {products.length > 0 ? (
+          {displayedProducts.length > 0 ? (
             <>
               {/* Desktop Table View */}
               <div className="hidden md:block overflow-x-auto">
                 <table className="min-w-full divide-y divide-slate-100">
                   <thead className="bg-slate-50">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">#</th>
+                      <th className="px-4 py-3 text-left w-10">
+                        <input
+                          type="checkbox"
+                          checked={selectedProductIds.size === displayedProducts.length && displayedProducts.length > 0}
+                          onChange={toggleSelectAll}
+                          className="rounded border-slate-300 text-slate-900 focus:ring-slate-900 cursor-pointer"
+                          title="Select all"
+                        />
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">#</th>
                       <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Product</th>
                       <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Size</th>
                       <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">SKU</th>
@@ -1070,11 +1310,25 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-slate-100">
-                    {products.map((product, index) => {
+                    {displayedProducts.map((product, index) => {
                       const priceDisplay = getPriceDisplay(product);
+                      const expired = isProductExpired(product);
+                      const isSelected = selectedProductIds.has(product.id);
+
                       return (
-                        <tr key={product.id} className="hover:bg-slate-50 transition-colors">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 font-medium">{index + 1}</td>
+                        <tr
+                          key={product.id}
+                          className={`hover:bg-slate-50 transition-colors ${expired ? 'bg-red-50/20' : ''} ${isSelected ? 'bg-blue-50/40' : ''}`}
+                        >
+                          <td className="px-4 py-4 whitespace-nowrap">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleSelectProduct(product.id)}
+                              className="rounded border-slate-300 text-slate-900 focus:ring-slate-900 cursor-pointer"
+                            />
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-500 font-medium">{index + 1}</td>
                           <td className="px-6 py-4">
                             <div className="flex items-center">
                               <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm">
@@ -1125,15 +1379,33 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm">
                             {product.expires_at ? (
-                              <span className={new Date(product.expires_at) < new Date() ? 'text-red-600 font-semibold' : 'text-orange-600'}>
-                                {new Date(product.expires_at).toLocaleDateString('sk-SK')}
-                              </span>
+                              expired ? (
+                                <span className="inline-flex items-center px-2 py-1 rounded-lg text-xs font-semibold bg-red-100 text-red-800">
+                                  <FaClock className="mr-1 text-[10px]" />
+                                  Expired ({new Date(product.expires_at).toLocaleDateString('sk-SK')})
+                                </span>
+                              ) : (
+                                <span className="text-slate-700 font-medium text-xs">
+                                  {new Date(product.expires_at).toLocaleDateString('sk-SK')}
+                                </span>
+                              )
                             ) : (
-                              <span className="text-slate-400">No expiration</span>
+                              <span className="text-slate-400 text-xs">No expiration</span>
                             )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <div className="flex items-center space-x-3">
+                            <div className="flex items-center space-x-2">
+                              {expired && (
+                                <button
+                                  onClick={() => handleRenewProduct(product.id)}
+                                  disabled={actionLoading}
+                                  className="inline-flex items-center px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition shadow-sm disabled:opacity-50"
+                                  title="Renew for 30 days"
+                                >
+                                  <FaRedo className="mr-1 text-[10px]" />
+                                  Renew
+                                </button>
+                              )}
                               <button
                                 onClick={() => handleEditProduct(product)}
                                 className="text-slate-600 hover:text-slate-900 transition-colors p-2 hover:bg-slate-100 rounded-lg"
@@ -1159,11 +1431,27 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
 
               {/* Mobile Card View */}
               <div className="md:hidden space-y-4 p-4">
-                {products.map((product, index) => {
+                {displayedProducts.map((product, index) => {
                   const priceDisplay = getPriceDisplay(product);
+                  const expired = isProductExpired(product);
+                  const isSelected = selectedProductIds.has(product.id);
+
                   return (
-                    <div key={product.id} className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                    <div
+                      key={product.id}
+                      className={`rounded-xl p-4 border transition-colors ${
+                        expired ? 'bg-red-50/30 border-red-200' : 'bg-slate-50 border-slate-200'
+                      } ${isSelected ? 'ring-2 ring-slate-900' : ''}`}
+                    >
                       <div className="flex items-start space-x-3">
+                        <div className="pt-1">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleSelectProduct(product.id)}
+                            className="rounded border-slate-300 text-slate-900 focus:ring-slate-900 cursor-pointer"
+                          />
+                        </div>
                         <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
                           <img
                             className="h-full w-full object-contain p-2"
@@ -1225,14 +1513,31 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
                             {product.expires_at && (
                               <div className="flex items-center justify-between">
                                 <span className="text-xs text-slate-600">Expiration:</span>
-                                <span className={`text-xs font-semibold ${new Date(product.expires_at) < new Date() ? 'text-red-600' : 'text-orange-600'}`}>
-                                  {new Date(product.expires_at).toLocaleDateString('sk-SK')}
-                                </span>
+                                {expired ? (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-red-100 text-red-800">
+                                    <FaClock className="mr-1 text-[9px]" />
+                                    Expired ({new Date(product.expires_at).toLocaleDateString('sk-SK')})
+                                  </span>
+                                ) : (
+                                  <span className="text-xs font-semibold text-slate-700">
+                                    {new Date(product.expires_at).toLocaleDateString('sk-SK')}
+                                  </span>
+                                )}
                               </div>
                             )}
                           </div>
                           
                           <div className="flex items-center justify-end space-x-2 mt-3 pt-3 border-t border-slate-200">
+                            {expired && (
+                              <button
+                                onClick={() => handleRenewProduct(product.id)}
+                                disabled={actionLoading}
+                                className="inline-flex items-center px-2.5 py-1.5 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                              >
+                                <FaRedo className="mr-1 text-[10px]" />
+                                Renew
+                              </button>
+                            )}
                             <button
                               onClick={() => handleEditProduct(product)}
                               className="inline-flex items-center px-3 py-1.5 bg-slate-600 text-white text-xs font-medium rounded-lg hover:bg-slate-700 transition-colors"
