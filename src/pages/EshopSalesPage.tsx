@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import AdminNavigation from '../components/AdminNavigation';
@@ -20,7 +20,8 @@ import {
   FaSearch, FaPlus, FaTimes, FaFilter, FaSync, FaSignOutAlt,
   FaUserShield, FaShoppingCart, FaSave, FaLink, FaTruck,
   FaExclamationTriangle, FaEdit, FaTrash, FaExternalLinkAlt,
-  FaSortAmountDown, FaSortAmountUp, FaCloudDownloadAlt, FaCheckCircle, FaDownload
+  FaSortAmountDown, FaSortAmountUp, FaCloudDownloadAlt, FaCheckCircle, FaDownload,
+  FaCoins, FaPercentage, FaCheck, FaCalendarAlt
 } from 'react-icons/fa';
 
 interface EshopSale {
@@ -386,6 +387,24 @@ export default function EshopSalesPage() {
 
   const hasFilters = !!(searchTerm || statusFilter || dateFrom || dateTo);
 
+  const isCurrentMonth = useMemo(() => {
+    if (!dateFrom || !dateTo) return false;
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const toIso = (d: Date) => [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-');
+    return dateFrom === toIso(firstDay) && dateTo === toIso(lastDay);
+  }, [dateFrom, dateTo]);
+
+  const isLastMonth = useMemo(() => {
+    if (!dateFrom || !dateTo) return false;
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastDay = new Date(now.getFullYear(), now.getMonth(), 0);
+    const toIso = (d: Date) => [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-');
+    return dateFrom === toIso(firstDay) && dateTo === toIso(lastDay);
+  }, [dateFrom, dateTo]);
+
   const applyMonthFilter = (monthOffset: number) => {
     const now = new Date();
     const firstDay = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1);
@@ -398,7 +417,12 @@ export default function EshopSalesPage() {
     setDateFrom(toLocalIsoDate(firstDay));
     setDateTo(toLocalIsoDate(lastDay));
     setCurrentPage(1);
-    setShowFilters(true);
+  };
+
+  const clearMonthFilter = () => {
+    setDateFrom('');
+    setDateTo('');
+    setCurrentPage(1);
   };
 
   const clearFilters = () => {
@@ -704,166 +728,300 @@ export default function EshopSalesPage() {
           </div>
         )}
 
-        <div className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-4">
-          <div className="min-w-0 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm sm:p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Orders</p>
-            <p className="mt-1 text-xl font-bold text-gray-900 sm:text-2xl">{sales.length}</p>
-            <p className="mt-0.5 text-xs text-gray-500">{activeCount} active · {completedCount} completed</p>
+        <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+          <div className="rounded-2xl border border-gray-200/80 bg-white p-4 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-gray-500">Objednávky</span>
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600 border border-blue-100">
+                <FaShoppingCart className="text-sm" />
+              </div>
+            </div>
+            <p className="mt-2 text-2xl font-black tracking-tight text-gray-900">{sales.length}</p>
+            <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
+              <span className="inline-flex items-center rounded-md bg-amber-50 px-2 py-0.5 font-medium text-amber-700 border border-amber-200/60">
+                {activeCount} aktívnych
+              </span>
+              <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700 border border-emerald-200/60">
+                {completedCount} hotových
+              </span>
+            </div>
           </div>
-          <div className="min-w-0 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm sm:p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Revenue</p>
-            <p className="mt-1 truncate text-lg font-bold text-gray-900 sm:text-2xl">{formatCurrency(totalRevenue)}</p>
-            <p className="mt-0.5 text-xs text-gray-500">Imported item revenue</p>
+
+          <div className="rounded-2xl border border-gray-200/80 bg-white p-4 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-gray-500">Celkový obrat</span>
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100">
+                <FaCoins className="text-sm" />
+              </div>
+            </div>
+            <p className="mt-2 truncate text-2xl font-black tracking-tight text-gray-900">{formatCurrency(totalRevenue)}</p>
+            <p className="mt-2 text-xs text-gray-500 truncate">
+              Priem. {sales.length ? formatCurrency(totalRevenue / sales.length) : '0 €'} na objednávku
+            </p>
           </div>
-          <div className="min-w-0 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm sm:p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Matched</p>
-            <p className="mt-1 text-xl font-bold text-blue-700 sm:text-2xl">{matchedLoadedCount}</p>
-            <p className="mt-0.5 text-xs text-gray-500">{unmatchedLoadedCount} unmatched · {checkedMatchCount} checked</p>
+
+          <div className="rounded-2xl border border-gray-200/80 bg-white p-4 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-gray-500">Spárovanie</span>
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-50 text-purple-600 border border-purple-100">
+                <FaLink className="text-sm" />
+              </div>
+            </div>
+            <p className="mt-2 text-2xl font-black tracking-tight text-purple-700">{matchedLoadedCount}</p>
+            <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
+              <span className="inline-flex items-center rounded-md bg-purple-50 px-2 py-0.5 font-semibold text-purple-700 border border-purple-200/60">
+                {sales.length > 0 ? Math.round((matchedLoadedCount / sales.length) * 100) : 0}% spárovaných
+              </span>
+              <span className="text-gray-400">· {unmatchedLoadedCount} bez páru</span>
+            </div>
           </div>
-          <div className="min-w-0 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 shadow-sm sm:p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700">Matched Profit</p>
-            <p className="mt-1 truncate text-lg font-bold text-emerald-800 sm:text-2xl">{formatCurrency(loadedProfit)}</p>
-            <p className="mt-0.5 text-xs text-emerald-700">Revenue minus payout</p>
+
+          <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50/90 to-teal-50/50 p-4 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-emerald-800">Hrubý zisk</span>
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm shadow-emerald-200">
+                <FaPercentage className="text-xs" />
+              </div>
+            </div>
+            <p className="mt-2 truncate text-2xl font-black tracking-tight text-emerald-800">{formatCurrency(loadedProfit)}</p>
+            <div className="mt-2 flex items-center gap-1.5 text-xs">
+              <span className="inline-flex items-center rounded-md bg-emerald-100/80 px-2 py-0.5 font-bold text-emerald-800">
+                {totalRevenue > 0 && loadedProfit > 0 ? ((loadedProfit / totalRevenue) * 100).toFixed(1) : '0'}% marža
+              </span>
+              <span className="text-emerald-700 font-medium">po výplatách</span>
+            </div>
           </div>
         </div>
 
         {/* Table Card */}
-        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-          <div className="border-b border-gray-200 px-4 py-4 sm:px-6">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex-1">
-              <h2 className="text-lg font-bold text-gray-900">Eshop Sales ({orderGroups.length})</h2>
-              <p className="mt-0.5 text-sm text-gray-500">
-                Shoptet orders matched with consigner payouts · {filtered.length} item{filtered.length === 1 ? '' : 's'}.
-              </p>
-            </div>
-            <div className="grid w-full grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:justify-end">
-              <div className="relative min-w-0 sm:w-72">
-                <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
-                <input
-                  type="text"
-                  placeholder="Search order, product, customer..."
-                  value={searchTerm}
-                  onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-                  className="w-full pl-9 pr-3 py-2 bg-white border border-gray-300 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400"
-                />
+        <div className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm">
+          <div className="border-b border-gray-200 bg-white px-4 py-4 sm:px-6">
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-bold text-gray-900">Eshop Objednávky</h2>
+                  <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-bold text-gray-700">
+                    {orderGroups.length}
+                  </span>
+                </div>
+                <p className="mt-0.5 text-xs text-gray-500">
+                  Importované objednávky zo Shoptetu spárované s výplatami predajcov · {filtered.length} položiek
+                </p>
               </div>
-              <button
-                onClick={() => setShowFilters(v => !v)}
-                className={`inline-flex items-center px-3 py-2 border rounded-xl text-sm transition-all ${showFilters || hasFilters ? 'bg-gray-100 border-gray-400' : 'bg-white border-gray-300 hover:bg-gray-50'}`}
-              >
-                <FaFilter className="text-gray-600 text-sm" />
-                {hasFilters && <span className="ml-1 w-2 h-2 bg-gray-600 rounded-full" />}
-              </button>
-              {hasFilters && (
-                <button onClick={clearFilters} className="px-3 py-2 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 text-sm">
-                  <FaTimes className="text-gray-600" />
+
+              {/* Controls */}
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Search */}
+                <div className="relative flex-1 sm:w-64 min-w-[200px]">
+                  <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
+                  <input
+                    type="text"
+                    placeholder="Hľadať číslo, produkt, zákazníka..."
+                    value={searchTerm}
+                    onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                    className="w-full pl-8 pr-8 py-2 bg-gray-50/70 hover:bg-white border border-gray-200 rounded-xl text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-gray-400 transition-all"
+                  />
+                  {searchTerm && (
+                    <button
+                      onClick={() => setSearchTerm('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      <FaTimes className="text-xs" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Quick month pills */}
+                <div className="inline-flex rounded-xl bg-gray-100 p-1 border border-gray-200/60">
+                  <button
+                    onClick={clearMonthFilter}
+                    className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
+                      !dateFrom && !dateTo ? 'bg-white text-gray-900 shadow-xs font-bold' : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Všetko
+                  </button>
+                  <button
+                    onClick={() => applyMonthFilter(0)}
+                    className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
+                      isCurrentMonth ? 'bg-white text-gray-900 shadow-xs font-bold' : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Tento mesiac
+                  </button>
+                  <button
+                    onClick={() => applyMonthFilter(-1)}
+                    className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
+                      isLastMonth ? 'bg-white text-gray-900 shadow-xs font-bold' : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Minulý mesiac
+                  </button>
+                </div>
+
+                {/* Filter toggle button */}
+                <button
+                  onClick={() => setShowFilters(v => !v)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-2 border rounded-xl text-xs font-semibold transition-all ${
+                    showFilters || (hasFilters && !isCurrentMonth && !isLastMonth)
+                      ? 'bg-gray-900 border-gray-900 text-white'
+                      : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                  }`}
+                  title="Podrobné filtre"
+                >
+                  <FaFilter className="text-xs" />
+                  <span>Filtre</span>
+                  {hasFilters && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                  )}
                 </button>
-              )}
-              <button
-                onClick={exportToXlsx}
-                disabled={orderGroups.length === 0 || exporting}
-                className="inline-flex items-center justify-center px-3 py-2 bg-white text-gray-900 font-semibold rounded-xl hover:bg-gray-50 transition-all text-sm border border-gray-300 disabled:cursor-not-allowed disabled:opacity-50"
-                title="Download accounting XLSX with summary, orders, items and invoice audit"
-              >
-                <FaDownload className={`sm:mr-2 ${exporting ? 'animate-pulse' : ''}`} />
-                <span className="hidden sm:inline">{exporting ? 'Exporting...' : 'Accounting XLSX'}</span>
-              </button>
-              <button
-                onClick={handleImportOrders}
-                disabled={importingOrders}
-                className="col-span-3 inline-flex items-center justify-center px-4 py-2 bg-white text-gray-900 font-semibold rounded-xl hover:bg-gray-50 transition-all text-sm border border-gray-300 disabled:cursor-not-allowed disabled:opacity-60 sm:col-span-1"
-                title="Import Shoptet orders XML"
-              >
-                <FaCloudDownloadAlt className={`mr-2 ${importingOrders ? 'animate-pulse' : ''}`} />
-                {importingOrders ? 'Importing...' : 'Import XML'}
-              </button>
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="col-span-3 inline-flex items-center justify-center px-4 py-2 bg-black text-white font-semibold rounded-xl hover:bg-gray-800 transition-all text-sm sm:col-span-1"
-              >
-                <FaPlus className="mr-2" />
-                New Order
-              </button>
-            </div>
+
+                {hasFilters && (
+                  <button
+                    onClick={clearFilters}
+                    className="p-2 text-gray-500 hover:text-red-600 border border-gray-200 rounded-xl hover:bg-red-50 transition-colors text-xs"
+                    title="Zrušiť všetky filtre"
+                  >
+                    <FaTimes />
+                  </button>
+                )}
+
+                {/* Export XLSX */}
+                <button
+                  onClick={exportToXlsx}
+                  disabled={orderGroups.length === 0 || exporting}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-white text-gray-800 font-semibold rounded-xl hover:bg-gray-50 transition-all text-xs border border-gray-200 shadow-xs disabled:cursor-not-allowed disabled:opacity-50"
+                  title="Stiahnuť účtovný XLSX audit"
+                >
+                  <FaDownload className={`text-xs ${exporting ? 'animate-pulse text-emerald-600' : 'text-gray-600'}`} />
+                  <span>{exporting ? 'Exportujem...' : 'Účtovný XLSX'}</span>
+                </button>
+
+                {/* Import XML */}
+                <button
+                  onClick={handleImportOrders}
+                  disabled={importingOrders}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-white text-gray-800 font-semibold rounded-xl hover:bg-gray-50 transition-all text-xs border border-gray-200 shadow-xs disabled:cursor-not-allowed disabled:opacity-60"
+                  title="Importovať objednávky zo Shoptet XML"
+                >
+                  <FaCloudDownloadAlt className={`text-xs ${importingOrders ? 'animate-pulse text-blue-600' : 'text-gray-600'}`} />
+                  <span>{importingOrders ? 'Importujem...' : 'Import XML'}</span>
+                </button>
+
+                {/* New Order */}
+                <button
+                  onClick={() => setShowCreateModal(true)}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-gray-900 text-white font-semibold rounded-xl hover:bg-black transition-all text-xs shadow-xs"
+                >
+                  <FaPlus className="text-xs" />
+                  <span>Nová objednávka</span>
+                </button>
+              </div>
             </div>
           </div>
 
-          {/* Filters panel */}
+          {/* Detailed filters panel */}
           {showFilters && (
-            <div className="px-4 sm:px-6 py-4 bg-gray-50 border-b border-gray-200">
-              <div className="mb-3 flex flex-wrap gap-2">
-                <button
-                  onClick={() => applyMonthFilter(0)}
-                  className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-100"
-                >
-                  This month
-                </button>
-                <button
-                  onClick={() => applyMonthFilter(-1)}
-                  className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-100"
-                >
-                  Last month
-                </button>
-              </div>
+            <div className="px-4 sm:px-6 py-4 bg-gray-50/90 border-b border-gray-200 transition-all">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Status</label>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">Stav objednávky</label>
                   <select
                     value={statusFilter}
                     onChange={e => { setStatusFilter(e.target.value); setCurrentPage(1); }}
-                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-400"
+                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-gray-400"
                   >
-                    <option value="">All statuses</option>
+                    <option value="">Všetky stavy</option>
                     {ESHOP_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Date From</label>
-                  <input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setCurrentPage(1); }}
-                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-400" />
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">Dátum od</label>
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    onChange={e => { setDateFrom(e.target.value); setCurrentPage(1); }}
+                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-gray-400"
+                  />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Date To</label>
-                  <input type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setCurrentPage(1); }}
-                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-400" />
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">Dátum do</label>
+                  <input
+                    type="date"
+                    value={dateTo}
+                    onChange={e => { setDateTo(e.target.value); setCurrentPage(1); }}
+                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-gray-400"
+                  />
                 </div>
               </div>
             </div>
           )}
 
           {/* Sort bar */}
-          <div className="flex items-center gap-2 border-b border-gray-100 bg-gray-50 px-4 py-2 text-xs text-gray-600 sm:px-6">
-            <span>Sort by:</span>
-            <button onClick={() => toggleSort('created_at')}
-              className={`flex items-center gap-1 px-2 py-1 rounded-lg transition-all ${sortField === 'created_at' ? 'bg-white border border-gray-300 text-gray-900 font-semibold' : 'hover:bg-white'}`}>
-              Date {sortField === 'created_at' ? (sortAsc ? <FaSortAmountUp /> : <FaSortAmountDown />) : null}
-            </button>
-            <button onClick={() => toggleSort('price')}
-              className={`flex items-center gap-1 px-2 py-1 rounded-lg transition-all ${sortField === 'price' ? 'bg-white border border-gray-300 text-gray-900 font-semibold' : 'hover:bg-white'}`}>
-              Price {sortField === 'price' ? (sortAsc ? <FaSortAmountUp /> : <FaSortAmountDown />) : null}
-            </button>
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 bg-gray-50/50 px-4 py-2.5 text-xs text-gray-600 sm:px-6">
+            <div className="flex items-center gap-1.5">
+              <span className="font-medium text-gray-500">Zoradiť podľa:</span>
+              <button
+                onClick={() => toggleSort('created_at')}
+                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                  sortField === 'created_at' ? 'bg-white shadow-xs border border-gray-200 text-gray-900 font-bold' : 'text-gray-600 hover:bg-white/60'
+                }`}
+              >
+                Dátum {sortField === 'created_at' ? (sortAsc ? <FaSortAmountUp className="text-gray-400" /> : <FaSortAmountDown className="text-gray-400" />) : null}
+              </button>
+              <button
+                onClick={() => toggleSort('price')}
+                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                  sortField === 'price' ? 'bg-white shadow-xs border border-gray-200 text-gray-900 font-bold' : 'text-gray-600 hover:bg-white/60'
+                }`}
+              >
+                Cena {sortField === 'price' ? (sortAsc ? <FaSortAmountUp className="text-gray-400" /> : <FaSortAmountDown className="text-gray-400" />) : null}
+              </button>
+            </div>
+            <div className="text-xs text-gray-500 font-medium">
+              Zobrazených <span className="font-bold text-gray-900">{paginatedGroups.length}</span> z {orderGroups.length} objednávok
+            </div>
           </div>
 
           {loading ? (
-            <div className="flex items-center justify-center py-20">
-              <div className="w-8 h-8 border-4 border-gray-200 border-t-black rounded-full animate-spin" />
+            <div className="flex items-center justify-center py-24">
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-9 h-9 border-3 border-gray-200 border-t-black rounded-full animate-spin" />
+                <p className="text-xs font-medium text-gray-500">Načítavam objednávky...</p>
+              </div>
             </div>
           ) : paginatedGroups.length === 0 ? (
-            <div className="text-center py-16">
-              <FaShoppingCart className="text-gray-300 text-5xl mx-auto mb-4" />
-              <p className="text-gray-500 font-medium">{hasFilters ? 'No results found' : 'No eshop sales yet'}</p>
-              {!hasFilters && (
+            <div className="text-center py-20 px-4">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-100 text-gray-400">
+                <FaShoppingCart className="text-2xl" />
+              </div>
+              <h3 className="text-base font-bold text-gray-900">
+                {hasFilters ? 'Žiadne objednávky nevyhovujú filtru' : 'Zatiaľ žiadne e-shop objednávky'}
+              </h3>
+              <p className="mt-1 text-xs text-gray-500 max-w-sm mx-auto">
+                {hasFilters
+                  ? 'Skús upraviť vyhľadávanie alebo vyčistiť filtre pre zobrazenie všetkých objednávok.'
+                  : 'Importuj objednávky zo Shoptetu alebo vytvor novú objednávku ručne.'}
+              </p>
+              {hasFilters ? (
+                <button
+                  onClick={clearFilters}
+                  className="mt-4 inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition-all text-xs"
+                >
+                  Vyčistiť filtre
+                </button>
+              ) : (
                 <button
                   onClick={() => setShowCreateModal(true)}
-                  className="mt-4 inline-flex items-center px-4 py-2 bg-black text-white font-semibold rounded-xl hover:bg-gray-800 transition-all text-sm"
+                  className="mt-4 inline-flex items-center px-4 py-2 bg-black text-white font-semibold rounded-xl hover:bg-gray-800 transition-all text-xs shadow-xs"
                 >
-                  <FaPlus className="mr-2" /> Add first order
+                  <FaPlus className="mr-1.5" /> Pridať prvú objednávku
                 </button>
               )}
             </div>
           ) : (
             <>
+            {/* Mobile View */}
             <div className="md:hidden divide-y divide-gray-100">
               {paginatedGroups.map(group => {
                 const primary = group.primary;
@@ -875,128 +1033,143 @@ export default function EshopSalesPage() {
                 }, 0);
 
                 return (
-                  <div key={group.key} className="p-3">
-                    <div className="flex gap-3">
-                      {primary.image_url ? (
-                        <img
-                          src={primary.image_url}
-                          alt={primary.product_name}
-                          className="h-16 w-16 flex-shrink-0 rounded-xl border border-gray-200 bg-white object-contain p-1"
-                          onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                        />
-                      ) : (
-                        <div className="h-16 w-16 flex-shrink-0 rounded-xl border border-gray-200 bg-gray-50 flex items-center justify-center">
-                          <FaShoppingCart className="text-gray-300" />
+                  <div key={group.key} className="p-3.5 space-y-3 bg-white">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-sm font-bold text-gray-900">#{group.orderNumber}</span>
+                          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-600">
+                            {group.items.length} {group.items.length === 1 ? 'položka' : 'položiek'}
+                          </span>
                         </div>
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="font-mono text-xs font-semibold text-gray-500">#{group.orderNumber}</p>
-                            <h3 className="mt-0.5 text-sm font-semibold text-gray-900">
-                              {group.items.length} item{group.items.length === 1 ? '' : 's'} in order
-                            </h3>
-                          </div>
-                          <div className="flex flex-shrink-0 gap-1">
-                            {invoice && (
-                              <button
-                                onClick={() => downloadInvoice(invoice, group.orderNumber)}
-                                disabled={downloadingInvoice === group.orderNumber}
-                                className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 disabled:opacity-50"
-                                title="Download invoice"
-                              >
-                                <FaDownload className={downloadingInvoice === group.orderNumber ? 'animate-pulse' : ''} />
-                              </button>
-                            )}
-                            <button
-                              onClick={() => setEditingSale(primary)}
-                              className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100 text-gray-700"
-                              title="Edit first item"
-                            >
-                              <FaEdit />
-                            </button>
-                          </div>
-                        </div>
+                        <p className="mt-0.5 text-xs text-gray-500">{formatDate(group.createdAt)}</p>
+                      </div>
 
-                        <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-600">
-                          <span className="rounded-full bg-gray-100 px-2 py-1">{formatDate(group.createdAt)}</span>
-                          {primary.shoptet_status && <span className="rounded-full bg-gray-100 px-2 py-1">{primary.shoptet_status}</span>}
-                        </div>
-
-                        <div className="mt-3 space-y-2">
-                          {group.items.map(sale => (
-                            <div key={sale.id} className="rounded-xl border border-gray-100 bg-white p-2">
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="min-w-0">
-                                  <p className="line-clamp-2 text-sm font-semibold text-gray-900">{sale.product_name}</p>
-                                  <div className="mt-1 flex flex-wrap gap-1.5 text-xs text-gray-600">
-                                    <span className="rounded-full bg-gray-100 px-2 py-0.5">{sale.size || 'No size'}</span>
-                                    {sale.sku && <span className="rounded-full bg-gray-100 px-2 py-0.5 font-mono">SKU {sale.sku}</span>}
-                                    {(sale.quantity || 1) > 1 && <span className="rounded-full bg-gray-100 px-2 py-0.5">Qty {sale.quantity}</span>}
-                                  </div>
-                                </div>
-                                <button
-                                  onClick={() => setEditingSale(sale)}
-                                  className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100"
-                                  title="Edit item"
-                                >
-                                  <FaEdit />
-                                </button>
-                              </div>
-                              <div className="mt-2 flex items-center justify-between gap-2">
-                                <p className="text-sm font-bold text-gray-900">{formatCurrency(sale.price)}</p>
-                                <MatchSummary
-                                  linked={linkedSales[sale.id]}
-                                  originalOrderNumber={sale.original_order_number}
-                                  onOpen={linkedSales[sale.id] ? () => setMatchDetailSale(sale) : undefined}
-                                />
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-
-                        <div className="mt-3 grid grid-cols-2 gap-2">
-                          <div className="rounded-xl bg-gray-50 p-2">
-                            <p className="text-[11px] font-semibold uppercase text-gray-500">Items</p>
-                            <p className="text-sm font-bold text-gray-900">{formatCurrency(group.totalPrice)}</p>
-                            {group.orderTotal !== null && Math.abs(group.orderTotal - group.totalPrice) > 0.009 && (
-                              <p className="text-[11px] text-gray-500">Order {formatCurrency(group.orderTotal)}</p>
-                            )}
-                            {linkedCount > 0 && <p className="text-[11px] text-emerald-700">Profit {formatCurrency(profit)}</p>}
-                          </div>
-                          <div className="rounded-xl bg-gray-50 p-2">
-                            <p className="text-[11px] font-semibold uppercase text-gray-500">Status</p>
-                            <div className="mt-1 flex flex-wrap gap-1">
-                              {Array.from(new Set(group.items.map(item => item.status))).map(status => (
-                                <EshopStatusBadge key={status} status={status} />
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="mt-3 rounded-xl border border-gray-100 bg-white p-2">
-                          <p className="text-[11px] font-semibold uppercase text-gray-500">Customer</p>
-                          <p className="text-sm font-medium text-gray-900 truncate">{primary.customer_name || '—'}</p>
-                          <p className="text-xs text-gray-500 truncate">{primary.customer_email || '—'}</p>
-                        </div>
+                      <div className="flex items-center gap-1.5">
+                        {invoice && (
+                          <button
+                            onClick={() => downloadInvoice(invoice, group.orderNumber)}
+                            disabled={downloadingInvoice === group.orderNumber}
+                            className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200/60 hover:bg-emerald-100 transition-colors disabled:opacity-50"
+                            title="Stiahnuť FA faktúru"
+                          >
+                            <FaDownload className={`text-xs ${downloadingInvoice === group.orderNumber ? 'animate-pulse' : ''}`} />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setEditingSale(primary)}
+                          className="flex h-9 w-9 items-center justify-center rounded-xl bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+                          title="Upraviť objednávku"
+                        >
+                          <FaEdit className="text-xs" />
+                        </button>
                       </div>
                     </div>
+
+                    {/* Status badges */}
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {Array.from(new Set(group.items.map(item => item.status))).map(status => (
+                        <EshopStatusBadge key={status} status={status} />
+                      ))}
+                      {primary.shoptet_status && (
+                        <span className="rounded-full bg-slate-100 border border-slate-200/80 px-2 py-0.5 text-[11px] text-slate-700 font-medium">
+                          {primary.shoptet_status}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Items */}
+                    <div className="space-y-2">
+                      {group.items.map(sale => (
+                        <div key={sale.id} className="rounded-xl border border-gray-100 bg-gray-50/50 p-2.5">
+                          <div className="flex items-start gap-2.5">
+                            {sale.image_url ? (
+                              <img
+                                src={sale.image_url}
+                                alt={sale.product_name}
+                                className="h-12 w-12 flex-shrink-0 rounded-lg border border-gray-200 bg-white object-contain p-0.5"
+                                onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                              />
+                            ) : (
+                              <div className="h-12 w-12 flex-shrink-0 rounded-lg border border-gray-200 bg-white flex items-center justify-center text-gray-400">
+                                <FaShoppingCart className="text-xs" />
+                              </div>
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <p className="line-clamp-2 text-xs font-bold text-gray-900">{sale.product_name}</p>
+                              <div className="mt-1 flex flex-wrap items-center gap-1 text-[11px] text-gray-600">
+                                <span className="rounded-md bg-white border border-gray-200 px-1.5 py-0.2 font-semibold">{sale.size || 'Bez veľkosti'}</span>
+                                {sale.sku && <span className="rounded-md bg-white border border-gray-200 px-1.5 py-0.2 font-mono text-[10px]">SKU {sale.sku}</span>}
+                                {(sale.quantity || 1) > 1 && <span className="rounded-md bg-white border border-gray-200 px-1.5 py-0.2 font-semibold">Qty {sale.quantity}</span>}
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => setEditingSale(sale)}
+                              className="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg"
+                              title="Upraviť položku"
+                            >
+                              <FaEdit className="text-xs" />
+                            </button>
+                          </div>
+
+                          <div className="mt-2 pt-2 border-t border-gray-200/50 flex items-center justify-between gap-2">
+                            <span className="text-xs font-bold text-gray-900">{formatCurrency(sale.price)}</span>
+                            <MatchSummary
+                              linked={linkedSales[sale.id]}
+                              originalOrderNumber={sale.original_order_number}
+                              onOpen={linkedSales[sale.id] ? () => setMatchDetailSale(sale) : undefined}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Financial summary */}
+                    <div className="grid grid-cols-2 gap-2 rounded-xl bg-gray-50 p-2.5 text-xs">
+                      <div>
+                        <p className="font-semibold text-gray-500 uppercase text-[10px]">Suma položiek</p>
+                        <p className="text-sm font-bold text-gray-900">{formatCurrency(group.totalPrice)}</p>
+                        {group.orderTotal !== null && Math.abs(group.orderTotal - group.totalPrice) > 0.009 && (
+                          <p className="text-[11px] text-gray-500 mt-0.5">Objednávka: {formatCurrency(group.orderTotal)}</p>
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-500 uppercase text-[10px]">Zisk AirKicks</p>
+                        {linkedCount > 0 ? (
+                          <p className={`text-sm font-bold ${profit >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                            {formatCurrency(profit)}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-gray-400 mt-0.5">Po spárovaní</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Customer */}
+                    {(primary.customer_name || primary.customer_email) && (
+                      <div className="text-xs text-gray-500 pt-1">
+                        <span className="font-medium text-gray-700">{primary.customer_name || 'Zákazník'}</span>
+                        {primary.customer_email && <span className="ml-1 text-gray-400">· {primary.customer_email}</span>}
+                      </div>
+                    )}
                   </div>
                 );
               })}
             </div>
+
+            {/* Desktop Table View */}
             <div className="hidden md:block overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b border-gray-200">
+              <table className="w-full text-xs">
+                <thead className="bg-gray-50/80 border-b border-gray-200">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Order #</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Item</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Customer</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Financials</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Match</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Date</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+                    <th className="px-4 py-3 text-left font-bold text-gray-600 uppercase tracking-wider">Objednávka</th>
+                    <th className="px-4 py-3 text-left font-bold text-gray-600 uppercase tracking-wider">Položky</th>
+                    <th className="px-4 py-3 text-left font-bold text-gray-600 uppercase tracking-wider">Zákazník</th>
+                    <th className="px-4 py-3 text-left font-bold text-gray-600 uppercase tracking-wider">Financie</th>
+                    <th className="px-4 py-3 text-left font-bold text-gray-600 uppercase tracking-wider">Stav</th>
+                    <th className="px-4 py-3 text-left font-bold text-gray-600 uppercase tracking-wider">Párovanie</th>
+                    <th className="px-4 py-3 text-left font-bold text-gray-600 uppercase tracking-wider">Dátum</th>
+                    <th className="px-4 py-3 text-right font-bold text-gray-600 uppercase tracking-wider">Akcie</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -1011,96 +1184,124 @@ export default function EshopSalesPage() {
                     }, 0);
 
                     return (
-                      <tr key={group.key} className="group hover:bg-gray-50 transition-colors">
-                        <td className="px-4 py-3">
+                      <tr key={group.key} className="group hover:bg-slate-50/70 transition-colors">
+                        {/* Order info */}
+                        <td className="px-4 py-3.5 align-top">
                           <div className="space-y-1">
-                            <span className="font-mono text-sm font-bold text-gray-900">{group.orderNumber}</span>
-                            <p className="text-xs font-semibold text-gray-500">
-                              {group.items.length} item{group.items.length === 1 ? '' : 's'}
+                            <span className="font-mono text-xs font-bold text-gray-900 bg-gray-100 border border-gray-200/80 rounded-lg px-2 py-0.5 inline-block">
+                              #{group.orderNumber}
+                            </span>
+                            <p className="text-[11px] font-semibold text-gray-500">
+                              {group.items.length} {group.items.length === 1 ? 'položka' : 'položky'}
                             </p>
-                          {primary.shoptet_status && (
-                              <p className="max-w-[110px] truncate text-xs text-gray-500">{primary.shoptet_status}</p>
+                            {primary.shoptet_status && (
+                              <p className="max-w-[120px] truncate text-[11px] font-medium text-slate-600 bg-slate-100 rounded px-1.5 py-0.2 inline-block">
+                                {primary.shoptet_status}
+                              </p>
                             )}
                           </div>
                         </td>
-                        <td className="px-4 py-3">
-                          <div className="flex max-w-[520px] flex-wrap gap-2">
+
+                        {/* Items list */}
+                        <td className="px-4 py-3.5 align-top">
+                          <div className="flex max-w-[500px] flex-wrap gap-2">
                             {group.items.map(sale => (
-                              <div key={sale.id} className="flex min-w-[230px] max-w-[260px] flex-1 items-center gap-2 rounded-xl border border-gray-100 bg-white p-2">
+                              <div key={sale.id} className="flex min-w-[220px] max-w-[245px] flex-1 items-center gap-2 rounded-xl border border-gray-200/70 bg-white p-2 shadow-xs">
                                 {sale.image_url ? (
                                   <img
                                     src={sale.image_url}
                                     alt={sale.product_name}
-                                    className="h-10 w-10 flex-shrink-0 rounded-lg border border-gray-200 bg-white object-contain p-1"
+                                    className="h-10 w-10 flex-shrink-0 rounded-lg border border-gray-200 bg-white object-contain p-0.5"
                                     onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
                                   />
                                 ) : (
-                                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-gray-50">
-                                    <FaShoppingCart className="text-gray-300" />
+                                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-gray-400">
+                                    <FaShoppingCart className="text-xs" />
                                   </div>
                                 )}
                                 <div className="min-w-0 flex-1">
-                                  <p className="truncate font-semibold text-gray-900">{sale.product_name}</p>
-                                  <div className="mt-1 flex flex-wrap gap-1 text-xs text-gray-600">
-                                    <span className="rounded-full bg-gray-100 px-2 py-0.5">{sale.size || 'No size'}</span>
-                                    {sale.sku && <span className="max-w-[120px] truncate rounded-full bg-gray-100 px-2 py-0.5 font-mono">SKU {sale.sku}</span>}
-                                    {(sale.quantity || 1) > 1 && <span className="rounded-full bg-gray-100 px-2 py-0.5">Qty {sale.quantity}</span>}
+                                  <p className="truncate font-bold text-gray-900 text-xs" title={sale.product_name}>
+                                    {sale.product_name}
+                                  </p>
+                                  <div className="mt-0.5 flex flex-wrap gap-1 text-[10px] text-gray-600">
+                                    <span className="rounded-md bg-gray-100 px-1.5 py-0.2 font-semibold">{sale.size || 'No size'}</span>
+                                    {sale.sku && <span className="max-w-[110px] truncate rounded-md bg-gray-100 px-1.5 py-0.2 font-mono">SKU {sale.sku}</span>}
+                                    {(sale.quantity || 1) > 1 && <span className="rounded-md bg-gray-100 px-1.5 py-0.2 font-bold">Qty {sale.quantity}</span>}
                                   </div>
+                                  <p className="mt-0.5 text-xs font-bold text-gray-900">{formatCurrency(sale.price)}</p>
                                 </div>
                                 <button
                                   onClick={() => setEditingSale(sale)}
-                                  className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100"
-                                  title="Edit item"
+                                  className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+                                  title="Upraviť položku"
                                 >
-                                  <FaEdit />
+                                  <FaEdit className="text-xs" />
                                 </button>
                               </div>
                             ))}
                           </div>
                         </td>
-                        <td className="px-4 py-3">
-                          <p className="text-gray-900">{primary.customer_name || '—'}</p>
-                          <p className="text-xs text-gray-500">{primary.customer_email || '—'}</p>
+
+                        {/* Customer */}
+                        <td className="px-4 py-3.5 align-top">
+                          <p className="font-bold text-gray-900 text-xs truncate max-w-[160px]">{primary.customer_name || '—'}</p>
+                          {primary.customer_email ? (
+                            <a
+                              href={`mailto:${primary.customer_email}`}
+                              className="text-gray-500 hover:text-blue-600 transition-colors truncate max-w-[160px] block mt-0.5"
+                            >
+                              {primary.customer_email}
+                            </a>
+                          ) : (
+                            <p className="text-xs text-gray-400 mt-0.5">—</p>
+                          )}
                         </td>
-                        <td className="px-4 py-3">
+
+                        {/* Financials */}
+                        <td className="px-4 py-3.5 align-top">
                           <div className="space-y-1">
-                            <p className="text-sm font-bold text-gray-900">Items {formatCurrency(group.totalPrice)}</p>
+                            <p className="text-xs font-bold text-gray-900">
+                              Položky: {formatCurrency(group.totalPrice)}
+                            </p>
                             {group.orderTotal !== null && Math.abs(group.orderTotal - group.totalPrice) > 0.009 && (
-                              <p className="text-xs text-gray-500">
-                                Order {formatCurrency(group.orderTotal)}
-                                {group.items.length > 1 ? ` · ${group.items.length} items` : ''}
+                              <p className="text-[11px] text-gray-500">
+                                Celkovo: {formatCurrency(group.orderTotal)}
                               </p>
                             )}
                             {Math.abs(group.orderExtraTotal) > 0.009 && (
-                              <p className="text-xs text-gray-400">Extras {formatCurrency(group.orderExtraTotal)}</p>
+                              <p className="text-[10px] text-gray-400">Extras: {formatCurrency(group.orderExtraTotal)}</p>
                             )}
                             {linkedCount > 0 ? (
-                              <>
-                                <p className="text-xs text-gray-500">{linkedCount}/{group.items.length} matched</p>
-                                <p className={`text-xs font-bold ${profit >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
-                                  Profit {formatCurrency(profit)}
-                                </p>
-                              </>
+                              <div className="pt-0.5">
+                                <span className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 font-bold text-xs ${
+                                  profit >= 0 ? 'bg-emerald-50 text-emerald-800 border border-emerald-200/70' : 'bg-rose-50 text-rose-800 border border-rose-200/70'
+                                }`}>
+                                  Zisk {formatCurrency(profit)}
+                                </span>
+                              </div>
                             ) : (
-                              <p className="text-xs text-gray-400">Profit after match</p>
+                              <span className="text-[11px] text-gray-400">Zisk po spárovaní</span>
                             )}
                           </div>
                         </td>
-                        <td className="px-4 py-3">
+
+                        {/* Status */}
+                        <td className="px-4 py-3.5 align-top">
                           <div className="flex flex-wrap gap-1">
                             {Array.from(new Set(group.items.map(item => item.status))).map(status => (
                               <EshopStatusBadge key={status} status={status} />
                             ))}
                           </div>
                         </td>
-                        <td className="px-4 py-3">
-                          <div className="space-y-2">
-                            <p className="text-xs font-semibold text-gray-500">
-                              {checkedCount < group.items.length ? 'Checking...' : `${linkedCount}/${group.items.length} matched`}
+
+                        {/* Match */}
+                        <td className="px-4 py-3.5 align-top">
+                          <div className="space-y-1.5">
+                            <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400">
+                              {checkedCount < group.items.length ? 'Kontrola...' : `${linkedCount}/${group.items.length} spárované`}
                             </p>
                             {group.items.map(sale => (
-                              <div key={sale.id} className="flex items-center gap-2">
-                                <span className="max-w-[120px] truncate text-xs text-gray-500">{sale.size || sale.product_name}</span>
+                              <div key={sale.id} className="flex items-center gap-1.5">
                                 <MatchSummary
                                   linked={linkedSales[sale.id]}
                                   originalOrderNumber={sale.original_order_number}
@@ -1110,25 +1311,31 @@ export default function EshopSalesPage() {
                             ))}
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-xs text-gray-600">{formatDate(group.createdAt)}</td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-1">
+
+                        {/* Date */}
+                        <td className="px-4 py-3.5 align-top text-gray-600 whitespace-nowrap">
+                          {formatDate(group.createdAt)}
+                        </td>
+
+                        {/* Actions */}
+                        <td className="px-4 py-3.5 align-top text-right">
+                          <div className="flex items-center justify-end gap-1.5">
                             {invoice && (
                               <button
                                 onClick={() => downloadInvoice(invoice, group.orderNumber)}
                                 disabled={downloadingInvoice === group.orderNumber}
-                                className="p-2 text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors disabled:opacity-50"
-                                title={`Download invoice as FA-${group.orderNumber}.pdf`}
+                                className="flex h-8 w-8 items-center justify-center text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/60 rounded-lg transition-colors disabled:opacity-50"
+                                title={`Stiahnuť faktúru FA-${group.orderNumber}.pdf`}
                               >
-                                <FaDownload className={downloadingInvoice === group.orderNumber ? 'animate-pulse' : ''} />
+                                <FaDownload className={`text-xs ${downloadingInvoice === group.orderNumber ? 'animate-pulse' : ''}`} />
                               </button>
                             )}
                             <button
                               onClick={() => setEditingSale(primary)}
-                              className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                              title="Edit first item"
+                              className="flex h-8 w-8 items-center justify-center text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                              title="Upraviť objednávku"
                             >
-                              <FaEdit />
+                              <FaEdit className="text-xs" />
                             </button>
                           </div>
                         </td>
@@ -1142,7 +1349,7 @@ export default function EshopSalesPage() {
           )}
 
           {orderGroups.length > ITEMS_PER_PAGE && (
-            <div className="px-4 py-3 border-t border-gray-200">
+            <div className="px-4 py-3.5 border-t border-gray-200 bg-gray-50/50">
               <Pagination
                 currentPage={currentPage}
                 totalItems={orderGroups.length}
@@ -1158,7 +1365,7 @@ export default function EshopSalesPage() {
       {showCreateModal && (
         <EshopSaleModal
           onClose={() => setShowCreateModal(false)}
-          onSaved={() => { setShowCreateModal(false); fetchSales(); showToast('Order created', 'success'); }}
+          onSaved={() => { setShowCreateModal(false); fetchSales(); showToast('Objednávka vytvorená', 'success'); }}
         />
       )}
 
@@ -1170,12 +1377,12 @@ export default function EshopSalesPage() {
           onSaved={() => {
             setEditingSale(null);
             fetchSales();
-            showToast('Order updated', 'success');
+            showToast('Objednávka aktualizovaná', 'success');
           }}
           onDeleted={() => {
             setEditingSale(null);
             fetchSales();
-            showToast('Order deleted', 'success');
+            showToast('Objednávka vymazaná', 'success');
           }}
         />
       )}
@@ -1191,7 +1398,7 @@ export default function EshopSalesPage() {
   );
 }
 
-// ─── Eshop Status Badge ──────────────────────────────────────────────────────
+// ─── Eshop Status Badge & Match Summary ───────────────────────────────────────
 
 function MatchSummary({
   linked,
@@ -1204,13 +1411,13 @@ function MatchSummary({
 }) {
   if (linked === undefined) {
     return (
-      <div className="space-y-1">
-        <div className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-500">
-          <span className="h-2 w-2 animate-pulse rounded-full bg-gray-400" />
-          checking
+      <div className="space-y-0.5">
+        <div className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-500">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-slate-400" />
+          Overujem...
         </div>
         {originalOrderNumber && (
-          <p className="text-xs font-semibold text-amber-700">orig {originalOrderNumber}</p>
+          <p className="text-[10px] font-semibold text-amber-700">orig #{originalOrderNumber}</p>
         )}
       </div>
     );
@@ -1218,29 +1425,31 @@ function MatchSummary({
 
   if (linked === null) {
     return (
-      <div className="space-y-1">
-        <div className="inline-flex whitespace-nowrap items-center rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-500">
-          No match
+      <div className="space-y-0.5">
+        <div className="inline-flex whitespace-nowrap items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50/70 px-2.5 py-1 text-[11px] font-semibold text-amber-800">
+          <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+          Bez páru
         </div>
         {originalOrderNumber && (
-          <p className="text-xs font-semibold text-amber-700">orig {originalOrderNumber}</p>
+          <p className="text-[10px] font-semibold text-amber-700">orig #{originalOrderNumber}</p>
         )}
       </div>
     );
   }
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-0.5">
       <button
         type="button"
         onClick={onOpen}
-        className="inline-flex whitespace-nowrap items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800 hover:border-emerald-300 hover:bg-emerald-100"
+        className="inline-flex whitespace-nowrap items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-800 hover:border-emerald-300 hover:bg-emerald-100 transition-colors shadow-xs"
+        title="Klikni pre zobrazenie detailu párovania"
       >
-        <FaCheckCircle />
-        Match
+        <FaCheckCircle className="text-emerald-600 text-xs" />
+        <span>Spárované</span>
       </button>
       {originalOrderNumber && (
-        <p className="text-xs font-semibold text-amber-700">orig {originalOrderNumber}</p>
+        <p className="text-[10px] font-semibold text-amber-700">orig #{originalOrderNumber}</p>
       )}
     </div>
   );
@@ -1262,70 +1471,90 @@ function MatchDetailModal({
       <div className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl border border-gray-200 bg-white shadow-2xl sm:rounded-2xl" onClick={event => event.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-gray-200 p-4 sm:p-5">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Consignment match</p>
-            <h2 className="mt-1 text-lg font-bold text-gray-900">Order {sale.order_number}</h2>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200/80 px-2.5 py-0.5 text-xs font-bold text-emerald-800">
+              <FaCheckCircle className="text-emerald-600" /> Detail consignment párovania
+            </span>
+            <h2 className="mt-1.5 text-lg font-black text-gray-900">Objednávka #{sale.order_number}</h2>
           </div>
-          <button onClick={onClose} className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100 text-gray-700 hover:bg-gray-200">
+          <button onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-xl bg-gray-100 text-gray-500 hover:text-gray-900 hover:bg-gray-200 transition-colors">
             <FaTimes />
           </button>
         </div>
 
-        <div className="overflow-y-auto p-4 sm:p-5">
+        <div className="overflow-y-auto p-4 sm:p-6">
           {!linked ? (
-            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5 text-sm text-gray-600">
-              No consignment match is loaded for this order item.
+            <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-5 text-sm text-amber-800">
+              K tejto položke objednávky nie je priradený žiadny consignment predaj.
             </div>
           ) : (
             <div className="space-y-4">
+              {/* Financial metric breakdown */}
               <div className="grid gap-3 sm:grid-cols-3">
-                <div className="rounded-2xl border border-gray-200 bg-white p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Product price</p>
-                  <p className="mt-1 text-xl font-bold text-gray-900">{formatCurrency(sale.price)}</p>
+                <div className="rounded-2xl border border-gray-200/80 bg-gray-50/60 p-4">
+                  <p className="text-xs font-bold uppercase tracking-wider text-gray-500">Predajná cena</p>
+                  <p className="mt-1.5 text-xl font-black text-gray-900">{formatCurrency(sale.price)}</p>
                   {sale.order_total !== null && sale.order_total !== undefined && (
-                    <p className="mt-1 text-xs text-gray-500">Order total {formatCurrency(Number(sale.order_total))}</p>
+                    <p className="mt-1 text-[11px] text-gray-500">Celá obj: {formatCurrency(Number(sale.order_total))}</p>
                   )}
                 </div>
-                <div className="rounded-2xl border border-gray-200 bg-white p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Order split</p>
-                  <p className="mt-1 text-xl font-bold text-gray-900">{sale.order_item_count || 1} item{(sale.order_item_count || 1) === 1 ? '' : 's'}</p>
-                  <p className="mt-1 text-xs text-gray-500">Extras {formatCurrency(Number(sale.order_extra_total || 0))}</p>
+
+                <div className="rounded-2xl border border-blue-200/80 bg-blue-50/50 p-4">
+                  <p className="text-xs font-bold uppercase tracking-wider text-blue-700">Výplata consignora</p>
+                  <p className="mt-1.5 text-xl font-black text-blue-900">{formatCurrency(linked.payout)}</p>
+                  <p className="mt-1 text-[11px] text-blue-600 truncate">{linked.user_email || '-'}</p>
                 </div>
-                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Profit</p>
-                  <p className={`mt-1 text-xl font-bold ${profit !== null && profit >= 0 ? 'text-emerald-800' : 'text-red-700'}`}>
+
+                <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50/60 p-4">
+                  <p className="text-xs font-bold uppercase tracking-wider text-emerald-800">Hrubý zisk AirKicks</p>
+                  <p className={`mt-1.5 text-xl font-black ${profit !== null && profit >= 0 ? 'text-emerald-800' : 'text-rose-700'}`}>
                     {formatCurrency(profit ?? 0)}
                   </p>
-                  <p className="mt-1 text-xs text-emerald-700">Payout {formatCurrency(linked.payout)}</p>
+                  <p className="mt-1 text-[11px] font-bold text-emerald-700">
+                    {sale.price > 0 && profit !== null ? ((profit / sale.price) * 100).toFixed(1) : 0}% marža
+                  </p>
                 </div>
               </div>
 
+              {/* Items side by side comparison */}
               <div className="grid gap-4 sm:grid-cols-2">
-                <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Eshop item</p>
-                  <p className="mt-2 font-semibold text-gray-900">{sale.product_name}</p>
-                  <p className="mt-1 text-sm text-gray-600">Size {sale.size || '-'} · SKU {sale.sku || '-'}</p>
-                  <p className="mt-1 text-sm text-gray-600">{sale.customer_name || '-'} · {sale.customer_email || '-'}</p>
+                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-xs">
+                  <p className="text-xs font-bold uppercase tracking-wider text-gray-500">Eshop položka</p>
+                  <p className="mt-2 font-bold text-gray-900 text-sm">{sale.product_name}</p>
+                  <div className="mt-1.5 flex flex-wrap gap-1 text-xs text-gray-600">
+                    <span className="rounded-md bg-gray-100 px-2 py-0.5 font-semibold">Veľkosť {sale.size || '-'}</span>
+                    <span className="rounded-md bg-gray-100 px-2 py-0.5 font-mono">SKU {sale.sku || '-'}</span>
+                  </div>
+                  <div className="mt-2 text-xs text-gray-600 space-y-0.5">
+                    <p><span className="text-gray-400">Zákazník:</span> {sale.customer_name || '-'}</p>
+                    <p><span className="text-gray-400">Email:</span> {sale.customer_email || '-'}</p>
+                  </div>
                   {sale.original_order_number && (
-                    <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">
-                      Original buyout order: {sale.original_order_number}
+                    <p className="mt-2.5 rounded-lg bg-amber-50 border border-amber-200/80 px-2.5 py-1 text-xs font-semibold text-amber-800">
+                      Pôvodná výkupná objednávka: #{sale.original_order_number}
                     </p>
                   )}
                   <div className="mt-3"><EshopStatusBadge status={sale.status} /></div>
                 </div>
 
-                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Consigner sale</p>
-                  <p className="mt-2 font-semibold text-gray-900">{linked.name}</p>
-                  <p className="mt-1 text-sm text-gray-700">Size {linked.size || '-'} · SKU {linked.sku || '-'}</p>
-                  <p className="mt-1 text-sm text-gray-700">{linked.user_email || '-'}</p>
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50/40 p-4 shadow-xs">
+                  <p className="text-xs font-bold uppercase tracking-wider text-emerald-800">Consignment predajca</p>
+                  <p className="mt-2 font-bold text-gray-900 text-sm">{linked.name}</p>
+                  <div className="mt-1.5 flex flex-wrap gap-1 text-xs text-emerald-800">
+                    <span className="rounded-md bg-emerald-100/70 px-2 py-0.5 font-semibold">Veľkosť {linked.size || '-'}</span>
+                    <span className="rounded-md bg-emerald-100/70 px-2 py-0.5 font-mono">SKU {linked.sku || '-'}</span>
+                  </div>
+                  <div className="mt-2 text-xs text-emerald-900 space-y-0.5">
+                    <p><span className="text-emerald-700/70">Consignor:</span> {linked.user_email || '-'}</p>
+                    <p><span className="text-emerald-700/70">External ID:</span> {linked.external_id || '-'}</p>
+                  </div>
                   <div className="mt-3"><SalesStatusBadge status={linked.status} /></div>
                 </div>
               </div>
 
               {(sale.shop_remark || sale.notes) && (
-                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Shoptet note</p>
-                  <p className="mt-2 whitespace-pre-wrap text-sm text-amber-900">{sale.shop_remark || sale.notes}</p>
+                <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4">
+                  <p className="text-xs font-bold uppercase tracking-wider text-amber-800">Poznámka zo Shoptetu</p>
+                  <p className="mt-1.5 whitespace-pre-wrap text-xs text-amber-900">{sale.shop_remark || sale.notes}</p>
                 </div>
               )}
             </div>
@@ -1337,17 +1566,19 @@ function MatchDetailModal({
 }
 
 function EshopStatusBadge({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    processing: 'bg-yellow-100 text-yellow-800',
-    shipped: 'bg-purple-100 text-purple-800',
-    delivered: 'bg-indigo-100 text-indigo-800',
-    completed: 'bg-green-100 text-green-800',
-    cancelled: 'bg-red-100 text-red-800',
-    returned: 'bg-orange-100 text-orange-800',
+  const map: Record<string, { bg: string; text: string; dot: string; label: string }> = {
+    processing: { bg: 'bg-amber-50 border-amber-200/80', text: 'text-amber-800', dot: 'bg-amber-500', label: 'Processing' },
+    shipped: { bg: 'bg-purple-50 border-purple-200/80', text: 'text-purple-800', dot: 'bg-purple-500', label: 'Shipped' },
+    delivered: { bg: 'bg-blue-50 border-blue-200/80', text: 'text-blue-800', dot: 'bg-blue-500', label: 'Delivered' },
+    completed: { bg: 'bg-emerald-50 border-emerald-200/80', text: 'text-emerald-800', dot: 'bg-emerald-500', label: 'Completed' },
+    cancelled: { bg: 'bg-rose-50 border-rose-200/80', text: 'text-rose-800', dot: 'bg-rose-500', label: 'Cancelled' },
+    returned: { bg: 'bg-orange-50 border-orange-200/80', text: 'text-orange-800', dot: 'bg-orange-500', label: 'Returned' },
   };
+  const config = map[status] || { bg: 'bg-slate-50 border-slate-200', text: 'text-slate-800', dot: 'bg-slate-400', label: status };
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${map[status] || 'bg-gray-100 text-gray-800'}`}>
-      {status.charAt(0).toUpperCase() + status.slice(1)}
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${config.bg} ${config.text}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${config.dot}`} />
+      {config.label}
     </span>
   );
 }

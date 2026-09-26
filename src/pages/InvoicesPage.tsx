@@ -791,38 +791,64 @@ export default function InvoicesPage() {
   const documentsCount = files.length + contractSales.length;
   const linkedDocumentsCount = matchedInvoiceCount + generatedContractCount;
 
+  const invoiceFilterCounts = useMemo(() => {
+    let unmatched = 0;
+    let mismatch = 0;
+    let error = 0;
+    files.forEach((file) => {
+      if (!file.linkedSale) unmatched++;
+      if (file.extractionStatus === 'error') error++;
+      if (file.linkedSale && file.extractedTotal !== null && file.extractedTotal !== undefined) {
+        const expected = expectedInvoiceAmount(file.linkedSale, sales);
+        if (Math.abs(Number(file.extractedTotal) - expected) > 0.02) {
+          mismatch++;
+        }
+      }
+    });
+    return {
+      all: files.length,
+      unmatched,
+      mismatch,
+      error,
+    };
+  }, [files, sales]);
+
   const overviewCards = [
     {
-      label: 'Dokumenty',
+      label: 'Všetky dokumenty',
       value: documentsCount,
       detail: `${files.length} FA · ${contractSales.length} zmluvy`,
       icon: FaFileInvoice,
-      tone: 'bg-pink-50 text-pink-600',
-      action: () => setViewMode('files'),
+      tone: 'bg-purple-50 text-purple-600 border border-purple-100',
+      activeTone: 'ring-2 ring-purple-500/30 border-purple-300',
+      mode: 'files' as ViewMode,
     },
     {
-      label: 'Faktúry',
+      label: 'Prijaté faktúry',
       value: files.length,
-      detail: `${matchedInvoiceCount} spárované`,
+      detail: `${matchedInvoiceCount} spárovaných so sale`,
       icon: FaFilePdf,
-      tone: 'bg-rose-50 text-rose-600',
-      action: () => setViewMode('files'),
+      tone: 'bg-rose-50 text-rose-600 border border-rose-100',
+      activeTone: 'ring-2 ring-rose-500/30 border-rose-300',
+      mode: 'files' as ViewMode,
     },
     {
-      label: 'Spárované',
+      label: 'Spárované doklady',
       value: linkedDocumentsCount,
-      detail: `${matchedInvoiceCount} FA · ${generatedContractCount} zmluvy`,
+      detail: `${documentsCount > 0 ? Math.round((linkedDocumentsCount / documentsCount) * 100) : 0}% miera spárovania`,
       icon: FaCheckCircle,
-      tone: 'bg-emerald-50 text-emerald-600',
-      action: () => setViewMode('files'),
+      tone: 'bg-emerald-50 text-emerald-600 border border-emerald-100',
+      activeTone: 'ring-2 ring-emerald-500/30 border-emerald-300',
+      mode: 'missing' as ViewMode,
     },
     {
-      label: 'Zmluvy',
+      label: 'Kúpne zmluvy',
       value: generatedContractCount,
-      detail: `${contractSales.length - generatedContractCount} treba vygenerovať`,
+      detail: `${contractSales.length - generatedContractCount} čaká na vygenerovanie`,
       icon: FaFileContract,
-      tone: 'bg-indigo-50 text-indigo-600',
-      action: () => setViewMode('contracts'),
+      tone: 'bg-indigo-50 text-indigo-600 border border-indigo-100',
+      activeTone: 'ring-2 ring-indigo-500/30 border-indigo-300',
+      mode: 'contracts' as ViewMode,
     },
   ];
 
@@ -830,8 +856,8 @@ export default function InvoicesPage() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50">
         <div className="text-center">
-          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-gray-300 border-t-pink-500" />
-          <h3 className="text-lg font-semibold text-gray-900">Loading invoices...</h3>
+          <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-3 border-gray-300 border-t-pink-500" />
+          <h3 className="text-sm font-semibold text-gray-900">Načítavam faktúry a zmluvy...</h3>
         </div>
       </div>
     );
@@ -840,12 +866,12 @@ export default function InvoicesPage() {
   if (error) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
-        <div className="max-w-md text-center">
-          <FaExclamationTriangle className="mx-auto mb-4 text-4xl text-red-500" />
-          <h3 className="mb-2 text-lg font-semibold text-gray-900">Error loading invoices</h3>
-          <p className="mb-4 text-gray-600">{error}</p>
-          <button onClick={loadPage} className="rounded-lg bg-pink-600 px-4 py-2 font-semibold text-white hover:bg-pink-700">
-            Retry
+        <div className="max-w-md text-center rounded-2xl bg-white p-6 border border-gray-200 shadow-sm">
+          <FaExclamationTriangle className="mx-auto mb-3 text-3xl text-rose-500" />
+          <h3 className="mb-1 text-base font-bold text-gray-900">Chyba pri načítaní faktúr</h3>
+          <p className="mb-4 text-xs text-gray-600">{error}</p>
+          <button onClick={loadPage} className="rounded-xl bg-gray-900 px-4 py-2 text-xs font-semibold text-white hover:bg-black transition-colors">
+            Skúsiť znova
           </button>
         </div>
       </div>
@@ -863,7 +889,7 @@ export default function InvoicesPage() {
               </div>
               <div>
                 <h1 className="text-xl font-bold tracking-tight text-white sm:text-2xl">Invoices</h1>
-                <p className="hidden text-sm text-gray-400 sm:block">FA, contracts a sales bez dokumentov</p>
+                <p className="hidden text-sm text-gray-400 sm:block">Faktúry, kúpne zmluvy a párovanie dokladov</p>
               </div>
             </div>
 
@@ -871,130 +897,168 @@ export default function InvoicesPage() {
               <button
                 onClick={handleRefresh}
                 disabled={refreshing}
-                className="inline-flex items-center rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm font-medium text-white hover:bg-white/20 disabled:opacity-50"
+                className="inline-flex items-center rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white hover:bg-white/20 transition-all disabled:opacity-50"
               >
-                <FaSync className={refreshing ? 'animate-spin sm:mr-2' : 'sm:mr-2'} />
-                <span className="hidden sm:inline">Refresh</span>
+                <FaSync className={refreshing ? 'animate-spin sm:mr-1.5' : 'sm:mr-1.5'} />
+                <span className="hidden sm:inline">Obnoviť</span>
               </button>
               <button
                 onClick={handleSignOut}
-                className="inline-flex items-center rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm font-medium text-white hover:bg-white/20"
+                className="inline-flex items-center rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white hover:bg-white/20 transition-all"
               >
-                <FaSignOutAlt className="sm:mr-2" />
-                <span className="hidden sm:inline">Sign Out</span>
+                <FaSignOutAlt className="sm:mr-1.5" />
+                <span className="hidden sm:inline">Odhlásiť sa</span>
               </button>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-[1680px] px-2 py-3 sm:px-4 sm:py-6 lg:px-8 lg:py-8">
+      <main className="mx-auto max-w-[1680px] px-3 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
         <AdminNavigation />
 
-        <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
-          {overviewCards.map((card) => (
-            <button
-              key={card.label}
-              type="button"
-              onClick={card.action}
-              className="rounded-xl border border-gray-200 bg-white p-4 text-left shadow-sm transition-all hover:border-gray-300 hover:shadow-md"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-gray-500">{card.label}</p>
-                  <p className="mt-1 text-3xl font-bold tracking-tight text-gray-900">{card.value}</p>
-                  <p className="mt-1 truncate text-xs text-gray-500">{card.detail}</p>
+        {/* Overview cards */}
+        <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+          {overviewCards.map((card) => {
+            const isActive = viewMode === card.mode;
+            return (
+              <button
+                key={card.label}
+                type="button"
+                onClick={() => setViewMode(card.mode)}
+                className={`rounded-2xl border bg-white p-4 text-left shadow-sm transition-all hover:shadow-md ${
+                  isActive ? card.activeTone : 'border-gray-200/80 hover:border-gray-300'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-gray-500">{card.label}</span>
+                  <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl ${card.tone}`}>
+                    <card.icon className="text-sm" />
+                  </div>
                 </div>
-                <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl ${card.tone}`}>
-                  <card.icon />
-                </div>
-              </div>
-            </button>
-          ))}
+                <p className="mt-2 text-2xl font-black tracking-tight text-gray-900">{card.value}</p>
+                <p className="mt-1 truncate text-xs text-gray-500">{card.detail}</p>
+              </button>
+            );
+          })}
         </div>
 
         <InvoiceEmailImportPanel onImportComplete={loadPage} />
 
-        <section className="mb-4 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm sm:p-4">
+        {/* Tab switcher & Search toolbar */}
+        <section className="mb-5 rounded-2xl border border-gray-200/80 bg-white p-3 sm:p-4 shadow-sm">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-wrap gap-2">
+            {/* View Mode Pills */}
+            <div className="inline-flex rounded-xl bg-gray-100 p-1 border border-gray-200/60 flex-wrap gap-1">
               <button
                 onClick={() => setViewMode('files')}
-                className={`rounded-xl px-4 py-2 text-sm font-semibold ${viewMode === 'files' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                  viewMode === 'files' ? 'bg-white text-gray-900 shadow-xs font-bold' : 'text-gray-600 hover:text-gray-900'
+                }`}
               >
                 Importované FA
-                <span className={`ml-2 rounded-full px-2 py-0.5 text-xs ${viewMode === 'files' ? 'bg-white/20 text-white' : 'bg-white text-gray-500'}`}>
+                <span className={`ml-1.5 rounded-full px-1.5 py-0.2 text-[10px] font-bold ${viewMode === 'files' ? 'bg-gray-900 text-white' : 'bg-gray-200 text-gray-700'}`}>
                   {files.length}
                 </span>
               </button>
               <button
                 onClick={() => setViewMode('missing')}
-                className={`rounded-xl px-4 py-2 text-sm font-semibold ${viewMode === 'missing' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                  viewMode === 'missing' ? 'bg-white text-gray-900 shadow-xs font-bold' : 'text-gray-600 hover:text-gray-900'
+                }`}
               >
                 Sales s FA
-                <span className={`ml-2 rounded-full px-2 py-0.5 text-xs ${viewMode === 'missing' ? 'bg-white/20 text-white' : 'bg-white text-gray-500'}`}>
+                <span className={`ml-1.5 rounded-full px-1.5 py-0.2 text-[10px] font-bold ${viewMode === 'missing' ? 'bg-gray-900 text-white' : 'bg-gray-200 text-gray-700'}`}>
                   {salesWithFa.length}
                 </span>
               </button>
               <button
                 onClick={() => setViewMode('contracts')}
-                className={`rounded-xl px-4 py-2 text-sm font-semibold ${viewMode === 'contracts' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                  viewMode === 'contracts' ? 'bg-white text-gray-900 shadow-xs font-bold' : 'text-gray-600 hover:text-gray-900'
+                }`}
               >
                 Zmluvy
-                <span className={`ml-2 rounded-full px-2 py-0.5 text-xs ${viewMode === 'contracts' ? 'bg-white/20 text-white' : 'bg-white text-gray-500'}`}>
+                <span className={`ml-1.5 rounded-full px-1.5 py-0.2 text-[10px] font-bold ${viewMode === 'contracts' ? 'bg-gray-900 text-white' : 'bg-gray-200 text-gray-700'}`}>
                   {contractSales.length}
                 </span>
               </button>
             </div>
 
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <div className="relative lg:w-96">
-                <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400" />
+            {/* Search + XLSX Export */}
+            <div className="flex flex-col sm:flex-row items-center gap-2">
+              <div className="relative w-full sm:w-72 lg:w-80">
+                <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
                 <input
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Search order, PDF, sale, email..."
-                  className="w-full rounded-xl border border-gray-300 py-2 pl-9 pr-3 text-sm focus:border-pink-400 focus:outline-none focus:ring-2 focus:ring-pink-100"
+                  placeholder="Hľadať číslo obj, PDF, email, produkt..."
+                  className="w-full pl-8 pr-8 py-2 bg-gray-50/70 hover:bg-white border border-gray-200 rounded-xl text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-gray-400 transition-all"
                 />
+                {query && (
+                  <button
+                    onClick={() => setQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    <FaTimes className="text-xs" />
+                  </button>
+                )}
               </div>
+
               <button
                 onClick={exportAccountingXlsx}
                 disabled={exporting || (!sales.length && !files.length)}
-                className="inline-flex items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50 disabled:opacity-50"
-                title="Download accounting workbook with invoice audit"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-gray-800 shadow-xs hover:bg-gray-50 transition-all disabled:opacity-50"
+                title="Stiahnuť účtovný audit s faktúrami"
               >
-                <FaDownload className={`mr-2 ${exporting ? 'animate-pulse' : ''}`} />
-                {exporting ? 'Exporting...' : 'Accounting XLSX'}
+                <FaDownload className={`text-xs ${exporting ? 'animate-pulse text-emerald-600' : 'text-gray-600'}`} />
+                <span>{exporting ? 'Exportujem...' : 'Účtovný XLSX'}</span>
               </button>
             </div>
           </div>
         </section>
 
+        {/* Files View */}
         {viewMode === 'files' && (
-          <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-            <div className="border-b border-gray-200 px-4 py-4">
+          <section className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm">
+            <div className="border-b border-gray-200 bg-white px-4 py-4 sm:px-6">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                  <h2 className="text-lg font-bold text-gray-900">Importované faktúry</h2>
-                  <p className="text-sm text-gray-500">Matched faktúry sú spárované so sale. Unmatched vieš pripnúť ručne.</p>
+                  <h2 className="text-lg font-bold text-gray-900">Importované faktúry ({invoiceGroups.length})</h2>
+                  <p className="mt-0.5 text-xs text-gray-500">
+                    Spárované faktúry sú priradené k objednávkam. Nespárované vieš pripnúť ručne.
+                  </p>
                 </div>
-                <div className="flex flex-wrap gap-2">
+
+                {/* Sub-filter tabs with dynamic counts */}
+                <div className="flex flex-wrap gap-1.5">
                   {([
-                    ['all', 'All'],
-                    ['unmatched', 'Unmatched'],
-                    ['mismatch', 'Amount mismatch'],
-                    ['error', 'PDF errors'],
-                  ] as Array<[InvoiceFilter, string]>).map(([value, label]) => (
+                    ['all', 'Všetky', invoiceFilterCounts.all, 'default'],
+                    ['unmatched', 'Nespárované', invoiceFilterCounts.unmatched, 'amber'],
+                    ['mismatch', 'Rozdiel sumy', invoiceFilterCounts.mismatch, 'orange'],
+                    ['error', 'Chyby PDF', invoiceFilterCounts.error, 'rose'],
+                  ] as Array<[InvoiceFilter, string, number, string]>).map(([value, label, count, tone]) => (
                     <button
                       key={value}
                       onClick={() => setInvoiceFilter(value)}
-                      className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                      className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all ${
                         invoiceFilter === value
                           ? 'bg-gray-900 text-white'
-                          : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                          : 'border border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
                       }`}
                     >
-                      {label}
+                      <span>{label}</span>
+                      <span className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+                        invoiceFilter === value
+                          ? 'bg-white/20 text-white'
+                          : tone === 'rose' && count > 0
+                            ? 'bg-rose-100 text-rose-800'
+                            : tone === 'orange' && count > 0
+                              ? 'bg-orange-100 text-orange-800'
+                              : 'bg-gray-100 text-gray-600'
+                      }`}>
+                        {count}
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -1002,9 +1066,12 @@ export default function InvoicesPage() {
             </div>
 
             {invoiceGroups.length === 0 ? (
-              <div className="py-16 text-center">
-                <FaFilePdf className="mx-auto mb-3 text-4xl text-gray-300" />
-                <p className="font-semibold text-gray-900">No PDFs found</p>
+              <div className="py-20 text-center px-4">
+                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-100 text-gray-400">
+                  <FaFilePdf className="text-xl" />
+                </div>
+                <h3 className="text-sm font-bold text-gray-900">Neboli nájdené žiadne PDF faktúry</h3>
+                <p className="mt-1 text-xs text-gray-500">Skontroluj vybraný filter alebo vyhľadávanie.</p>
               </div>
             ) : (
               <div className="divide-y divide-gray-100">
@@ -1023,91 +1090,133 @@ export default function InvoicesPage() {
                   const hasPdfError = group.files.some(item => item.extractionStatus === 'error');
                   const expanded = expandedInvoiceGroup === group.key;
                   const status = hasPdfError
-                    ? { label: 'Chyba PDF', className: 'bg-red-100 text-red-700' }
+                    ? { label: 'Chyba PDF', bg: 'bg-rose-50 border-rose-200/80', text: 'text-rose-800', dot: 'bg-rose-500' }
                     : !linkedSale
-                      ? { label: 'Nespárované', className: 'bg-amber-100 text-amber-700' }
+                      ? { label: 'Nespárované', bg: 'bg-amber-50 border-amber-200/80', text: 'text-amber-800', dot: 'bg-amber-500' }
                       : amountMismatch
-                        ? { label: 'Skontrolovať sumu', className: 'bg-orange-100 text-orange-700' }
+                        ? { label: 'Rozdiel v sume', bg: 'bg-orange-50 border-orange-200/80', text: 'text-orange-800', dot: 'bg-orange-500' }
                         : totalUnknown
-                          ? { label: 'Suma nezistená', className: 'bg-slate-100 text-slate-700' }
-                          : { label: 'Spárované', className: 'bg-emerald-100 text-emerald-700' };
+                          ? { label: 'Suma nezistená', bg: 'bg-slate-50 border-slate-200/80', text: 'text-slate-800', dot: 'bg-slate-400' }
+                          : { label: 'Spárované', bg: 'bg-emerald-50 border-emerald-200/80', text: 'text-emerald-800', dot: 'bg-emerald-500' };
+
                   return (
-                    <div key={group.key}>
-                      <div className="grid gap-3 px-3 py-3 sm:px-4 lg:grid-cols-[minmax(180px,0.8fr)_minmax(260px,1.4fr)_180px_240px] lg:items-center">
+                    <div key={group.key} className="hover:bg-slate-50/60 transition-colors">
+                      <div className="grid gap-3 px-4 py-3.5 sm:px-6 lg:grid-cols-[minmax(180px,0.8fr)_minmax(260px,1.4fr)_180px_220px] lg:items-center">
+                        {/* Order identifier */}
                         <button
                           type="button"
                           onClick={() => setExpandedInvoiceGroup(expanded ? null : group.key)}
                           className="flex min-w-0 items-center gap-3 text-left"
                         >
-                          <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500">
-                            {expanded ? <FaChevronDown /> : <FaChevronRight />}
+                          <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors">
+                            {expanded ? <FaChevronDown className="text-xs" /> : <FaChevronRight className="text-xs" />}
                           </span>
                           <span className="min-w-0">
-                            <span className="block truncate font-mono text-sm font-bold text-gray-900">{group.orderNumber || 'Bez objednávky'}</span>
-                            <span className="mt-0.5 block text-xs text-gray-500">
-                              {group.files.length} PDF · {file.updatedAt ? formatDateShort(file.updatedAt) : '-'}
+                            <span className="block truncate font-mono text-xs font-bold text-gray-900 bg-gray-100 border border-gray-200/80 rounded-md px-2 py-0.5 inline-block">
+                              #{group.orderNumber || 'Bez objednávky'}
+                            </span>
+                            <span className="mt-1 block text-[11px] text-gray-500">
+                              {group.files.length} {group.files.length === 1 ? 'PDF súbor' : 'PDF súbory'} · {file.updatedAt ? formatDateShort(file.updatedAt) : '-'}
                             </span>
                           </span>
                         </button>
 
+                        {/* Product / Status */}
                         <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${status.className}`}>{status.label}</span>
-                            <span className="truncate text-sm font-semibold text-gray-900">{linkedSale?.name || file.extractedProduct || file.name}</span>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${status.bg} ${status.text}`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
+                              {status.label}
+                            </span>
+                            <span className="truncate text-xs font-bold text-gray-900" title={linkedSale?.name || file.extractedProduct || file.name}>
+                              {linkedSale?.name || file.extractedProduct || file.name}
+                            </span>
                           </div>
-                          <p className="mt-1 truncate text-xs text-gray-500">
+                          <p className="mt-1 truncate text-[11px] text-gray-500">
                             {linkedSale ? `${linkedSale.user_email} · ${linkedSale.source === 'eshop_sales' ? 'E-shop' : 'Consign'}` : 'Faktúra ešte nie je pripojená k predaju'}
                           </p>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3 lg:block">
+                        {/* Financial extraction */}
+                        <div className="grid grid-cols-2 gap-2 lg:block">
                           <div>
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">PDF suma</p>
-                            <p className={`text-sm font-bold ${amountMismatch ? 'text-orange-700' : 'text-gray-900'}`}>
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">PDF Suma</p>
+                            <p className={`text-xs font-bold ${amountMismatch ? 'text-orange-700' : 'text-gray-900'}`}>
                               {totalUnknown ? 'Nezistená' : formatCurrency(file.extractedTotal || 0)}
                             </p>
                           </div>
                           {expectedAmount !== null && (
-                            <div className="lg:mt-1">
-                              <p className="text-[11px] text-gray-400">Očakávané {formatCurrency(expectedAmount)}</p>
+                            <div className="lg:mt-0.5">
+                              <p className="text-[11px] text-gray-500 font-medium">Očakávané {formatCurrency(expectedAmount)}</p>
+                              {amountMismatch && file.extractedTotal !== null && file.extractedTotal !== undefined && (
+                                <p className="text-[10px] font-bold text-orange-600">
+                                  Rozdiel {formatCurrency(Number(file.extractedTotal) - expectedAmount)}
+                                </p>
+                              )}
                             </div>
                           )}
                         </div>
 
-                        <div className="flex flex-wrap gap-2 lg:justify-end">
-                          <a href={file.publicUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-[40px] items-center justify-center rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
-                            Otvoriť PDF <FaExternalLinkAlt className="ml-2 text-xs" />
+                        {/* Actions */}
+                        <div className="flex flex-wrap gap-1.5 lg:justify-end">
+                          <a
+                            href={file.publicUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex h-8 items-center justify-center rounded-lg border border-gray-200 bg-white px-2.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors shadow-xs"
+                          >
+                            <span>Otvoriť PDF</span>
+                            <FaExternalLinkAlt className="ml-1.5 text-[10px]" />
                           </a>
                           {!linkedSale && (
-                            <button onClick={() => openAttachModal(file)} className="inline-flex min-h-[40px] items-center justify-center rounded-lg bg-gray-900 px-3 py-2 text-sm font-semibold text-white hover:bg-gray-800">
-                              <FaLink className="mr-2 text-xs" /> Pripnúť
+                            <button
+                              onClick={() => openAttachModal(file)}
+                              className="inline-flex h-8 items-center justify-center rounded-lg bg-gray-900 px-3 text-xs font-semibold text-white hover:bg-black transition-colors shadow-xs"
+                            >
+                              <FaLink className="mr-1.5 text-[10px]" /> Pripnúť
                             </button>
                           )}
                         </div>
                       </div>
 
+                      {/* Expanded Drawer */}
                       {expanded && (
-                        <div className="border-t border-gray-100 bg-gray-50/70 px-4 py-4 sm:px-6">
+                        <div className="border-t border-gray-100 bg-gray-50/60 px-4 py-4 sm:px-6">
                           <div className="grid gap-4 lg:grid-cols-2">
                             <div>
-                              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">Párovanie</p>
+                              <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-gray-500">Párovanie so sale</p>
                               {linkedSale ? (
-                                <div className="rounded-xl border border-gray-200 bg-white p-3 text-sm">
-                                  <p className="font-semibold text-gray-900">{linkedSale.name}</p>
-                                  <p className="mt-1 text-xs text-gray-500">{linkedSale.size || '-'} · {linkedSale.sku || '-'} · {linkedSale.external_id || '-'}</p>
-                                  <p className="mt-2 text-xs text-gray-600">Cena {formatCurrency(linkedSale.price)} · payout {formatCurrency(linkedSale.payout)}</p>
+                                <div className="rounded-xl border border-gray-200 bg-white p-3.5 text-xs shadow-xs space-y-1">
+                                  <p className="font-bold text-gray-900">{linkedSale.name}</p>
+                                  <div className="flex flex-wrap gap-1 text-[11px] text-gray-600">
+                                    <span className="rounded bg-gray-100 px-1.5 py-0.2">Veľkosť {linkedSale.size || '-'}</span>
+                                    <span className="rounded bg-gray-100 px-1.5 py-0.2 font-mono">SKU {linkedSale.sku || '-'}</span>
+                                    <span className="rounded bg-gray-100 px-1.5 py-0.2">Ext #{linkedSale.external_id || '-'}</span>
+                                  </div>
+                                  <div className="pt-1 flex items-center justify-between text-xs">
+                                    <span className="text-gray-500">Predajná cena: <span className="font-bold text-gray-900">{formatCurrency(linkedSale.price)}</span></span>
+                                    <span className="text-gray-500">Výplata: <span className="font-bold text-blue-700">{formatCurrency(linkedSale.payout)}</span></span>
+                                  </div>
                                 </div>
                               ) : (
-                                <p className="text-sm text-gray-500">Bez automatického párovania. Použi tlačidlo Pripnúť.</p>
+                                <p className="text-xs text-gray-500 bg-white border border-gray-200/80 rounded-xl p-3">
+                                  K tejto faktúre nie je automaticky priradený žiaden predaj. Použi tlačidlo <strong className="text-gray-900">Pripnúť</strong>.
+                                </p>
                               )}
                             </div>
                             <div>
-                              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">Súbory</p>
-                              <div className="space-y-2">
+                              <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-gray-500">Súbory v objednávke</p>
+                              <div className="space-y-1.5">
                                 {group.files.map(item => (
-                                  <a key={item.id} href={item.publicUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-3 py-2 hover:border-gray-300">
-                                    <span className="min-w-0 truncate text-sm font-medium text-gray-800">{item.name}</span>
-                                    <span className="flex-shrink-0 text-xs text-gray-500">{formatFileSize(item.size)}</span>
+                                  <a
+                                    key={item.id}
+                                    href={item.publicUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs hover:border-gray-300 transition-colors shadow-xs"
+                                  >
+                                    <span className="min-w-0 truncate font-semibold text-gray-800">{item.name}</span>
+                                    <span className="flex-shrink-0 text-[11px] font-mono text-gray-500">{formatFileSize(item.size)}</span>
                                   </a>
                                 ))}
                               </div>
@@ -1123,63 +1232,69 @@ export default function InvoicesPage() {
           </section>
         )}
 
+        {/* Sales with FA View */}
         {viewMode === 'missing' && (
-          <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-            <div className="border-b border-gray-200 px-4 py-4">
-              <h2 className="text-lg font-bold text-gray-900">Sales s FA</h2>
-              <p className="text-sm text-gray-500">Sales, ktoré už majú pripojenú faktúru.</p>
+          <section className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm">
+            <div className="border-b border-gray-200 bg-white px-4 py-4 sm:px-6">
+              <h2 className="text-lg font-bold text-gray-900">Sales s priradenou FA ({visibleSalesWithFa.length})</h2>
+              <p className="mt-0.5 text-xs text-gray-500">Predaje a objednávky, ktoré už majú priradenú FA URL v databáze.</p>
             </div>
 
             {visibleSalesWithFa.length === 0 ? (
-              <div className="py-16 text-center">
-                <FaFilePdf className="mx-auto mb-3 text-4xl text-gray-300" />
-                <p className="font-semibold text-gray-900">No sales with FA</p>
+              <div className="py-20 text-center px-4">
+                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-100 text-gray-400">
+                  <FaFilePdf className="text-xl" />
+                </div>
+                <h3 className="text-sm font-bold text-gray-900">Žiadne sales s faktúrou</h3>
+                <p className="mt-1 text-xs text-gray-500">Zatiaľ žiadny predaj nevyhovuje zadaným filtrom.</p>
               </div>
             ) : (
               <div className="divide-y divide-gray-100">
                 {visibleSalesWithFa.map((sale) => (
-                  <div key={sale.id} className="p-4">
-                    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px_260px] lg:items-center">
+                  <div key={sale.id} className="p-4 hover:bg-slate-50/60 transition-colors">
+                    <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_280px_240px] lg:items-center">
                       <div className="flex min-w-0 gap-3">
                         {sale.image_url ? (
-                          <img src={sale.image_url} alt={sale.name} loading="lazy" className="h-12 w-12 flex-shrink-0 rounded-xl object-cover" />
+                          <img src={sale.image_url} alt={sale.name} loading="lazy" className="h-12 w-12 flex-shrink-0 rounded-xl object-contain border border-gray-200 p-0.5 bg-white" />
                         ) : (
                           <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-400">
-                            <FaFileInvoice />
+                            <FaFileInvoice className="text-base" />
                           </div>
                         )}
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-bold text-gray-900">{sale.name}</p>
-                          <p className="mt-0.5 text-xs text-gray-500">
-                            {sale.size || '-'} · {sale.sku || '-'} · {sale.user_email}
-                          </p>
-                          <p className="mt-1 font-mono text-xs text-gray-500">
-                            {sale.external_id || sale.id.slice(0, 8)} · {formatDateShort(sale.invoice_date || sale.created_at)}
+                          <p className="truncate text-xs font-bold text-gray-900">{sale.name}</p>
+                          <div className="mt-0.5 flex flex-wrap gap-1 text-[11px] text-gray-500">
+                            <span className="rounded bg-gray-100 px-1.5 py-0.2">{sale.size || '-'}</span>
+                            {sale.sku && <span className="rounded bg-gray-100 px-1.5 py-0.2 font-mono">SKU {sale.sku}</span>}
+                            <span>· {sale.user_email}</span>
+                          </div>
+                          <p className="mt-1 font-mono text-[10px] text-gray-400">
+                            #{sale.external_id || sale.id.slice(0, 8)} · {formatDateShort(sale.invoice_date || sale.created_at)}
                           </p>
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-3 gap-3 text-sm">
+                      <div className="grid grid-cols-3 gap-2 text-xs">
                         <div>
-                          <p className="text-xs text-gray-500">Price</p>
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Cena</p>
                           <p className="font-bold text-gray-900">{formatCurrency(sale.price || 0)}</p>
                         </div>
                         <div>
-                          <p className="text-xs text-gray-500">Payout</p>
-                          <p className="font-bold text-gray-900">{formatCurrency(sale.payout || 0)}</p>
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Výplata</p>
+                          <p className="font-bold text-blue-700">{formatCurrency(sale.payout || 0)}</p>
                         </div>
                         <div>
-                          <p className="text-xs text-gray-500">Status</p>
-                          <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusBadge(sale.status)}`}>
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Stav</p>
+                          <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusBadge(sale.status)}`}>
                             {sale.status}
                           </span>
                         </div>
                       </div>
 
-                      <div className="grid w-full grid-cols-1 gap-2 sm:w-[260px] lg:justify-self-end">
+                      <div className="flex flex-wrap gap-1.5 lg:justify-end">
                         <button
                           onClick={() => openPayoutModal(sale)}
-                          className="inline-flex min-h-[44px] items-center justify-center rounded-lg bg-gray-900 px-3 py-2 text-sm font-semibold text-white hover:bg-gray-800"
+                          className="inline-flex h-8 items-center justify-center rounded-lg bg-gray-900 px-3 text-xs font-semibold text-white hover:bg-black transition-colors shadow-xs"
                         >
                           Upraviť payout
                         </button>
@@ -1188,9 +1303,10 @@ export default function InvoicesPage() {
                             href={sale.fa_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                            className="inline-flex h-8 items-center justify-center rounded-lg border border-gray-200 bg-white px-2.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors shadow-xs"
                           >
-                            Otvoriť FA <FaExternalLinkAlt className="ml-2 text-xs" />
+                            <span>Otvoriť FA</span>
+                            <FaExternalLinkAlt className="ml-1.5 text-[10px]" />
                           </a>
                         )}
                       </div>
@@ -1202,75 +1318,84 @@ export default function InvoicesPage() {
           </section>
         )}
 
+        {/* Contracts View */}
         {viewMode === 'contracts' && (
-          <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-            <div className="border-b border-gray-200 px-4 py-4">
-              <h2 className="text-lg font-bold text-gray-900">Zmluvy</h2>
-              <p className="text-sm text-gray-500">Všetky consign sales. Hotové zmluvy otvoríš, chýbajúce vygeneruješ.</p>
+          <section className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm">
+            <div className="border-b border-gray-200 bg-white px-4 py-4 sm:px-6">
+              <h2 className="text-lg font-bold text-gray-900">Kúpne zmluvy ({visibleContractSales.length})</h2>
+              <p className="mt-0.5 text-xs text-gray-500">Všetky consign predaje. Vygenerované zmluvy otvoríš, chýbajúce vygeneruješ 1 klikom.</p>
             </div>
 
             {visibleContractSales.length === 0 ? (
-              <div className="py-16 text-center">
-                <FaFileContract className="mx-auto mb-3 text-4xl text-gray-300" />
-                <p className="font-semibold text-gray-900">No sales found</p>
+              <div className="py-20 text-center px-4">
+                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-100 text-gray-400">
+                  <FaFileContract className="text-xl" />
+                </div>
+                <h3 className="text-sm font-bold text-gray-900">Žiadne zmluvy</h3>
+                <p className="mt-1 text-xs text-gray-500">Nenašli sa žiadne consign predaje vyhovujúce filtru.</p>
               </div>
             ) : (
               <div className="divide-y divide-gray-100">
                 {visibleContractSales.map((sale) => (
-                  <div key={sale.id} className="p-4">
-                    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px_220px] lg:items-center">
+                  <div key={sale.id} className="p-4 hover:bg-slate-50/60 transition-colors">
+                    <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_260px_220px] lg:items-center">
                       <div className="flex min-w-0 gap-3">
                         {sale.image_url ? (
-                          <img src={sale.image_url} alt={sale.name} loading="lazy" className="h-12 w-12 flex-shrink-0 rounded-xl object-cover" />
+                          <img src={sale.image_url} alt={sale.name} loading="lazy" className="h-12 w-12 flex-shrink-0 rounded-xl object-contain border border-gray-200 p-0.5 bg-white" />
                         ) : (
                           <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-400">
-                            <FaFileContract />
+                            <FaFileContract className="text-base" />
                           </div>
                         )}
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-bold text-gray-900">{sale.name}</p>
-                          <p className="mt-0.5 text-xs text-gray-500">
-                            {sale.size || '-'} · {sale.sku || '-'} · {sale.user_email}
-                          </p>
-                          <p className="mt-1 font-mono text-xs text-gray-500">
-                            {sale.external_id || sale.id.slice(0, 8)} · {formatDateShort(sale.invoice_date || sale.created_at)}
+                          <p className="truncate text-xs font-bold text-gray-900">{sale.name}</p>
+                          <div className="mt-0.5 flex flex-wrap gap-1 text-[11px] text-gray-500">
+                            <span className="rounded bg-gray-100 px-1.5 py-0.2">{sale.size || '-'}</span>
+                            {sale.sku && <span className="rounded bg-gray-100 px-1.5 py-0.2 font-mono">SKU {sale.sku}</span>}
+                            <span>· {sale.user_email}</span>
+                          </div>
+                          <p className="mt-1 font-mono text-[10px] text-gray-400">
+                            #{sale.external_id || sale.id.slice(0, 8)} · {formatDateShort(sale.invoice_date || sale.created_at)}
                           </p>
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div className="grid grid-cols-2 gap-2 text-xs">
                         <div>
-                          <p className="text-xs text-gray-500">Price</p>
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Cena</p>
                           <p className="font-bold text-gray-900">{formatCurrency(sale.price || 0)}</p>
                         </div>
                         <div>
-                          <p className="text-xs text-gray-500">Payout</p>
-                          <p className="font-bold text-gray-900">{formatCurrency(sale.payout || 0)}</p>
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Výplata</p>
+                          <p className="font-bold text-blue-700">{formatCurrency(sale.payout || 0)}</p>
                         </div>
-                        <div className="col-span-2">
-                          <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${sale.contract_url ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                            {sale.contract_url ? 'zmluva hotová' : 'bez zmluvy'}
+                        <div className="col-span-2 mt-0.5">
+                          <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${
+                            sale.contract_url ? 'bg-emerald-100 text-emerald-800 border border-emerald-200/60' : 'bg-amber-100 text-amber-800 border border-amber-200/60'
+                          }`}>
+                            {sale.contract_url ? 'Zmluva hotová' : 'Bez zmluvy'}
                           </span>
                         </div>
                       </div>
 
-                      <div className="grid w-full grid-cols-1 gap-2 sm:w-[220px] lg:justify-self-end">
+                      <div className="flex flex-wrap gap-1.5 lg:justify-end">
                         {sale.contract_url ? (
                           <a
                             href={sale.contract_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                            className="inline-flex h-8 items-center justify-center rounded-lg border border-gray-200 bg-white px-2.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors shadow-xs"
                           >
-                            Otvoriť zmluvu <FaExternalLinkAlt className="ml-2 text-xs" />
+                            <span>Otvoriť zmluvu</span>
+                            <FaExternalLinkAlt className="ml-1.5 text-[10px]" />
                           </a>
                         ) : (
                           <button
                             onClick={() => generateContractForSale(sale)}
                             disabled={generatingContractId === sale.id}
-                            className="inline-flex min-h-[44px] items-center justify-center rounded-lg bg-gray-900 px-3 py-2 text-sm font-semibold text-white hover:bg-gray-800 disabled:opacity-50"
+                            className="inline-flex h-8 items-center justify-center rounded-lg bg-gray-900 px-3 text-xs font-semibold text-white hover:bg-black transition-colors shadow-xs disabled:opacity-50"
                           >
-                            <FaFileContract className="mr-2 text-xs" />
+                            <FaFileContract className="mr-1.5 text-[10px]" />
                             {generatingContractId === sale.id ? 'Generujem...' : 'Vygenerovať'}
                           </button>
                         )}
@@ -1284,79 +1409,89 @@ export default function InvoicesPage() {
         )}
       </main>
 
+      {/* Attach Invoice Modal */}
       {attachModalFile && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 p-4">
-          <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="w-full max-w-xl rounded-2xl bg-white shadow-2xl overflow-hidden border border-gray-200">
             <div className="flex items-start justify-between gap-4 border-b border-gray-200 px-5 py-4">
               <div className="min-w-0">
-                <h2 className="text-lg font-bold text-gray-900">Pripnúť faktúru</h2>
-                <p className="mt-1 truncate text-sm text-gray-500">
-                  {attachModalFile.name} · {attachModalFile.orderNumber ? `Order ${attachModalFile.orderNumber}` : 'Bez order number'}
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                  <FaLink className="text-gray-400" /> Párovanie faktúry
+                </span>
+                <h2 className="text-base font-black text-gray-900 mt-0.5 truncate">{attachModalFile.name}</h2>
+                <p className="mt-0.5 text-xs text-gray-500">
+                  {attachModalFile.orderNumber ? `Objednávka #${attachModalFile.orderNumber}` : 'Bez detekovaného čísla objednávky'}
                 </p>
               </div>
               <button
                 onClick={closeAttachModal}
-                className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+                className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-900 transition-colors"
                 aria-label="Zavrieť"
               >
                 <FaTimes />
               </button>
             </div>
 
-            <div className="px-5 py-4">
-              <label className="mb-2 block text-sm font-semibold text-gray-900">Sale</label>
-              <select
-                value={attachTarget}
-                onChange={(event) => setAttachTarget(event.target.value)}
-                className="w-full rounded-xl border border-gray-300 px-3 py-3 text-sm focus:border-pink-400 focus:outline-none focus:ring-2 focus:ring-pink-100"
-              >
-                <option value="">Vyber sale...</option>
-                {attachableSales.map((sale) => (
-                  <option key={`${sale.source}:${sale.id}`} value={`${sale.source}:${sale.id}`}>
-                    {sale.external_id || sale.id.slice(0, 8)} · {sale.source === 'eshop_sales' ? 'Eshop' : 'Consign'} · {sale.name} · {sale.user_email}
-                  </option>
-                ))}
-              </select>
+            <div className="px-5 py-4 space-y-3">
+              <div>
+                <label className="mb-1.5 block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                  Vyber zodpovedajúci predaj (Sale)
+                </label>
+                <select
+                  value={attachTarget}
+                  onChange={(event) => setAttachTarget(event.target.value)}
+                  className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-xs text-gray-900 focus:border-gray-900 focus:outline-none focus:ring-2 focus:ring-black/10"
+                >
+                  <option value="">Vyber sale zo zoznamu...</option>
+                  {attachableSales.map((sale) => (
+                    <option key={`${sale.source}:${sale.id}`} value={`${sale.source}:${sale.id}`}>
+                      #{sale.external_id || sale.id.slice(0, 8)} · {sale.source === 'eshop_sales' ? 'Eshop' : 'Consign'} · {sale.name} · {sale.user_email}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-              <div className="mt-4 rounded-xl bg-gray-50 px-3 py-3 text-sm text-gray-600">
-                Po pripnutí sa faktúra uloží k vybranému sale do FA URL.
+              <div className="rounded-xl bg-gray-50 border border-gray-100 px-3 py-2.5 text-xs text-gray-600">
+                Po pripnutí sa faktúra natrvalo spáruje s vybraným predajom a prepojí sa do FA dokumentu pre účtovníctvo.
               </div>
             </div>
 
-            <div className="flex flex-col-reverse gap-2 border-t border-gray-200 px-5 py-4 sm:flex-row sm:justify-end">
+            <div className="flex flex-col-reverse gap-2 border-t border-gray-200 px-5 py-3.5 sm:flex-row sm:justify-end bg-gray-50/50">
               <button
                 onClick={closeAttachModal}
                 disabled={Boolean(attachingPath)}
-                className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
               >
                 Zrušiť
               </button>
               <button
                 onClick={attachFileToSale}
                 disabled={Boolean(attachingPath) || !attachTarget}
-                className="inline-flex items-center justify-center rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800 disabled:opacity-50"
+                className="inline-flex items-center justify-center rounded-xl bg-gray-900 px-4 py-2 text-xs font-semibold text-white hover:bg-black transition-colors disabled:opacity-50 shadow-xs"
               >
-                <FaLink className="mr-2 text-xs" />
-                {attachingPath ? 'Pripínam...' : 'Pripnúť'}
+                <FaLink className="mr-1.5 text-xs" />
+                {attachingPath ? 'Pripínam...' : 'Pripnúť k objednávke'}
               </button>
             </div>
           </div>
         </div>
       )}
 
+      {/* Edit Payout Modal */}
       {payoutModalSale && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 p-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl overflow-hidden border border-gray-200">
             <div className="flex items-start justify-between gap-4 border-b border-gray-200 px-5 py-4">
               <div className="min-w-0">
-                <h2 className="text-lg font-bold text-gray-900">Upraviť payout</h2>
-                <p className="mt-1 truncate text-sm text-gray-500">
-                  {payoutModalSale.external_id || payoutModalSale.id.slice(0, 8)} · {payoutModalSale.name}
+                <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Úprava výplaty</span>
+                <h2 className="text-base font-black text-gray-900 mt-0.5 truncate">{payoutModalSale.name}</h2>
+                <p className="mt-0.5 text-xs text-gray-500 font-mono">
+                  #{payoutModalSale.external_id || payoutModalSale.id.slice(0, 8)}
                 </p>
               </div>
               <button
                 onClick={closePayoutModal}
-                className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+                className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-900 transition-colors"
                 aria-label="Zavrieť"
               >
                 <FaTimes />
@@ -1364,19 +1499,19 @@ export default function InvoicesPage() {
             </div>
 
             <div className="space-y-4 px-5 py-4">
-              <div className="grid grid-cols-2 gap-3 rounded-xl bg-gray-50 px-3 py-3 text-sm">
+              <div className="grid grid-cols-2 gap-3 rounded-xl bg-gray-50 border border-gray-100 p-3 text-xs">
                 <div>
-                  <p className="text-xs text-gray-500">Sale price</p>
-                  <p className="font-bold text-gray-900">{formatCurrency(payoutModalSale.price || 0)}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Predajná cena</p>
+                  <p className="text-sm font-black text-gray-900 mt-0.5">{formatCurrency(payoutModalSale.price || 0)}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500">Aktuálny payout</p>
-                  <p className="font-bold text-gray-900">{formatCurrency(payoutModalSale.payout || 0)}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Aktuálna výplata</p>
+                  <p className="text-sm font-black text-blue-700 mt-0.5">{formatCurrency(payoutModalSale.payout || 0)}</p>
                 </div>
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-900">Nový payout</label>
+                <label className="mb-1.5 block text-xs font-bold text-gray-700 uppercase tracking-wider">Nová výplata consignora</label>
                 <div className="relative">
                   <input
                     type="number"
@@ -1384,32 +1519,32 @@ export default function InvoicesPage() {
                     step="0.01"
                     value={payoutDraft}
                     onChange={(event) => setPayoutDraft(event.target.value)}
-                    className="w-full rounded-xl border border-gray-300 px-3 py-3 pr-12 text-base font-semibold text-gray-900 focus:border-pink-400 focus:outline-none focus:ring-2 focus:ring-pink-100"
+                    className="w-full rounded-xl border border-gray-300 px-3 py-2.5 pr-12 text-sm font-bold text-gray-900 focus:border-gray-900 focus:outline-none focus:ring-2 focus:ring-black/10"
                     autoFocus
                   />
-                  <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-500">EUR</span>
+                  <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">EUR</span>
                 </div>
               </div>
 
-              <div className="rounded-xl bg-gray-50 px-3 py-3 text-sm text-gray-600">
-                Ukladá sa priamo do sale. Ak je faktúra zaevidovaná v importe, uloží sa tam aj payout snapshot pre prehľad.
+              <div className="rounded-xl bg-gray-50 border border-gray-100 p-3 text-xs text-gray-600">
+                Zmena sa okamžite prejaví v databáze predaja aj v evidencii faktúr pre účtovníctvo.
               </div>
             </div>
 
-            <div className="flex flex-col-reverse gap-2 border-t border-gray-200 px-5 py-4 sm:flex-row sm:justify-end">
+            <div className="flex flex-col-reverse gap-2 border-t border-gray-200 px-5 py-3.5 sm:flex-row sm:justify-end bg-gray-50/50">
               <button
                 onClick={closePayoutModal}
                 disabled={savingPayout}
-                className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
               >
                 Zrušiť
               </button>
               <button
                 onClick={savePayoutForSale}
                 disabled={savingPayout}
-                className="inline-flex items-center justify-center rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800 disabled:opacity-50"
+                className="inline-flex items-center justify-center rounded-xl bg-gray-900 px-4 py-2 text-xs font-semibold text-white hover:bg-black transition-colors disabled:opacity-50 shadow-xs"
               >
-                {savingPayout ? 'Ukladám...' : 'Uložiť payout'}
+                {savingPayout ? 'Ukladám...' : 'Uložiť výplatu'}
               </button>
             </div>
           </div>
