@@ -1160,7 +1160,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
                   You have {expiredProducts.length} expired {expiredProducts.length === 1 ? 'offer' : 'offers'}
                 </h4>
                 <p className="text-xs sm:text-sm text-amber-700 mt-0.5">
-                  Expired offers are not displayed in the eshop. You can renew them for another 30 days or delete them.
+                  Expired offers are not displayed in the eshop. You can renew them for another {fees.offer_expiration_days || 30} days or delete them.
                 </p>
               </div>
             </div>
@@ -1262,7 +1262,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
                     className="inline-flex items-center px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition disabled:opacity-50"
                   >
                     <FaRedo className="mr-1.5 text-[10px]" />
-                    Renew Selected (+30d)
+                    Renew Selected (+{fees.offer_expiration_days || 30}d)
                   </button>
                   <button
                     onClick={() => handleDeleteMultiple(Array.from(selectedProductIds))}
@@ -1400,7 +1400,7 @@ export default function Dashboard({ isAdmin }: DashboardProps) {
                                   onClick={() => handleRenewProduct(product.id)}
                                   disabled={actionLoading}
                                   className="inline-flex items-center px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition shadow-sm disabled:opacity-50"
-                                  title="Renew for 30 days"
+                                  title={`Renew for ${fees.offer_expiration_days || 30} days`}
                                 >
                                   <FaRedo className="mr-1 text-[10px]" />
                                   Renew

@@ -138,8 +138,8 @@ export default function SettingsPage() {
         throw new Error('EUR to CZK rate must be greater than 0');
       }
 
-      if (![7, 14, 30].includes(offerExpirationDays)) {
-        throw new Error('Offer expiration period must be 7, 14, or 30 days');
+      if (![7, 14, 30, 60, 90].includes(offerExpirationDays)) {
+        throw new Error('Offer expiration period must be 7, 14, 30, 60, or 90 days');
       }
 
       const { error } = await supabase
@@ -367,6 +367,8 @@ export default function SettingsPage() {
                   <option value={7}>7 days</option>
                   <option value={14}>14 days</option>
                   <option value={30}>30 days</option>
+                  <option value={60}>60 days</option>
+                  <option value={90}>90 days</option>
                 </select>
                 <p className={settingHelpClass}>After this number of days, the offer will be automatically deleted</p>
               </div>
