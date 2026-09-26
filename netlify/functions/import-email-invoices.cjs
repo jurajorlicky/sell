@@ -131,11 +131,14 @@ const readMessageText = async (client, uid, bodyStructure) => {
   return chunks.join(' ').slice(0, 200000);
 };
 
-const cleanOrderNumber = (value) =>
-  String(value || '')
-    .trim()
-    .replace(/\.pdf$/i, '')
-    .replace(/[_-]\d+$/, '');
+const cleanOrderNumber = (value) => {
+  const str = String(value || '').trim().replace(/\.pdf$/i, '');
+  const matchWithSuffix = str.match(/^(.{6,})[_-]\d+$/);
+  if (matchWithSuffix) {
+    return matchWithSuffix[1].trim();
+  }
+  return str;
+};
 
 const normalizePdfText = (value) =>
   String(value || '')
@@ -146,26 +149,49 @@ const normalizePdfText = (value) =>
     .trim();
 
 const parseMoney = (value) => {
-  const raw = String(value || '').replace(/[^\d,.\s-]/g, '').trim();
+  if (value === null || value === undefined) return null;
+  let raw = String(value).trim();
+  if (!raw) return null;
+
+  // Handle Slovak/Czech "150,-" or "150,- €"
+  raw = raw.replace(/,-\s*(?:€|eur)?$/i, '');
+
+  // Strip non-digit characters except commas, periods, spaces, minus
+  raw = raw.replace(/[^\d,.\s-]/g, '').trim();
   if (!raw) return null;
 
   const compact = raw.replace(/\s+/g, '');
-  const normalized = compact.includes(',')
-    ? compact.replace(/\./g, '').replace(',', '.')
-    : compact.replace(/,/g, '');
-  const parsed = Number(normalized);
+  if (!compact || compact === '-') return null;
 
-  return Number.isFinite(parsed) ? parsed : null;
+  // Handle decimal separators
+  let normalized;
+  if (compact.includes(',') && compact.includes('.')) {
+    if (compact.lastIndexOf(',') > compact.lastIndexOf('.')) {
+      normalized = compact.replace(/\./g, '').replace(',', '.');
+    } else {
+      normalized = compact.replace(/,/g, '');
+    }
+  } else if (compact.includes(',')) {
+    normalized = compact.replace(',', '.');
+  } else {
+    normalized = compact;
+  }
+
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? Math.round(parsed * 100) / 100 : null;
 };
 
 const extractMoneyValues = (text) => {
   const values = [];
-  const amountPattern = /(\d{1,3}(?:[ .]\d{3})*(?:,\d{2}|\.\d{2})|\d+(?:,\d{2}|\.\d{2}))\s*(?:€|EUR|eur)?/gi;
+  if (!text) return values;
+  const amountPattern = /(?:^|[^\d,.-])(\d{1,3}(?:[ \u00a0.]\d{3})*(?:,\d{2}|\.\d{2}|,-)?|\d+(?:,\d{2}|\.\d{2}|,-)?)\s*(?:€|EUR|eur)?(?=$|[^\d,.-])/gi;
   let match = amountPattern.exec(text);
 
   while (match?.[1]) {
     const amount = parseMoney(match[1]);
-    if (amount !== null) values.push(amount);
+    if (amount !== null && amount > 0) {
+      values.push(amount);
+    }
     match = amountPattern.exec(text);
   }
 
@@ -175,48 +201,69 @@ const extractMoneyValues = (text) => {
 const extractInvoiceTotal = (text) => {
   const normalized = normalizePdfText(text);
   const lines = normalized.split('\n').map((line) => line.trim()).filter(Boolean);
-  const labelGroups = [
-    /(?:celkom k úhrade|celkom k uhrade|celkem k úhradě|celkem k uhrade|total due|grand total)/i,
-    /^(?:suma celkom|celkom|celkem|total)(?:\s+s\s+dph|\s+with\s+vat)?\s*[:\-]?/i,
+
+  const primaryLabels = [
+    /(?:celkom\s+k\s+[uú]hrade|celkem\s+k\s+[uú]hrad[eě]|k\s+[uú]hrade|k\s+[uú]hrad[eě]|spolu\s+(?:na\s+|k\s+)?[uú]hradu|suma\s+(?:na\s+|k\s+)?[uú]hradu|čiastka\s+k\s+[uú]hrad[eě]|fakturovan[aá]\s+suma|total\s+due|amount\s+due|grand\s+total|k\s+platb[eě])/i,
+    /(?:celkov[aá]\s+suma|suma\s+celkom|celkom\s+s\s+dph|celkem\s+s\s+dph|spolu\s+s\s+dph|total\s+(?:with\s+vat|incl\.?\s*vat)?)/i,
+    /(?:^|\s)(?:celkom|celkem|spolu|total)\s*[:\-]?\s*$/i,
+    /(?:^|\s)(?:celkom|celkem|spolu|total)\s*[:\-]/i,
   ];
 
-  for (const labelPattern of labelGroups) {
+  for (const labelPattern of primaryLabels) {
     for (let index = lines.length - 1; index >= 0; index--) {
       const line = lines[index];
       const labelMatch = line.match(labelPattern);
       if (!labelMatch) continue;
 
-      // Only inspect the value after the total label. This avoids treating an
-      // invoice number, VAT rate or an item price elsewhere in the PDF as total.
       const afterLabel = line.slice((labelMatch.index || 0) + labelMatch[0].length);
       const amounts = extractMoneyValues(afterLabel);
       if (amounts.length) return amounts[amounts.length - 1];
 
-      // Some PDF generators put the label and its value on adjacent lines.
-      const nextLineAmounts = index + 1 < lines.length ? extractMoneyValues(lines[index + 1]) : [];
-      if (nextLineAmounts.length && lines[index + 1].length < 40) {
-        return nextLineAmounts[nextLineAmounts.length - 1];
+      for (let nextOffset = 1; nextOffset <= 2 && index + nextOffset < lines.length; nextOffset++) {
+        const nextLine = lines[index + nextOffset];
+        if (nextLine.length > 50) continue;
+        const nextAmounts = extractMoneyValues(nextLine);
+        if (nextAmounts.length) return nextAmounts[nextAmounts.length - 1];
       }
     }
   }
 
-  // No trustworthy total label: keep the amount unknown instead of producing
-  // a confident but false mismatch from the largest number in the document.
+  // Fallback: look for currency amounts on lines mentioning payment words and EUR or €
+  for (let index = lines.length - 1; index >= 0; index--) {
+    const line = lines[index];
+    if (/(?:k\s*[uú]hrad|celkom|celkem|spolu|suma|total)/i.test(line) && /(?:€|EUR)/i.test(line)) {
+      const amounts = extractMoneyValues(line);
+      if (amounts.length) return amounts[amounts.length - 1];
+    }
+  }
+
   return null;
+};
+
+const cleanProductName = (name) => {
+  return String(name || '')
+    .replace(/^\s*(?:\d+\s*[x×*]|\d+\s*(?:ks|pcs|kusov|kusy)?)\s*/i, '')
+    .replace(/\s*(?:\d+[,.]\d{2}\s*(?:€|eur)?|\d+%\s*|\b\d+\s*ks\b|\bks\b)\s*$/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
 };
 
 const isLikelyProductLine = (line) => {
   const text = line.toLowerCase();
-  if (line.length < 5 || line.length > 140) return false;
+  if (line.length < 4 || line.length > 160) return false;
   if (!/[a-záäčďéíľĺňóôŕšťúýž]/i.test(line)) return false;
-  if (/^(faktúra|faktura|invoice|daňový|danovy|doklad|dodávateľ|dodavatel|odberateľ|odberatel|iban|swift|variabil|celkom|total|dph|vat|suma|price|qty|ks|množstvo|mnozstvo)/i.test(text)) return false;
+  if (/^(faktúra|faktura|invoice|daňový|danovy|doklad|dodávateľ|dodavatel|odberateľ|odberatel|iban|swift|variabil|celkom|total|dph|vat|suma|price|qty|ks|množstvo|mnozstvo|dátum|datum|spôsob|sposob|účet|ucet)/i.test(text)) return false;
   if (/^\d+[\s.,€eur-]*$/i.test(line)) return false;
 
   const productHints = [
     'nike', 'jordan', 'adidas', 'yeezy', 'new balance', 'asics', 'salomon', 'hoka',
     'ugg', 'crocs', 'puma', 'converse', 'dunk', 'air ', 'slide', 'mind', 'foam',
-    'runner', 'samba', 'gazelle', 'force', 'retro', 'low', 'high', 'black', 'red',
-    'grey', 'gray', 'white', 'cream',
+    'runner', 'samba', 'gazelle', 'force', 'retro', 'low', 'high', 'mid', 'black', 'red',
+    'grey', 'gray', 'white', 'cream', 'travis', 'sp5der', 'denim tears', 'supreme',
+    'bape', 'stussy', 'fear of god', 'essentials', 'corteiz', 'broken planet',
+    'hellstar', 'kobe', 'cactus jack', 'campus', 'spezial', 'special', '550',
+    '2002r', '1906r', '9060', '990', '991', '992', '993', 'gel-kayano', 'gel-1130',
+    'gel-nyc', 'xt-6', 'tasman', 'tazz', 'pollex'
   ];
 
   return productHints.some((hint) => text.includes(hint));
@@ -232,23 +279,24 @@ const extractInvoiceItems = (text) => {
   for (const line of lines) {
     const amountMatch = line.match(/(\d{1,3}(?:[ .]\d{3})*(?:,\d{2}|\.\d{2})|\d+(?:,\d{2}|\.\d{2}))\s*(?:€|EUR|eur)?\s*$/);
     const amount = amountMatch ? parseMoney(amountMatch[1]) : null;
-    const product = amountMatch
-      ? line.slice(0, amountMatch.index).replace(/^\d+\s*[x×]?\s*/i, '').replace(/\s{2,}/g, ' ').trim()
+    const rawProduct = amountMatch
+      ? line.slice(0, amountMatch.index)
       : line;
+    const product = cleanProductName(rawProduct);
 
-    if ((amount !== null && /[a-záäčďéíľĺňóôŕšťúýž]/i.test(product) && product.length >= 5) || isLikelyProductLine(product)) {
+    if ((amount !== null && /[a-záäčďéíľĺňóôŕšťúýž]/i.test(product) && product.length >= 4) || isLikelyProductLine(product)) {
       items.push({
         product: product.slice(0, 180),
         total: amount,
       });
     }
 
-    if (items.length >= 5) break;
+    if (items.length >= 8) break;
   }
 
   if (!items.length) {
     const productLine = lines.find(isLikelyProductLine);
-    if (productLine) items.push({ product: productLine.slice(0, 180), total: null });
+    if (productLine) items.push({ product: cleanProductName(productLine).slice(0, 180), total: null });
   }
 
   return items;
@@ -293,18 +341,92 @@ const extractPdfDetails = async (content) => {
 
 const extractOrderNumbers = (...values) => {
   const found = [];
-  const patterns = [
-    /(?:^|[^0-9])((?:202\d{5})(?:[_-]\d+)?)(?=$|[^0-9])/g,
+  const addFound = (candidate) => {
+    const cleaned = cleanOrderNumber(candidate);
+    if (cleaned && cleaned.length >= 4 && !found.includes(cleaned)) {
+      found.push(cleaned);
+    }
+  };
+
+  const textValues = values.filter(Boolean).map((v) => String(v));
+
+  // 1. High confidence: Labeled order numbers & variable symbols
+  const LABELED_ORDER_PATTERNS = [
+    /(?:objedn[aá]vk[ay]|obj\.?\s*č\.?|order\s*(?:no\.?|id|#)?|číslo\s*objedn[aá]vky|č\.\s*obj\.?)\s*[:#-]?\s*([a-z0-9][a-z0-9_-]{3,24})/gi,
+    /(?:variabiln[yý]\s*symbol|v\.?\s*s\.?|var\.?\s*sym\.?)\s*[:#-]?\s*(\d{6,14})/gi,
+    /(?:fakt[uú]ra\s*č\.?|daňový\s*doklad\s*č\.?|invoice\s*(?:no\.?|#)?)\s*[:#-]?\s*([a-z0-9][a-z0-9_-]{3,24})/gi,
   ];
 
-  for (const value of values.filter(Boolean)) {
-    const text = String(value);
-    for (const pattern of patterns) {
+  for (const text of textValues) {
+    for (const pattern of LABELED_ORDER_PATTERNS) {
       pattern.lastIndex = 0;
       let match = pattern.exec(text);
       while (match?.[1]) {
-        const orderNumber = cleanOrderNumber(match[1]);
-        if (orderNumber && !found.includes(orderNumber)) found.push(orderNumber);
+        addFound(match[1]);
+        match = pattern.exec(text);
+      }
+    }
+  }
+
+  // 2. High confidence: Prefixed orders like AIR-123456, OBJ-123456, etc.
+  const PREFIXED_PATTERNS = [
+    /\b((?:AIR|OBJ|ORD|INV|FA)[-_]?\d{4,14})\b/gi,
+  ];
+
+  for (const text of textValues) {
+    for (const pattern of PREFIXED_PATTERNS) {
+      pattern.lastIndex = 0;
+      let match = pattern.exec(text);
+      while (match?.[1]) {
+        addFound(match[1]);
+        match = pattern.exec(text);
+      }
+    }
+  }
+
+  // 3. Long year patterns: 202x or 201x followed by 5 to 9 digits (total 8-12 digits)
+  const YEAR_LONG_PATTERNS = [
+    /(?:^|[^0-9])(20[1-3]\d{5,9})(?:[_-]\d+)?(?=$|[^0-9])/g,
+  ];
+
+  for (const text of textValues) {
+    for (const pattern of YEAR_LONG_PATTERNS) {
+      pattern.lastIndex = 0;
+      let match = pattern.exec(text);
+      while (match?.[1]) {
+        addFound(match[1]);
+        match = pattern.exec(text);
+      }
+    }
+  }
+
+  // 4. Short year patterns: e.g. 24001234, 25001234 (8 to 10 digits starting with 23-27)
+  const YEAR_SHORT_PATTERNS = [
+    /(?:^|[^0-9])((?:2[3-7])\d{6,8})(?=$|[^0-9])/g,
+  ];
+
+  for (const text of textValues) {
+    for (const pattern of YEAR_SHORT_PATTERNS) {
+      pattern.lastIndex = 0;
+      let match = pattern.exec(text);
+      while (match?.[1]) {
+        addFound(match[1]);
+        match = pattern.exec(text);
+      }
+    }
+  }
+
+  // 5. General standalone 8-12 digit numbers
+  const GENERAL_PATTERNS = [
+    /(?:^|[^0-9])(\d{8,12})(?=$|[^0-9])/g,
+  ];
+
+  for (const text of textValues) {
+    for (const pattern of GENERAL_PATTERNS) {
+      pattern.lastIndex = 0;
+      let match = pattern.exec(text);
+      while (match?.[1]) {
+        addFound(match[1]);
         match = pattern.exec(text);
       }
     }
@@ -319,7 +441,7 @@ const extractOrderNumber = (...values) => {
 
 const normalizeOrderNumber = (value) => {
   const extracted = extractOrderNumber(value);
-  return extracted || null;
+  return extracted || cleanOrderNumber(value) || null;
 };
 
 const detectDocumentType = (subject, filename, requestedType) => {
@@ -383,9 +505,21 @@ const upsertInvoiceDocument = async (supabase, result, publicUrl) => {
 };
 
 const saleMatchesOrder = (sale, orderNumber) => {
-  const externalId = String(sale?.external_id || '');
-  const normalized = normalizeOrderNumber(externalId);
-  return normalized === orderNumber || externalId.toLowerCase().includes(orderNumber.toLowerCase());
+  if (!sale || !orderNumber) return false;
+  const externalId = String(sale?.external_id || '').trim();
+  if (!externalId) return false;
+
+  const target = String(orderNumber).trim().toLowerCase();
+  const lowerExt = externalId.toLowerCase();
+  if (lowerExt === target) return true;
+
+  const normalizedExt = (normalizeOrderNumber(externalId) || '').toLowerCase();
+  if (normalizedExt === target) return true;
+
+  if (target.length >= 6 && lowerExt.includes(target)) return true;
+  if (lowerExt.length >= 6 && target.includes(lowerExt)) return true;
+
+  return false;
 };
 
 const findSaleByOrderNumbers = async (supabase, orderNumbers) => {
@@ -394,9 +528,11 @@ const findSaleByOrderNumbers = async (supabase, orderNumbers) => {
 
   const candidates = Array.from(new Set(uniqueOrderNumbers.flatMap((orderNumber) => [
     orderNumber,
-    orderNumber.replace(/[_-]\d+$/, ''),
+    cleanOrderNumber(orderNumber),
     `inv${orderNumber}`,
     `INV${orderNumber}`,
+    `obj${orderNumber}`,
+    `OBJ${orderNumber}`,
   ]).filter(Boolean)));
 
   const { data, error } = await supabase

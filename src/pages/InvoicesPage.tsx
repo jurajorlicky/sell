@@ -90,28 +90,64 @@ type InvoiceFilter = 'all' | 'unmatched' | 'mismatch' | 'error';
 
 const normalizeOrderNumber = (value?: string | null) => {
   if (!value) return null;
-  return value.trim().replace(/\.pdf$/i, '').replace(/[_-]\d+$/, '');
+  const str = value.trim().replace(/\.pdf$/i, '');
+  const matchWithSuffix = str.match(/^(.{6,})[_-]\d+$/);
+  return matchWithSuffix ? matchWithSuffix[1].trim() : str;
 };
 
 const extractOrderNumber = (value: string) => {
-  const patterns = [
-    /(?:order|objedn[aá]vka|invoice|fakt[uú]ra|fa)[^a-z0-9]{0,10}([a-z0-9][a-z0-9_-]{4,})/i,
-    /(?:^|[^0-9])((?:202\d{5})(?:[_-]\d+)?)(?=$|[^0-9])/,
-    /(?:^|[^0-9])(\d{6,12})(?=$|[^0-9])/,
-  ];
+  if (!value) return null;
 
-  for (const pattern of patterns) {
+  // 1. High confidence: Labeled order numbers
+  const labeled = [
+    /(?:objedn[aá]vk[ay]|obj\.?\s*č\.?|order\s*(?:no\.?|id|#)?|číslo\s*objedn[aá]vky|č\.\s*obj\.?)\s*[:#-]?\s*([a-z0-9][a-z0-9_-]{3,24})/i,
+    /(?:variabiln[yý]\s*symbol|v\.?\s*s\.?|var\.?\s*sym\.?)\s*[:#-]?\s*(\d{6,14})/i,
+    /(?:fakt[uú]ra\s*č\.?|daňový\s*doklad\s*č\.?|invoice\s*(?:no\.?|#)?|fa)[^a-z0-9]{0,10}([a-z0-9][a-z0-9_-]{3,24})/i,
+  ];
+  for (const pattern of labeled) {
     const match = value.match(pattern);
     if (match?.[1]) return normalizeOrderNumber(match[1]);
   }
+
+  // 2. Prefixed patterns
+  const prefixed = value.match(/\b((?:AIR|OBJ|ORD|INV|FA)[-_]?\d{4,14})\b/i);
+  if (prefixed?.[1]) return normalizeOrderNumber(prefixed[1]);
+
+  // 3. Year long patterns: 202x / 201x (8-12 digits)
+  const yearLong = value.match(/(?:^|[^0-9])(20[1-3]\d{5,9})(?:[_-]\d+)?(?=$|[^0-9])/);
+  if (yearLong?.[1]) return normalizeOrderNumber(yearLong[1]);
+
+  // 4. Short year patterns (e.g. 24001234)
+  const yearShort = value.match(/(?:^|[^0-9])((?:2[3-7])\d{6,8})(?=$|[^0-9])/);
+  if (yearShort?.[1]) return normalizeOrderNumber(yearShort[1]);
+
+  // 5. General standalone 8-12 digit numbers
+  const general = value.match(/(?:^|[^0-9])(\d{8,12})(?=$|[^0-9])/);
+  if (general?.[1]) return normalizeOrderNumber(general[1]);
+
+  // 6. Fallback to 6-7 digit numbers
+  const fallback = value.match(/(?:^|[^0-9])(\d{6,7})(?=$|[^0-9])/);
+  if (fallback?.[1]) return normalizeOrderNumber(fallback[1]);
 
   return null;
 };
 
 const saleMatchesOrder = (sale: InvoiceSale, orderNumber: string) => {
-  const saleExternalId = normalizeOrderNumber(sale.external_id);
-  if (saleExternalId === orderNumber) return true;
-  return Boolean(sale.external_id?.toLowerCase().includes(orderNumber.toLowerCase()));
+  if (!sale || !orderNumber) return false;
+  const externalId = String(sale.external_id || '').trim();
+  if (!externalId) return false;
+
+  const target = orderNumber.trim().toLowerCase();
+  const lowerExt = externalId.toLowerCase();
+  if (lowerExt === target) return true;
+
+  const saleExternalId = (normalizeOrderNumber(sale.external_id) || '').toLowerCase();
+  if (saleExternalId === target) return true;
+
+  if (target.length >= 6 && lowerExt.includes(target)) return true;
+  if (lowerExt.length >= 6 && target.includes(lowerExt)) return true;
+
+  return false;
 };
 
 const expectedInvoiceAmount = (sale: InvoiceSale, allSales: InvoiceSale[]) => {
@@ -173,11 +209,31 @@ export default function InvoicesPage() {
       const normalizedExtractedProduct = file.extractedProduct?.trim().toLowerCase();
       const amountAndProductMatches = file.extractedTotal !== null && file.extractedTotal !== undefined
         ? nextSales.filter((sale) => {
-          const amountMatches = Math.abs(expectedInvoiceAmount(sale, nextSales) - Number(file.extractedTotal)) <= 0.02;
+          const amountMatches = Math.abs(expectedInvoiceAmount(sale, nextSales) - Number(file.extractedTotal)) <= 0.05;
           if (!amountMatches) return false;
           if (!normalizedExtractedProduct) return true;
+
           const saleName = sale.name.toLowerCase();
-          return saleName.includes(normalizedExtractedProduct) || normalizedExtractedProduct.includes(saleName);
+          if (saleName.includes(normalizedExtractedProduct) || normalizedExtractedProduct.includes(saleName)) {
+            return true;
+          }
+
+          // Fuzzy token matching
+          const stopWords = new Set(['the', 'a', 'an', 'and', 'or', 'in', 'on', 'at', 'to', 'for', 'ks', 'pcs']);
+          const productTokens = normalizedExtractedProduct
+            .split(/[\s,.\-_/]+/)
+            .filter((t) => t.length > 2 && !stopWords.has(t));
+          const saleTokens = new Set(
+            saleName.split(/[\s,.\-_/]+/).filter((t) => t.length > 2 && !stopWords.has(t))
+          );
+
+          if (productTokens.length > 0) {
+            const matchingCount = productTokens.filter((token) => saleTokens.has(token)).length;
+            const ratio = matchingCount / productTokens.length;
+            if (ratio >= 0.5 || matchingCount >= 2) return true;
+          }
+
+          return false;
         })
         : [];
       const linkedByDetails = amountAndProductMatches.length === 1 ? amountAndProductMatches[0] : null;
