@@ -21,7 +21,7 @@ import {
   FaUserShield, FaShoppingCart, FaSave, FaLink, FaTruck,
   FaExclamationTriangle, FaEdit, FaTrash, FaExternalLinkAlt,
   FaSortAmountDown, FaSortAmountUp, FaCloudDownloadAlt, FaCheckCircle, FaDownload,
-  FaCoins, FaPercentage, FaCheck, FaCalendarAlt
+  FaCoins, FaPercentage, FaCheck, FaCalendarAlt, FaFileInvoice
 } from 'react-icons/fa';
 
 interface EshopSale {
@@ -113,6 +113,18 @@ const ESHOP_STATUSES = [
   { value: 'returned', label: 'Returned' },
 ];
 
+const STATUS_TABS = [
+  { value: '', label: 'Všetky stavy', key: 'all' },
+  { value: 'processing', label: 'Spracováva sa', key: 'processing' },
+  { value: 'shipped', label: 'Odoslané', key: 'shipped' },
+  { value: 'delivered', label: 'Doručené', key: 'delivered' },
+  { value: 'completed', label: 'Dokončené', key: 'completed' },
+  { value: 'cancelled', label: 'Zrušené', key: 'cancelled' },
+  { value: 'returned', label: 'Vrátené', key: 'returned' },
+];
+
+type PairingFilter = 'all' | 'matched' | 'unmatched' | 'has_invoice' | 'no_invoice';
+
 const ITEMS_PER_PAGE = 25;
 
 export default function EshopSalesPage() {
@@ -126,12 +138,13 @@ export default function EshopSalesPage() {
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [pairingFilter, setPairingFilter] = useState<PairingFilter>('all');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [showFilters, setShowFilters] = useState(false);
 
   // Sorting
-  const [sortField, setSortField] = useState<'created_at' | 'price'>('created_at');
+  const [sortField, setSortField] = useState<'created_at' | 'price' | 'profit'>('created_at');
   const [sortAsc, setSortAsc] = useState(false);
 
   // Pagination
@@ -331,18 +344,60 @@ export default function EshopSalesPage() {
     if (statusFilter && s.status !== statusFilter) return false;
     if (dateFrom && s.created_at.split('T')[0] < dateFrom) return false;
     if (dateTo && s.created_at.split('T')[0] > dateTo) return false;
+
+    if (pairingFilter === 'matched' && !linkedSales[s.id]) return false;
+    if (pairingFilter === 'unmatched' && linkedSales[s.id]) return false;
+    const hasInvoice = Boolean(invoiceBySaleId[s.id] || invoiceByOrder[s.order_number] || s.fa_url);
+    if (pairingFilter === 'has_invoice' && !hasInvoice) return false;
+    if (pairingFilter === 'no_invoice' && hasInvoice) return false;
+
     if (searchTerm) {
       const q = searchTerm.toLowerCase();
       if (
         !s.order_number?.toLowerCase().includes(q) &&
+        !s.original_order_number?.toLowerCase().includes(q) &&
         !s.product_name?.toLowerCase().includes(q) &&
         !s.customer_email?.toLowerCase().includes(q) &&
         !s.customer_name?.toLowerCase().includes(q) &&
-        !s.sku?.toLowerCase().includes(q)
+        !s.sku?.toLowerCase().includes(q) &&
+        !s.tracking_number?.toLowerCase().includes(q)
       ) return false;
     }
     return true;
   });
+
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = {
+      all: sales.length,
+      processing: 0,
+      shipped: 0,
+      delivered: 0,
+      completed: 0,
+      cancelled: 0,
+      returned: 0,
+      matched: 0,
+      unmatched: 0,
+      has_invoice: 0,
+      no_invoice: 0,
+    };
+    for (const sale of sales) {
+      if (counts[sale.status] !== undefined) {
+        counts[sale.status]++;
+      }
+      if (linkedSales[sale.id]) {
+        counts.matched++;
+      } else {
+        counts.unmatched++;
+      }
+      const hasInvoice = Boolean(invoiceBySaleId[sale.id] || invoiceByOrder[sale.order_number] || sale.fa_url);
+      if (hasInvoice) {
+        counts.has_invoice++;
+      } else {
+        counts.no_invoice++;
+      }
+    }
+    return counts;
+  }, [sales, linkedSales, invoiceBySaleId, invoiceByOrder]);
 
   const orderGroups = Array.from(
     filtered.reduce((groups, sale) => {
@@ -377,6 +432,17 @@ export default function EshopSalesPage() {
     if (sortField === 'price') {
       return sortAsc ? a.totalPrice - b.totalPrice : b.totalPrice - a.totalPrice;
     }
+    if (sortField === 'profit') {
+      const profitA = a.items.reduce((sum, sale) => {
+        const linked = linkedSales[sale.id];
+        return linked ? sum + (sale.price - linked.payout) : sum;
+      }, 0);
+      const profitB = b.items.reduce((sum, sale) => {
+        const linked = linkedSales[sale.id];
+        return linked ? sum + (sale.price - linked.payout) : sum;
+      }, 0);
+      return sortAsc ? profitA - profitB : profitB - profitA;
+    }
     const dateDifference = sortAsc
       ? new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
       : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
@@ -385,7 +451,7 @@ export default function EshopSalesPage() {
 
   const paginatedGroups = orderGroups.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
-  const hasFilters = !!(searchTerm || statusFilter || dateFrom || dateTo);
+  const hasFilters = Boolean(searchTerm || statusFilter || pairingFilter !== 'all' || dateFrom || dateTo);
 
   const isCurrentMonth = useMemo(() => {
     if (!dateFrom || !dateTo) return false;
@@ -428,12 +494,13 @@ export default function EshopSalesPage() {
   const clearFilters = () => {
     setSearchTerm('');
     setStatusFilter('');
+    setPairingFilter('all');
     setDateFrom('');
     setDateTo('');
     setCurrentPage(1);
   };
 
-  const toggleSort = (field: 'created_at' | 'price') => {
+  const toggleSort = (field: 'created_at' | 'price' | 'profit') => {
     if (sortField === field) setSortAsc(a => !a);
     else { setSortField(field); setSortAsc(false); }
   };
@@ -795,6 +862,7 @@ export default function EshopSalesPage() {
 
         {/* Table Card */}
         <div className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm">
+          {/* Card Header */}
           <div className="border-b border-gray-200 bg-white px-4 py-4 sm:px-6">
             <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
               <div>
@@ -805,87 +873,12 @@ export default function EshopSalesPage() {
                   </span>
                 </div>
                 <p className="mt-0.5 text-xs text-gray-500">
-                  Importované objednávky zo Shoptetu spárované s výplatami predajcov · {filtered.length} položiek
+                  Importované objednávky zo Shoptetu spárované s výplatami predajcov · {filtered.length} položiek · Celkom: {formatCurrency(filtered.reduce((sum, s) => sum + Number(s.price || 0), 0))}
                 </p>
               </div>
 
-              {/* Controls */}
+              {/* Action Buttons */}
               <div className="flex flex-wrap items-center gap-2">
-                {/* Search */}
-                <div className="relative flex-1 sm:w-64 min-w-[200px]">
-                  <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
-                  <input
-                    type="text"
-                    placeholder="Hľadať číslo, produkt, zákazníka..."
-                    value={searchTerm}
-                    onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-                    className="w-full pl-8 pr-8 py-2 bg-gray-50/70 hover:bg-white border border-gray-200 rounded-xl text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-gray-400 transition-all"
-                  />
-                  {searchTerm && (
-                    <button
-                      onClick={() => setSearchTerm('')}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                    >
-                      <FaTimes className="text-xs" />
-                    </button>
-                  )}
-                </div>
-
-                {/* Quick month pills */}
-                <div className="inline-flex rounded-xl bg-gray-100 p-1 border border-gray-200/60">
-                  <button
-                    onClick={clearMonthFilter}
-                    className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
-                      !dateFrom && !dateTo ? 'bg-white text-gray-900 shadow-xs font-bold' : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    Všetko
-                  </button>
-                  <button
-                    onClick={() => applyMonthFilter(0)}
-                    className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
-                      isCurrentMonth ? 'bg-white text-gray-900 shadow-xs font-bold' : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    Tento mesiac
-                  </button>
-                  <button
-                    onClick={() => applyMonthFilter(-1)}
-                    className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
-                      isLastMonth ? 'bg-white text-gray-900 shadow-xs font-bold' : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    Minulý mesiac
-                  </button>
-                </div>
-
-                {/* Filter toggle button */}
-                <button
-                  onClick={() => setShowFilters(v => !v)}
-                  className={`inline-flex items-center gap-1.5 px-3 py-2 border rounded-xl text-xs font-semibold transition-all ${
-                    showFilters || (hasFilters && !isCurrentMonth && !isLastMonth)
-                      ? 'bg-gray-900 border-gray-900 text-white'
-                      : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
-                  }`}
-                  title="Podrobné filtre"
-                >
-                  <FaFilter className="text-xs" />
-                  <span>Filtre</span>
-                  {hasFilters && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                  )}
-                </button>
-
-                {hasFilters && (
-                  <button
-                    onClick={clearFilters}
-                    className="p-2 text-gray-500 hover:text-red-600 border border-gray-200 rounded-xl hover:bg-red-50 transition-colors text-xs"
-                    title="Zrušiť všetky filtre"
-                  >
-                    <FaTimes />
-                  </button>
-                )}
-
                 {/* Export XLSX */}
                 <button
                   onClick={exportToXlsx}
@@ -920,40 +913,270 @@ export default function EshopSalesPage() {
             </div>
           </div>
 
-          {/* Detailed filters panel */}
-          {showFilters && (
-            <div className="px-4 sm:px-6 py-4 bg-gray-50/90 border-b border-gray-200 transition-all">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">Stav objednávky</label>
-                  <select
-                    value={statusFilter}
-                    onChange={e => { setStatusFilter(e.target.value); setCurrentPage(1); }}
-                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-gray-400"
+          {/* Status Tabs Bar */}
+          <div className="border-b border-gray-200/80 bg-gray-50/50 px-4 sm:px-6">
+            <div className="flex items-center gap-1 overflow-x-auto py-2.5 no-scrollbar">
+              {STATUS_TABS.map((tab) => {
+                const count = statusCounts[tab.key] || 0;
+                const isActive = statusFilter === tab.value;
+                return (
+                  <button
+                    key={tab.key}
+                    onClick={() => { setStatusFilter(tab.value); setCurrentPage(1); }}
+                    className={`inline-flex items-center gap-2 whitespace-nowrap rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
+                      isActive
+                        ? 'bg-gray-900 text-white shadow-xs'
+                        : 'text-gray-600 hover:bg-white hover:text-gray-900'
+                    }`}
                   >
-                    <option value="">Všetky stavy</option>
-                    {ESHOP_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-                  </select>
+                    <span>{tab.label}</span>
+                    <span
+                      className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
+                        isActive
+                          ? 'bg-white/20 text-white'
+                          : 'bg-gray-200/70 text-gray-700'
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Search, Sub-filters and Date Controls */}
+          <div className="border-b border-gray-200/80 bg-white px-4 py-3 sm:px-6">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              {/* Search */}
+              <div className="relative flex-1 max-w-md">
+                <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
+                <input
+                  type="text"
+                  placeholder="Hľadať číslo objednávky, produkt, zákazníka, SKU..."
+                  value={searchTerm}
+                  onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                  className="w-full pl-8 pr-8 py-2 bg-gray-50/70 hover:bg-white border border-gray-200 rounded-xl text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-gray-400 transition-all"
+                />
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    <FaTimes className="text-xs" />
+                  </button>
+                )}
+              </div>
+
+              {/* Pairing & Invoice Pills */}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="inline-flex rounded-xl bg-gray-100 p-1 border border-gray-200/60">
+                  <button
+                    onClick={() => { setPairingFilter('all'); setCurrentPage(1); }}
+                    className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
+                      pairingFilter === 'all'
+                        ? 'bg-white text-gray-900 shadow-xs font-bold'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Všetko
+                  </button>
+                  <button
+                    onClick={() => { setPairingFilter('matched'); setCurrentPage(1); }}
+                    className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
+                      pairingFilter === 'matched'
+                        ? 'bg-purple-600 text-white shadow-xs font-bold'
+                        : 'text-gray-600 hover:text-purple-700'
+                    }`}
+                  >
+                    <FaLink className="text-[10px]" />
+                    <span>Spárované</span>
+                    <span className={`text-[10px] rounded px-1 ${pairingFilter === 'matched' ? 'bg-purple-700 text-white' : 'bg-gray-200/70 text-gray-600'}`}>
+                      {statusCounts.matched}
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => { setPairingFilter('unmatched'); setCurrentPage(1); }}
+                    className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
+                      pairingFilter === 'unmatched'
+                        ? 'bg-amber-600 text-white shadow-xs font-bold'
+                        : 'text-gray-600 hover:text-amber-700'
+                    }`}
+                  >
+                    <FaExclamationTriangle className="text-[10px]" />
+                    <span>Bez páru</span>
+                    <span className={`text-[10px] rounded px-1 ${pairingFilter === 'unmatched' ? 'bg-amber-700 text-white' : 'bg-gray-200/70 text-gray-600'}`}>
+                      {statusCounts.unmatched}
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => { setPairingFilter('has_invoice'); setCurrentPage(1); }}
+                    className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
+                      pairingFilter === 'has_invoice'
+                        ? 'bg-emerald-600 text-white shadow-xs font-bold'
+                        : 'text-gray-600 hover:text-emerald-700'
+                    }`}
+                  >
+                    <FaFileInvoice className="text-[10px]" />
+                    <span>S FA</span>
+                    <span className={`text-[10px] rounded px-1 ${pairingFilter === 'has_invoice' ? 'bg-emerald-700 text-white' : 'bg-gray-200/70 text-gray-600'}`}>
+                      {statusCounts.has_invoice}
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => { setPairingFilter('no_invoice'); setCurrentPage(1); }}
+                    className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
+                      pairingFilter === 'no_invoice'
+                        ? 'bg-rose-600 text-white shadow-xs font-bold'
+                        : 'text-gray-600 hover:text-rose-700'
+                    }`}
+                  >
+                    <FaTimes className="text-[10px]" />
+                    <span>Bez FA</span>
+                    <span className={`text-[10px] rounded px-1 ${pairingFilter === 'no_invoice' ? 'bg-rose-700 text-white' : 'bg-gray-200/70 text-gray-600'}`}>
+                      {statusCounts.no_invoice}
+                    </span>
+                  </button>
                 </div>
+
+                {/* Quick month pills */}
+                <div className="inline-flex rounded-xl bg-gray-100 p-1 border border-gray-200/60">
+                  <button
+                    onClick={clearMonthFilter}
+                    className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
+                      !dateFrom && !dateTo ? 'bg-white text-gray-900 shadow-xs font-bold' : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Všetko
+                  </button>
+                  <button
+                    onClick={() => applyMonthFilter(0)}
+                    className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
+                      isCurrentMonth ? 'bg-white text-gray-900 shadow-xs font-bold' : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Tento mesiac
+                  </button>
+                  <button
+                    onClick={() => applyMonthFilter(-1)}
+                    className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
+                      isLastMonth ? 'bg-white text-gray-900 shadow-xs font-bold' : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Minulý mesiac
+                  </button>
+                  <button
+                    onClick={() => setShowFilters(v => !v)}
+                    className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold transition-all ${
+                      showFilters || (dateFrom && !isCurrentMonth && !isLastMonth)
+                        ? 'bg-gray-900 text-white shadow-xs'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                    title="Vlastný rozsah dátumov"
+                  >
+                    <FaCalendarAlt className="text-[10px]" />
+                    <span className="hidden sm:inline">Rozsah</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Custom Date Range Collapsible Drawer */}
+          {showFilters && (
+            <div className="px-4 sm:px-6 py-3.5 bg-gray-50 border-b border-gray-200 transition-all">
+              <div className="flex flex-wrap items-end gap-3">
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">Dátum od</label>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-600 mb-1">Dátum od</label>
                   <input
                     type="date"
                     value={dateFrom}
                     onChange={e => { setDateFrom(e.target.value); setCurrentPage(1); }}
-                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-gray-400"
+                    className="px-3 py-1.5 bg-white border border-gray-200 rounded-xl text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-gray-400"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">Dátum do</label>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-600 mb-1">Dátum do</label>
                   <input
                     type="date"
                     value={dateTo}
                     onChange={e => { setDateTo(e.target.value); setCurrentPage(1); }}
-                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-gray-400"
+                    className="px-3 py-1.5 bg-white border border-gray-200 rounded-xl text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-gray-400"
                   />
                 </div>
+                {(dateFrom || dateTo) && (
+                  <button
+                    onClick={clearMonthFilter}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-gray-200 bg-white text-xs font-semibold text-gray-600 hover:bg-gray-50 hover:text-red-600 transition-colors"
+                  >
+                    <FaTimes className="text-xs" />
+                    <span>Zrušiť rozsah</span>
+                  </button>
+                )}
               </div>
+            </div>
+          )}
+
+          {/* Active Filter Chips Ribbon */}
+          {hasFilters && (
+            <div className="flex flex-wrap items-center gap-2 px-4 sm:px-6 py-2 bg-amber-50/70 border-b border-amber-200/50 text-xs">
+              <span className="font-bold text-amber-900 text-[11px] uppercase tracking-wider">Aktívne filtre:</span>
+
+              {searchTerm && (
+                <span className="inline-flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1 text-xs font-medium text-gray-800 border border-amber-200 shadow-xs">
+                  <span>Hľadanie: <strong>"{searchTerm}"</strong></span>
+                  <button onClick={() => setSearchTerm('')} className="text-gray-400 hover:text-red-600">
+                    <FaTimes className="text-[10px]" />
+                  </button>
+                </span>
+              )}
+
+              {statusFilter && (
+                <span className="inline-flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1 text-xs font-medium text-gray-800 border border-amber-200 shadow-xs">
+                  <span>Stav: <strong>{STATUS_TABS.find(t => t.value === statusFilter)?.label || statusFilter}</strong></span>
+                  <button onClick={() => setStatusFilter('')} className="text-gray-400 hover:text-red-600">
+                    <FaTimes className="text-[10px]" />
+                  </button>
+                </span>
+              )}
+
+              {pairingFilter !== 'all' && (
+                <span className="inline-flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1 text-xs font-medium text-gray-800 border border-amber-200 shadow-xs">
+                  <span>
+                    Párovanie: <strong>
+                      {pairingFilter === 'matched' ? 'Spárované' :
+                       pairingFilter === 'unmatched' ? 'Bez páru' :
+                       pairingFilter === 'has_invoice' ? 'S faktúrou' : 'Bez faktúry'}
+                    </strong>
+                  </span>
+                  <button onClick={() => setPairingFilter('all')} className="text-gray-400 hover:text-red-600">
+                    <FaTimes className="text-[10px]" />
+                  </button>
+                </span>
+              )}
+
+              {(dateFrom || dateTo) && (
+                <span className="inline-flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1 text-xs font-medium text-gray-800 border border-amber-200 shadow-xs">
+                  <span>
+                    Obdobie: <strong>
+                      {isCurrentMonth ? 'Tento mesiac' :
+                       isLastMonth ? 'Minulý mesiac' :
+                       `${dateFrom || '...'} – ${dateTo || '...'}`}
+                    </strong>
+                  </span>
+                  <button onClick={clearMonthFilter} className="text-gray-400 hover:text-red-600">
+                    <FaTimes className="text-[10px]" />
+                  </button>
+                </span>
+              )}
+
+              <button
+                onClick={clearFilters}
+                className="ml-auto inline-flex items-center gap-1 text-xs font-bold text-red-600 hover:text-red-800 transition-colors"
+              >
+                <FaTimes className="text-[10px]" />
+                <span>Vyčistiť všetky filtre</span>
+              </button>
             </div>
           )}
 
@@ -977,11 +1200,20 @@ export default function EshopSalesPage() {
               >
                 Cena {sortField === 'price' ? (sortAsc ? <FaSortAmountUp className="text-gray-400" /> : <FaSortAmountDown className="text-gray-400" />) : null}
               </button>
+              <button
+                onClick={() => toggleSort('profit')}
+                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                  sortField === 'profit' ? 'bg-white shadow-xs border border-gray-200 text-emerald-800 font-bold' : 'text-gray-600 hover:bg-white/60'
+                }`}
+              >
+                Marža / Zisk {sortField === 'profit' ? (sortAsc ? <FaSortAmountUp className="text-emerald-500" /> : <FaSortAmountDown className="text-emerald-500" />) : null}
+              </button>
             </div>
             <div className="text-xs text-gray-500 font-medium">
-              Zobrazených <span className="font-bold text-gray-900">{paginatedGroups.length}</span> z {orderGroups.length} objednávok
+              Zobrazených <span className="font-bold text-gray-900">{paginatedGroups.length}</span> z {orderGroups.length} objednávok ({filtered.length} položiek)
             </div>
           </div>
+
 
           {loading ? (
             <div className="flex items-center justify-center py-24">
