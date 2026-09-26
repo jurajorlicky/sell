@@ -85,6 +85,7 @@ interface UserProduct {
   created_at: string;
   image_url?: string;
   sku?: string;
+  expires_at?: string;
 }
 
 interface UserStats {
@@ -234,7 +235,7 @@ export default function UsersPage() {
       // Load user products
       const { data: productsData, error: productsError } = await supabase
         .from('user_products')
-        .select('id, product_id, name, size, price, payout, created_at, image_url, sku')
+        .select('id, product_id, name, size, price, payout, created_at, image_url, sku, expires_at')
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
@@ -1316,43 +1317,61 @@ export default function UsersPage() {
                         </div>
                         {userProducts.length > 0 ? (
                           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                            {userProducts.map((product) => (
-                              <div key={product.id} className="bg-white rounded-xl p-3 sm:p-4 border border-gray-200 hover:border-indigo-300 hover:shadow-lg transition-all shadow-sm">
-                                <div className="flex items-start space-x-3 mb-3">
-                                  <div className="h-16 w-16 sm:h-20 sm:w-20 flex-shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-white p-1.5">
-                                    <img
-                                      loading="lazy"
-                                      className="h-full w-full object-contain"
-                                      src={product.image_url || '/default-image.png'}
-                                      alt={product.name}
-                                      onError={(e) => {
-                                        const target = e.target as HTMLImageElement;
-                                        target.src = '/default-image.png';
-                                      }}
-                                    />
+                            {userProducts.map((product) => {
+                              const isExpired = product.expires_at ? new Date(product.expires_at) < new Date() : false;
+                              return (
+                                <div key={product.id} className={`bg-white rounded-xl p-3 sm:p-4 border transition-all shadow-sm ${isExpired ? 'border-rose-200 bg-rose-50/10' : 'border-gray-200 hover:border-indigo-300 hover:shadow-lg'}`}>
+                                  <div className="flex items-start space-x-3 mb-3">
+                                    <div className="h-16 w-16 sm:h-20 sm:w-20 flex-shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-white p-1.5">
+                                      <img
+                                        loading="lazy"
+                                        className="h-full w-full object-contain"
+                                        src={product.image_url || '/default-image.png'}
+                                        alt={product.name}
+                                        onError={(e) => {
+                                          const target = e.target as HTMLImageElement;
+                                          target.src = '/default-image.png';
+                                        }}
+                                      />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center justify-between gap-1 mb-1">
+                                        <h5 className="text-sm sm:text-base font-semibold text-gray-900 truncate">{product.name}</h5>
+                                        {isExpired ? (
+                                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 flex-shrink-0">Expired</span>
+                                        ) : (
+                                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 flex-shrink-0">Active</span>
+                                        )}
+                                      </div>
+                                      <p className="text-xs text-gray-600">Size: {product.size}</p>
+                                      <p className="text-xs text-gray-500 font-mono truncate">SKU: {product.sku || 'N/A'}</p>
+                                    </div>
                                   </div>
-                                  <div className="flex-1 min-w-0">
-                                    <h5 className="text-sm sm:text-base font-semibold text-gray-900 truncate mb-1">{product.name}</h5>
-                                    <p className="text-xs text-gray-600">Size: {product.size}</p>
-                                    <p className="text-xs text-gray-500 font-mono truncate">SKU: {product.sku || 'N/A'}</p>
+                                  <div className="border-t border-gray-200 pt-3 space-y-1">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-xs text-gray-600">Price:</span>
+                                      <span className="text-sm sm:text-base font-bold text-gray-900">{formatCurrency(product.price)}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-xs text-gray-600">Payout:</span>
+                                      <span className="text-sm font-semibold text-green-600">{formatCurrency(product.payout)}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-xs text-gray-500">Created:</span>
+                                      <span className="text-xs text-gray-600">{formatDate(product.created_at)}</span>
+                                    </div>
+                                    {product.expires_at && (
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-xs text-gray-500">Expires:</span>
+                                        <span className={`text-xs font-semibold ${isExpired ? 'text-rose-600' : 'text-gray-700'}`}>
+                                          {new Date(product.expires_at).toLocaleDateString('sk-SK')}
+                                        </span>
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
-                                <div className="border-t border-gray-200 pt-3 space-y-1">
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-xs text-gray-600">Price:</span>
-                                    <span className="text-sm sm:text-base font-bold text-gray-900">{formatCurrency(product.price)}</span>
-                                  </div>
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-xs text-gray-600">Payout:</span>
-                                    <span className="text-sm font-semibold text-green-600">{formatCurrency(product.payout)}</span>
-                                  </div>
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-xs text-gray-500">Date:</span>
-                                    <span className="text-xs text-gray-600">{formatDate(product.created_at)}</span>
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         ) : (
                           <div className="text-center py-12">
