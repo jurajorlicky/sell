@@ -1237,32 +1237,34 @@ export default function InvoicesPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="sticky top-0 z-40 bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 shadow-lg">
-        <div className="mx-auto max-w-[1680px] px-3 py-3 sm:px-6 sm:py-4 lg:px-8">
+        <div className="mx-auto max-w-[1680px] px-3 py-2.5 sm:px-6 sm:py-4 lg:px-8">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-pink-400 to-rose-500 shadow-lg">
-                <FaFileInvoice className="text-xl text-white" />
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="flex h-8 w-8 sm:h-11 sm:w-11 items-center justify-center rounded-xl sm:rounded-2xl bg-gradient-to-br from-pink-400 to-rose-500 shadow-md">
+                <FaFileInvoice className="text-base sm:text-xl text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold tracking-tight text-white sm:text-2xl">Invoices</h1>
+                <h1 className="text-base sm:text-2xl font-bold tracking-tight text-white">Invoices</h1>
                 <p className="hidden text-sm text-gray-400 sm:block">Faktúry, kúpne zmluvy a párovanie dokladov</p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2">
               <button
                 onClick={handleRefresh}
                 disabled={refreshing}
-                className="inline-flex items-center rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white hover:bg-white/20 transition-all disabled:opacity-50"
+                className="inline-flex items-center justify-center w-8 h-8 sm:w-auto sm:px-3 sm:py-2 rounded-xl border border-white/20 bg-white/10 text-xs font-semibold text-white hover:bg-white/20 transition-all disabled:opacity-50"
+                title="Obnoviť"
               >
-                <FaSync className={refreshing ? 'animate-spin sm:mr-1.5' : 'sm:mr-1.5'} />
+                <FaSync className={refreshing ? 'animate-spin sm:mr-1.5 text-xs sm:text-sm' : 'sm:mr-1.5 text-xs sm:text-sm'} />
                 <span className="hidden sm:inline">Obnoviť</span>
               </button>
               <button
                 onClick={handleSignOut}
-                className="inline-flex items-center rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white hover:bg-white/20 transition-all"
+                className="inline-flex items-center justify-center w-8 h-8 sm:w-auto sm:px-3 sm:py-2 rounded-xl border border-white/20 bg-white/10 text-xs font-semibold text-white hover:bg-white/20 transition-all"
+                title="Odhlásiť sa"
               >
-                <FaSignOutAlt className="sm:mr-1.5" />
+                <FaSignOutAlt className="sm:mr-1.5 text-xs sm:text-sm" />
                 <span className="hidden sm:inline">Odhlásiť sa</span>
               </button>
             </div>

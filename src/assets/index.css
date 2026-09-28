@@ -57,14 +57,27 @@ html, body {
     left: 0;
     right: 0;
     bottom: 0;
-    z-index: 55;
+    z-index: 40;
     margin: 0;
     border-left: 0;
     border-right: 0;
     border-bottom: 0;
-    border-radius: 18px 18px 0 0;
+    border-top: 1px solid rgba(226, 232, 240, 0.9);
+    border-radius: 20px 20px 0 0;
     padding-bottom: env(safe-area-inset-bottom);
-    box-shadow: 0 -12px 30px rgba(15, 23, 42, 0.12);
+    box-shadow: 0 -8px 25px rgba(15, 23, 42, 0.10);
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
+  }
+
+  /* Auto-hide mobile navigation when any modal/overlay is open so action buttons are never obscured */
+  body:has(.fixed.z-50) .admin-mobile-nav,
+  body:has([role="dialog"]) .admin-mobile-nav,
+  body.modal-open .admin-mobile-nav {
+    transform: translateY(120%);
+    pointer-events: none;
   }
 
   .admin-scrollbar {

@@ -995,33 +995,34 @@ export default function WarehousePage() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 sticky top-0 z-40 shadow-lg">
-        <div className="mx-auto max-w-[1680px] px-3 sm:px-6 lg:px-8 py-3 sm:py-4">
+        <div className="mx-auto max-w-[1680px] px-3 py-2.5 sm:px-6 lg:px-8 sm:py-4">
           <div className="flex justify-between items-center">
-            <div className="flex items-center space-x-3">
-              <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl shadow-lg">
-                <FaWarehouse className="text-white text-xl" />
+            <div className="flex items-center space-x-2 sm:space-x-3">
+              <div className="flex items-center justify-center w-8 h-8 sm:w-11 sm:h-11 bg-gradient-to-br from-amber-400 to-orange-500 rounded-xl sm:rounded-2xl shadow-md">
+                <FaWarehouse className="text-white text-base sm:text-xl" />
               </div>
               <div>
-                <h1 className="text-lg sm:text-2xl font-bold text-white tracking-tight">Warehouse</h1>
+                <h1 className="text-base sm:text-2xl font-bold text-white tracking-tight">Warehouse</h1>
                 <p className="text-xs sm:text-sm text-gray-400 hidden sm:block">Pairs you bought or kept from unclaimed orders</p>
               </div>
             </div>
 
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1.5 sm:space-x-2">
               <button
                 onClick={handleRefresh}
-                title="Refresh"
-                className="inline-flex items-center px-3 py-2 bg-white/10 text-white font-medium rounded-xl hover:bg-white/20 transition-all border border-white/20 text-sm"
+                title="Obnoviť"
+                className="inline-flex items-center justify-center w-8 h-8 sm:w-auto sm:px-3 sm:py-2 bg-white/10 text-white font-medium rounded-xl hover:bg-white/20 transition-all border border-white/20 text-xs sm:text-sm"
               >
-                <FaSync className={`${refreshing ? 'animate-spin' : ''}`} />
-                <span className="hidden sm:inline ml-2">Refresh</span>
+                <FaSync className={`text-xs sm:text-sm ${refreshing ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline ml-1.5">Refresh</span>
               </button>
               <button
                 onClick={handleSignOut}
-                className="inline-flex items-center px-3 py-2 bg-white/10 text-white font-medium rounded-xl hover:bg-white/20 transition-all border border-white/20 text-sm"
+                title="Odhlásiť sa"
+                className="inline-flex items-center justify-center w-8 h-8 sm:w-auto sm:px-3 sm:py-2 bg-white/10 text-white font-medium rounded-xl hover:bg-white/20 transition-all border border-white/20 text-xs sm:text-sm"
               >
-                <FaSignOutAlt />
-                <span className="hidden sm:inline ml-2">Sign Out</span>
+                <FaSignOutAlt className="text-xs sm:text-sm" />
+                <span className="hidden sm:inline ml-1.5">Sign Out</span>
               </button>
             </div>
           </div>

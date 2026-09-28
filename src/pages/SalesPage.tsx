@@ -317,42 +317,44 @@ export default function SalesPage() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 sticky top-0 z-40 shadow-lg">
-        <div className="mx-auto max-w-[1680px] px-3 sm:px-6 lg:px-8 py-3 sm:py-4">
+        <div className="mx-auto max-w-[1680px] px-3 py-2.5 sm:px-6 sm:py-4 lg:px-8">
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-2 sm:space-x-4">
-              <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-green-400 to-emerald-500 rounded-2xl shadow-lg">
-                <FaShoppingCart className="text-white text-xl" />
+              <div className="flex items-center justify-center w-8 h-8 sm:w-11 sm:h-11 bg-gradient-to-br from-green-400 to-emerald-500 rounded-xl sm:rounded-2xl shadow-md">
+                <FaShoppingCart className="text-white text-base sm:text-xl" />
               </div>
               <div>
-                <h1 className="text-lg sm:text-2xl font-bold text-white tracking-tight">
+                <h1 className="text-base sm:text-2xl font-bold text-white tracking-tight">
                   Sales Management
                 </h1>
                 <p className="text-xs sm:text-sm text-gray-400 hidden sm:block">Manage and overview of sold products</p>
               </div>
             </div>
 
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1.5 sm:space-x-2">
               <button
                 onClick={() => setShowCreateSaleModal(true)}
-                className="inline-flex items-center px-3 py-2 bg-white/10 text-white font-medium rounded-xl hover:bg-white/20 transition-all border border-white/20 text-sm"
-                title="Create new sale"
+                className="inline-flex items-center justify-center w-8 h-8 sm:w-auto sm:px-3 sm:py-2 bg-emerald-500 text-white font-medium rounded-xl hover:bg-emerald-600 transition-all text-xs sm:text-sm shadow-xs"
+                title="Vytvoriť predaj"
               >
-                <FaPlus className="sm:mr-2" />
+                <FaPlus className="sm:mr-1.5 text-xs sm:text-sm" />
                 <span className="hidden sm:inline">New Sale</span>
               </button>
               <button
                 onClick={handleRefresh}
                 disabled={refreshing}
-                className="inline-flex items-center px-3 py-2 bg-white/10 text-white font-medium rounded-xl hover:bg-white/20 transition-all border border-white/20 text-sm disabled:opacity-50"
+                className="inline-flex items-center justify-center w-8 h-8 sm:w-auto sm:px-3 sm:py-2 bg-white/10 text-white font-medium rounded-xl hover:bg-white/20 transition-all border border-white/20 text-xs sm:text-sm disabled:opacity-50"
+                title="Obnoviť"
               >
-                <FaSync className={`sm:mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                <FaSync className={`sm:mr-1.5 text-xs sm:text-sm ${refreshing ? 'animate-spin' : ''}`} />
                 <span className="hidden sm:inline">{refreshing ? 'Refreshing...' : 'Refresh'}</span>
               </button>
               <button
                 onClick={handleSignOut}
-                className="inline-flex items-center px-3 py-2 bg-white/10 text-white font-medium rounded-xl hover:bg-white/20 transition-all border border-white/20 text-sm"
+                className="inline-flex items-center justify-center w-8 h-8 sm:w-auto sm:px-3 sm:py-2 bg-white/10 text-white font-medium rounded-xl hover:bg-white/20 transition-all border border-white/20 text-xs sm:text-sm"
+                title="Odhlásiť sa"
               >
-                <FaSignOutAlt className="sm:mr-2" />
+                <FaSignOutAlt className="sm:mr-1.5 text-xs sm:text-sm" />
                 <span className="hidden sm:inline">Sign Out</span>
               </button>
             </div>
