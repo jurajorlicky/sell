@@ -16,12 +16,14 @@ import {
 } from '../lib/xlsxExport';
 import { createInvoiceSignedUrlMap, resolveInvoiceReferences } from '../lib/storageUrls';
 import { useEscapeKey } from '../hooks/useEscapeKey';
+import CreateSaleModal from '../components/CreateSaleModal';
 import {
   FaSearch, FaPlus, FaTimes, FaFilter, FaSync, FaSignOutAlt,
   FaUserShield, FaShoppingCart, FaSave, FaLink, FaTruck,
   FaExclamationTriangle, FaEdit, FaTrash, FaExternalLinkAlt,
   FaSortAmountDown, FaSortAmountUp, FaCloudDownloadAlt, FaCheckCircle, FaDownload,
-  FaCoins, FaPercentage, FaCheck, FaCalendarAlt, FaFileInvoice
+  FaCoins, FaPercentage, FaCheck, FaCalendarAlt, FaFileInvoice,
+  FaUnlink, FaExchangeAlt, FaSpinner
 } from 'react-icons/fa';
 
 interface EshopSale {
@@ -154,6 +156,14 @@ export default function EshopSalesPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingSale, setEditingSale] = useState<EshopSale | null>(null);
   const [matchDetailSale, setMatchDetailSale] = useState<EshopSale | null>(null);
+  const [createConsignSaleData, setCreateConsignSaleData] = useState<{
+    isOpen: boolean;
+    orderNumber?: string;
+    productName?: string;
+    size?: string;
+    price?: string;
+    sku?: string;
+  }>({ isOpen: false });
   const [linkedSales, setLinkedSales] = useState<Record<string, LinkedSale | null>>({});
   const [importingOrders, setImportingOrders] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -165,7 +175,30 @@ export default function EshopSalesPage() {
   useEscapeKey(() => {
     setShowCreateModal(false);
     setEditingSale(null);
+    setMatchDetailSale(null);
+    setCreateConsignSaleData({ isOpen: false });
   });
+
+  const handleLinkedUpdated = useCallback((
+    saleId: string,
+    newLinkedSale: LinkedSale | null,
+    newOriginalOrderNumber: string | null
+  ) => {
+    setSales(prev => prev.map(s => {
+      if (s.id === saleId) {
+        return { ...s, original_order_number: newOriginalOrderNumber };
+      }
+      return s;
+    }));
+    setLinkedSales(prev => ({
+      ...prev,
+      [saleId]: newLinkedSale,
+    }));
+    setMatchDetailSale(prev => (prev && prev.id === saleId)
+      ? { ...prev, original_order_number: newOriginalOrderNumber }
+      : prev
+    );
+  }, []);
 
   const findLinkedSale = (sale: EshopSale, candidates: any[]) => {
     const saleSkuBase = sale.sku?.split('/')[0]?.toLowerCase();
@@ -1349,7 +1382,7 @@ export default function EshopSalesPage() {
                             <MatchSummary
                               linked={linkedSales[sale.id]}
                               originalOrderNumber={sale.original_order_number}
-                              onOpen={linkedSales[sale.id] ? () => setMatchDetailSale(sale) : undefined}
+                              onOpen={() => setMatchDetailSale(sale)}
                             />
                           </div>
                         </div>
@@ -1537,7 +1570,7 @@ export default function EshopSalesPage() {
                                 <MatchSummary
                                   linked={linkedSales[sale.id]}
                                   originalOrderNumber={sale.original_order_number}
-                                  onOpen={linkedSales[sale.id] ? () => setMatchDetailSale(sale) : undefined}
+                                  onOpen={() => setMatchDetailSale(sale)}
                                 />
                               </div>
                             ))}
@@ -1624,6 +1657,35 @@ export default function EshopSalesPage() {
           sale={matchDetailSale}
           linked={linkedSales[matchDetailSale.id]}
           onClose={() => setMatchDetailSale(null)}
+          onLinkedUpdated={handleLinkedUpdated}
+          onCreateConsignSale={(saleToCreate) => {
+            setMatchDetailSale(null);
+            setCreateConsignSaleData({
+              isOpen: true,
+              orderNumber: saleToCreate.order_number,
+              productName: saleToCreate.product_name,
+              size: saleToCreate.size || '',
+              price: String(saleToCreate.price || ''),
+              sku: saleToCreate.sku || '',
+            });
+          }}
+        />
+      )}
+
+      {createConsignSaleData.isOpen && (
+        <CreateSaleModal
+          isOpen={createConsignSaleData.isOpen}
+          onClose={() => setCreateConsignSaleData({ isOpen: false })}
+          onSaleCreated={() => {
+            setCreateConsignSaleData({ isOpen: false });
+            fetchSales();
+            showToast('Consignment predaj bol úspešne vytvorený', 'success');
+          }}
+          initialExternalId={createConsignSaleData.orderNumber}
+          initialProductName={createConsignSaleData.productName}
+          initialSize={createConsignSaleData.size}
+          initialPrice={createConsignSaleData.price}
+          initialSku={createConsignSaleData.sku}
         />
       )}
     </div>
@@ -1658,10 +1720,15 @@ function MatchSummary({
   if (linked === null) {
     return (
       <div className="space-y-0.5">
-        <div className="inline-flex whitespace-nowrap items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50/70 px-2.5 py-1 text-[11px] font-semibold text-amber-800">
-          <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
-          Bez páru
-        </div>
+        <button
+          type="button"
+          onClick={onOpen}
+          className="inline-flex whitespace-nowrap items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 hover:bg-amber-100 hover:border-amber-400 px-2.5 py-1 text-[11px] font-bold text-amber-800 transition-colors shadow-xs cursor-pointer"
+          title="Klikni pre spárovanie s consignment predajom"
+        >
+          <FaLink className="text-amber-600 text-xs" />
+          <span>Spárovať</span>
+        </button>
         {originalOrderNumber && (
           <p className="text-[10px] font-semibold text-amber-700">orig #{originalOrderNumber}</p>
         )}
@@ -1674,8 +1741,8 @@ function MatchSummary({
       <button
         type="button"
         onClick={onOpen}
-        className="inline-flex whitespace-nowrap items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-800 hover:border-emerald-300 hover:bg-emerald-100 transition-colors shadow-xs"
-        title="Klikni pre zobrazenie detailu párovania"
+        className="inline-flex whitespace-nowrap items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-800 hover:border-emerald-300 hover:bg-emerald-100 transition-colors shadow-xs cursor-pointer"
+        title="Klikni pre zobrazenie a úpravu detailu párovania"
       >
         <FaCheckCircle className="text-emerald-600 text-xs" />
         <span>Spárované</span>
@@ -1691,34 +1758,232 @@ function MatchDetailModal({
   sale,
   linked,
   onClose,
+  onLinkedUpdated,
+  onCreateConsignSale,
 }: {
   sale: EshopSale;
   linked: LinkedSale | null | undefined;
   onClose: () => void;
+  onLinkedUpdated: (saleId: string, newLinkedSale: LinkedSale | null, newOriginalOrderNumber: string | null) => void;
+  onCreateConsignSale: (sale: EshopSale) => void;
 }) {
+  const { showToast } = useToast();
+  const [mode, setMode] = useState<'detail' | 'search'>(linked ? 'detail' : 'search');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [candidates, setCandidates] = useState<any[]>([]);
+  const [loadingCandidates, setLoadingCandidates] = useState(false);
+  const [pairingId, setPairingId] = useState<string | null>(null);
+  const [unlinking, setUnlinking] = useState(false);
+
+  // Search & smart-match fetching
+  useEffect(() => {
+    if (mode !== 'search') return;
+    let isCancelled = false;
+
+    const runSearch = async () => {
+      setLoadingCandidates(true);
+      try {
+        const trimmed = searchTerm.trim();
+        let query = supabase
+          .from('user_sales')
+          .select('id, product_id, name, size, sku, price, payout, status, external_id, created_at, profiles(email, profile_type, vat_type)')
+          .order('created_at', { ascending: false })
+          .limit(40);
+
+        if (trimmed) {
+          if (trimmed.includes('@')) {
+            const { data: userProfiles } = await supabase
+              .from('profiles')
+              .select('id')
+              .ilike('email', `%${trimmed}%`)
+              .limit(15);
+            const userIds = (userProfiles || []).map(p => p.id);
+            if (userIds.length > 0) {
+              query = query.in('user_id', userIds);
+            } else {
+              query = query.or(`external_id.ilike.%${trimmed}%,sku.ilike.%${trimmed}%,name.ilike.%${trimmed}%`);
+            }
+          } else {
+            query = query.or(`external_id.ilike.%${trimmed}%,sku.ilike.%${trimmed}%,name.ilike.%${trimmed}%`);
+          }
+        } else {
+          // Default smart suggestions:
+          const skuBase = sale.sku?.split('/')[0]?.trim();
+          const conditions: string[] = [];
+          if (skuBase) conditions.push(`sku.ilike.%${skuBase}%`);
+          if (sale.size?.trim()) conditions.push(`size.eq.${sale.size.trim()}`);
+          if (sale.original_order_number) conditions.push(`external_id.eq.${sale.original_order_number}`);
+          if (sale.order_number) conditions.push(`external_id.eq.${sale.order_number}`);
+
+          if (conditions.length > 0) {
+            query = query.or(conditions.join(','));
+          }
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+        if (!isCancelled) {
+          setCandidates(data || []);
+        }
+      } catch (err: any) {
+        if (!isCancelled) console.error('Error fetching pairing candidates:', err);
+      } finally {
+        if (!isCancelled) setLoadingCandidates(false);
+      }
+    };
+
+    const timer = setTimeout(runSearch, searchTerm ? 300 : 0);
+    return () => {
+      isCancelled = true;
+      clearTimeout(timer);
+    };
+  }, [mode, searchTerm, sale]);
+
+  // Candidate scoring & sorting
+  const scoredCandidates = useMemo(() => {
+    const saleSkuBase = sale.sku?.split('/')[0]?.toLowerCase().trim();
+    const saleSize = sale.size?.trim().toLowerCase();
+
+    return [...candidates].map(candidate => {
+      const candSkuBase = candidate.sku?.split('/')[0]?.toLowerCase().trim();
+      const candSize = candidate.size?.trim().toLowerCase();
+      const isSkuMatch = Boolean(saleSkuBase && candSkuBase && (candSkuBase.includes(saleSkuBase) || saleSkuBase.includes(candSkuBase)));
+      const isSizeMatch = Boolean(saleSize && candSize && candSize === saleSize);
+      const isExtIdMatch = Boolean(
+        (sale.original_order_number && candidate.external_id === sale.original_order_number) ||
+        (sale.order_number && candidate.external_id === sale.order_number)
+      );
+      const isExact = isSkuMatch && isSizeMatch;
+
+      let score = 0;
+      if (isExact) score += 100;
+      if (isExtIdMatch && isSizeMatch) score += 80;
+      else if (isExtIdMatch) score += 60;
+      if (isSizeMatch) score += 40;
+      if (isSkuMatch) score += 30;
+
+      return {
+        ...candidate,
+        _score: score,
+        _isExact: isExact,
+        _isSizeMatch: isSizeMatch,
+        _isSkuMatch: isSkuMatch,
+        _isExtIdMatch: isExtIdMatch,
+      };
+    }).sort((a, b) => b._score - a._score);
+  }, [candidates, sale]);
+
+  const handleLinkCandidate = async (candidate: any) => {
+    setPairingId(candidate.id);
+    try {
+      const extId = candidate.external_id || sale.order_number;
+
+      if (!candidate.external_id) {
+        await supabase
+          .from('user_sales')
+          .update({ external_id: extId })
+          .eq('id', candidate.id);
+      }
+
+      const { error: updateError } = await supabase
+        .from('eshop_sales')
+        .update({
+          original_order_number: extId,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', sale.id);
+
+      if (updateError) throw updateError;
+
+      const profile = candidate.profiles as any;
+      const isVatPayer = profile?.profile_type === 'Business' && ['VAT_PAYER', 'VAT 0%'].includes(String(profile?.vat_type || ''));
+      const mapped: LinkedSale = {
+        id: candidate.id,
+        name: candidate.name,
+        size: candidate.size,
+        sku: candidate.sku,
+        price: Number(candidate.price || 0),
+        payout: Number(candidate.payout || 0),
+        status: candidate.status,
+        external_id: extId,
+        user_email: profile?.email || '',
+        product_id: candidate.product_id,
+        vat_scheme: isVatPayer ? 'VAT0' : 'MARGIN',
+        input_currency: 'EUR',
+      };
+
+      onLinkedUpdated(sale.id, mapped, extId);
+      showToast(`Položka bola úspešne spárovaná s výkupom #${extId}`, 'success');
+      setMode('detail');
+    } catch (err: any) {
+      showToast('Chyba pri párovaní: ' + err.message, 'error');
+    } finally {
+      setPairingId(null);
+    }
+  };
+
+  const handleUnlink = async () => {
+    if (!confirm('Naozaj chcete zrušiť prepojenie s consignment predajom?')) return;
+    setUnlinking(true);
+    try {
+      const { error: updateError } = await supabase
+        .from('eshop_sales')
+        .update({
+          original_order_number: null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', sale.id);
+
+      if (updateError) throw updateError;
+
+      onLinkedUpdated(sale.id, null, null);
+      showToast('Prepojenie bolo zrušené', 'success');
+      setMode('search');
+    } catch (err: any) {
+      showToast('Chyba pri rušení prepojenia: ' + err.message, 'error');
+    } finally {
+      setUnlinking(false);
+    }
+  };
+
   const profit = linked ? sale.price - linked.payout : null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 backdrop-blur-sm sm:items-center sm:p-4" onClick={onClose}>
       <div className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl border border-gray-200 bg-white shadow-2xl sm:rounded-2xl" onClick={event => event.stopPropagation()}>
+        {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-200 p-4 sm:p-5">
-          <div>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200/80 px-2.5 py-0.5 text-xs font-bold text-emerald-800">
-              <FaCheckCircle className="text-emerald-600" /> Detail consignment párovania
-            </span>
-            <h2 className="mt-1.5 text-lg font-black text-gray-900">Objednávka #{sale.order_number}</h2>
+          <div className="flex items-center gap-2.5">
+            {mode === 'detail' && linked ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200/80 px-2.5 py-0.5 text-xs font-bold text-emerald-800">
+                <FaCheckCircle className="text-emerald-600" /> Detail consignment párovania
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-300 px-2.5 py-0.5 text-xs font-bold text-amber-800">
+                <FaLink className="text-amber-600" /> Manuálne párovanie predaja
+              </span>
+            )}
+            <h2 className="text-lg font-black text-gray-900">Objednávka #{sale.order_number}</h2>
           </div>
-          <button onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-xl bg-gray-100 text-gray-500 hover:text-gray-900 hover:bg-gray-200 transition-colors">
-            <FaTimes />
-          </button>
+          <div className="flex items-center gap-2">
+            {linked && mode === 'search' && (
+              <button
+                type="button"
+                onClick={() => setMode('detail')}
+                className="px-3 py-1.5 text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors cursor-pointer"
+              >
+                Späť na detail
+              </button>
+            )}
+            <button onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-xl bg-gray-100 text-gray-500 hover:text-gray-900 hover:bg-gray-200 transition-colors cursor-pointer">
+              <FaTimes />
+            </button>
+          </div>
         </div>
 
-        <div className="overflow-y-auto p-4 sm:p-6">
-          {!linked ? (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-5 text-sm text-amber-800">
-              K tejto položke objednávky nie je priradený žiadny consignment predaj.
-            </div>
-          ) : (
+        {/* Modal content */}
+        <div className="overflow-y-auto p-4 sm:p-6 space-y-4">
+          {mode === 'detail' && linked ? (
             <div className="space-y-4">
               {/* Financial metric breakdown */}
               <div className="grid gap-3 sm:grid-cols-3">
@@ -1789,6 +2054,199 @@ function MatchDetailModal({
                   <p className="mt-1.5 whitespace-pre-wrap text-xs text-amber-900">{sale.shop_remark || sale.notes}</p>
                 </div>
               )}
+
+              {/* Action buttons */}
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setMode('search')}
+                  className="inline-flex items-center gap-2 rounded-xl bg-gray-900 px-4 py-2.5 text-xs font-bold text-white hover:bg-gray-800 transition-colors shadow-xs cursor-pointer"
+                >
+                  <FaExchangeAlt /> Zmeniť párovanie
+                </button>
+                <button
+                  type="button"
+                  onClick={handleUnlink}
+                  disabled={unlinking}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs font-bold text-rose-700 hover:bg-rose-100 hover:border-rose-300 transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  {unlinking ? <FaSpinner className="animate-spin" /> : <FaUnlink />} Zrušiť prepojenie
+                </button>
+              </div>
+            </div>
+          ) : (
+            /* Search & Pair Mode */
+            <div className="space-y-4">
+              {/* Target Eshop Item Header Banner */}
+              <div className="rounded-2xl border border-gray-200 bg-gray-50/70 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Hľadaná položka z eshopu</span>
+                    <h3 className="font-extrabold text-gray-900 text-sm mt-0.5">{sale.product_name}</h3>
+                    <div className="mt-1.5 flex flex-wrap gap-1.5 text-xs">
+                      <span className="rounded-md bg-white border border-gray-200 px-2 py-0.5 font-bold text-gray-800">
+                        Veľkosť: {sale.size || '-'}
+                      </span>
+                      <span className="rounded-md bg-white border border-gray-200 px-2 py-0.5 font-mono text-gray-700">
+                        SKU: {sale.sku || '-'}
+                      </span>
+                      {sale.original_order_number && (
+                        <span className="rounded-md bg-amber-100 border border-amber-300 px-2 py-0.5 font-semibold text-amber-900">
+                          Pôvodné orig #{sale.original_order_number}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Predajná cena</span>
+                    <p className="text-lg font-black text-gray-900">{formatCurrency(sale.price)}</p>
+                    <p className="text-xs text-gray-500">{sale.customer_name || sale.customer_email || ''}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Search Bar */}
+              <div className="relative">
+                <FaSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  placeholder="Hľadať podľa čísla výkupu (external ID), SKU, názvu alebo emailu predajcu..."
+                  className="w-full pl-10 pr-10 py-2.5 bg-white border border-gray-300 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all shadow-xs"
+                />
+                {searchTerm && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchTerm('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1 cursor-pointer"
+                  >
+                    <FaTimes className="text-xs" />
+                  </button>
+                )}
+              </div>
+
+              {/* Candidates List Header */}
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-gray-500">
+                  {searchTerm.trim() ? 'Výsledky vyhľadávania' : 'Odporúčané zhody (Smart Match)'}
+                  {' '}({scoredCandidates.length})
+                </span>
+                {loadingCandidates && (
+                  <span className="inline-flex items-center gap-1.5 text-xs text-gray-500">
+                    <FaSpinner className="animate-spin text-gray-400" /> Načítavam...
+                  </span>
+                )}
+              </div>
+
+              {/* Candidates Cards */}
+              <div className="space-y-2.5 max-h-[360px] overflow-y-auto pr-1">
+                {scoredCandidates.length === 0 && !loadingCandidates && (
+                  <div className="rounded-2xl border border-dashed border-gray-300 p-8 text-center">
+                    <p className="text-sm font-semibold text-gray-700">Nenašli sa žiadne vyhovujúce consignment predaje.</p>
+                    <p className="mt-1 text-xs text-gray-500">Skúste zadať iné kľúčové slovo alebo vytvorte nový consign predaj nižšie.</p>
+                  </div>
+                )}
+
+                {scoredCandidates.map(candidate => {
+                  const margin = sale.price - Number(candidate.payout || 0);
+                  const marginPercent = sale.price > 0 ? ((margin / sale.price) * 100).toFixed(0) : '0';
+                  const isPairing = pairingId === candidate.id;
+
+                  return (
+                    <div
+                      key={candidate.id}
+                      className={`rounded-2xl border p-3.5 transition-all shadow-xs ${
+                        candidate._isExact
+                          ? 'border-emerald-300 bg-emerald-50/30 ring-1 ring-emerald-400/40'
+                          : candidate._isSizeMatch || candidate._isSkuMatch
+                          ? 'border-blue-200 bg-blue-50/20'
+                          : 'border-gray-200 bg-white hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-2.5">
+                        <div className="space-y-1 flex-1 min-w-[200px]">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {candidate.external_id ? (
+                              <span className="font-mono text-xs font-bold text-gray-900 bg-gray-100 px-2 py-0.5 rounded">
+                                #{candidate.external_id}
+                              </span>
+                            ) : (
+                              <span className="text-[11px] text-gray-400 italic">Bez externého ID</span>
+                            )}
+
+                            {candidate._isExact && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.5 text-[10px] font-bold">
+                                <FaCheckCircle className="text-[10px]" /> 100% Zhoda: SKU & Veľkosť
+                              </span>
+                            )}
+                            {!candidate._isExact && candidate._isSizeMatch && (
+                              <span className="rounded-full bg-blue-100 text-blue-800 px-2 py-0.5 text-[10px] font-semibold">
+                                Zhoda veľkosti
+                              </span>
+                            )}
+                            {!candidate._isExact && candidate._isSkuMatch && (
+                              <span className="rounded-full bg-purple-100 text-purple-800 px-2 py-0.5 text-[10px] font-semibold">
+                                Zhoda SKU
+                              </span>
+                            )}
+                            {candidate._isExtIdMatch && (
+                              <span className="rounded-full bg-amber-100 text-amber-800 px-2 py-0.5 text-[10px] font-semibold">
+                                Zhoda čísla výkupu
+                              </span>
+                            )}
+                          </div>
+
+                          <p className="font-bold text-gray-900 text-sm leading-snug">{candidate.name}</p>
+
+                          <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600">
+                            <span className="font-semibold">Veľkosť: {candidate.size || '-'}</span>
+                            <span className="text-gray-300">·</span>
+                            <span className="font-mono">SKU: {candidate.sku || '-'}</span>
+                            <span className="text-gray-300">·</span>
+                            <span>{candidate.profiles?.email || 'Neznámy predajca'}</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          <div className="text-right">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Výplata / Marža</p>
+                            <p className="text-sm font-black text-gray-900">{formatCurrency(candidate.payout)}</p>
+                            <p className={`text-xs font-bold ${margin >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                              +{formatCurrency(margin)} ({marginPercent}%)
+                            </p>
+                          </div>
+
+                          <button
+                            type="button"
+                            disabled={isPairing}
+                            onClick={() => handleLinkCandidate(candidate)}
+                            className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white px-3.5 py-2 text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50"
+                          >
+                            {isPairing ? <FaSpinner className="animate-spin" /> : <FaLink />}
+                            <span>Prepojiť</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Create consignment sale option */}
+              <div className="rounded-2xl border border-gray-200 bg-gradient-to-r from-gray-50 to-blue-50/30 p-4 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-bold text-gray-900">Nenašli ste vhodný consignment predaj?</p>
+                  <p className="text-xs text-gray-500">Môžete rovno vytvoriť nový consign predaj s predvyplnenými údajmi tejto objednávky.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onCreateConsignSale(sale)}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-gray-900 bg-white hover:bg-gray-900 hover:text-white text-gray-900 px-3.5 py-2 text-xs font-bold transition-all shadow-xs cursor-pointer"
+                >
+                  <FaPlus /> Vytvoriť consign predaj
+                </button>
+              </div>
             </div>
           )}
         </div>

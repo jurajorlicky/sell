@@ -12,6 +12,11 @@ interface CreateSaleModalProps {
   onSaleCreated: () => void;
   preSelectedUserId?: string; // Optional: pre-select a user by ID
   preSelectedUserEmail?: string; // Optional: pre-select a user by email
+  initialExternalId?: string;
+  initialProductName?: string;
+  initialSize?: string;
+  initialPrice?: string;
+  initialSku?: string;
 }
 
 interface User {
@@ -60,7 +65,18 @@ const createEmptySaleItem = (): ManualSaleItemForm => ({
   loadingSizes: false
 });
 
-export default function CreateSaleModal({ isOpen, onClose, onSaleCreated, preSelectedUserId, preSelectedUserEmail }: CreateSaleModalProps) {
+export default function CreateSaleModal({
+  isOpen,
+  onClose,
+  onSaleCreated,
+  preSelectedUserId,
+  preSelectedUserEmail,
+  initialExternalId,
+  initialProductName,
+  initialSize,
+  initialPrice,
+  initialSku,
+}: CreateSaleModalProps) {
   const { showToast } = useToast();
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
@@ -98,6 +114,20 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated, preSel
         setHasSecondProduct(false);
         setExternalId('');
       }
+
+      if (initialExternalId) {
+        setExternalId(initialExternalId);
+      }
+      if (initialProductName || initialSize || initialPrice || initialSku) {
+        setFirstItem(prev => ({
+          ...prev,
+          productSearch: initialProductName || '',
+          productName: initialProductName || '',
+          size: initialSize || '',
+          price: initialPrice || '',
+          sku: initialSku || '',
+        }));
+      }
       
       // Set default date to today
       const today = new Date();
@@ -108,7 +138,7 @@ export default function CreateSaleModal({ isOpen, onClose, onSaleCreated, preSel
       loadUsers();
       loadProducts();
     }
-  }, [isOpen, preSelectedUserId, preSelectedUserEmail]);
+  }, [isOpen, preSelectedUserId, preSelectedUserEmail, initialExternalId, initialProductName, initialSize, initialPrice, initialSku]);
 
   // Pre-select user when users are loaded and preSelectedUserId/preSelectedUserEmail is provided
   useEffect(() => {

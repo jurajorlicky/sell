@@ -15,11 +15,14 @@ import {
   FaUnlink,
   FaChevronDown,
   FaChevronRight,
+  FaFileArchive,
+  FaMagic,
 } from 'react-icons/fa';
 import AdminNavigation from '../components/AdminNavigation';
 import InvoiceEmailImportPanel from '../components/InvoiceEmailImportPanel';
 import { useToast } from '../components/Toast';
 import { generatePurchaseAgreement, uploadContractToStorage } from '../lib/pdfGenerator';
+import { downloadFilesAsZip } from '../lib/zipExport';
 import { supabase } from '../lib/supabase';
 import { formatCurrency, formatDateShort } from '../lib/utils';
 import {
@@ -210,6 +213,10 @@ export default function InvoicesPage() {
   const [exporting, setExporting] = useState(false);
   const [expandedInvoiceGroup, setExpandedInvoiceGroup] = useState<string | null>(null);
   const [reparsingPath, setReparsingPath] = useState<string | null>(null);
+  const [zipping, setZipping] = useState<'contracts' | 'invoices' | null>(null);
+  const [zipProgress, setZipProgress] = useState<{ current: number; total: number } | null>(null);
+  const [bulkGeneratingContracts, setBulkGeneratingContracts] = useState(false);
+  const [bulkContractProgress, setBulkContractProgress] = useState<{ current: number; total: number } | null>(null);
 
   const linkFilesToSales = useCallback((nextFiles: ImportedInvoice[], nextSales: InvoiceSale[]) => {
     return nextFiles.map((file) => {
@@ -713,6 +720,194 @@ export default function InvoicesPage() {
     }
   };
 
+  const generateSingleContractInternal = async (sale: InvoiceSale, adminSettings: any) => {
+    const { data: freshSale, error: freshSaleError } = await supabase
+      .from('user_sales')
+      .select('id, user_id, name, size, price, is_manual, payout, created_at, external_id, invoice_date, manual_sale_items')
+      .eq('id', sale.id)
+      .single();
+
+    if (freshSaleError || !freshSale) throw new Error('Sale nenájdené');
+    if (!freshSale.user_id) throw new Error('Sale nemá priradený profil predajcu');
+
+    const { data: freshProfile, error: freshProfileError } = await supabase
+      .from('profiles')
+      .select('first_name, last_name, ico, address, popisne_cislo, psc, mesto, krajina, email, telephone, iban, signature_url')
+      .eq('id', freshSale.user_id)
+      .single();
+
+    if (freshProfileError || !freshProfile) throw new Error('Profil nenájdený');
+
+    const contractDateISO = freshSale.invoice_date || freshSale.created_at || new Date().toISOString();
+    const pdfBlob = await generatePurchaseAgreement({
+      saleId: sale.id,
+      externalId: freshSale.external_id || undefined,
+      formId: sale.id,
+      productName: freshSale.name,
+      size: freshSale.size || '',
+      price: Number(freshSale.price || 0),
+      isManual: Boolean(freshSale.is_manual),
+      payout: Number(freshSale.payout || 0),
+      items: Array.isArray(freshSale.manual_sale_items) ? freshSale.manual_sale_items : undefined,
+      buyerName: 'Juraj Orlicky ml.',
+      buyerCIN: '55702660',
+      buyerAddress: 'Lysica 336, 013 05 Lysica, SLOVAKIA',
+      buyerEmail: 'info@airkicks.eu',
+      buyerSignatureUrl: adminSettings?.buyer_signature_url || undefined,
+      sellerName: freshProfile.first_name || '',
+      sellerSurname: freshProfile.last_name || '',
+      sellerCIN: freshProfile.ico || undefined,
+      sellerAddress: buildSellerAddress(freshProfile),
+      sellerEmail: freshProfile.email || sale.user_email,
+      sellerPhone: freshProfile.telephone || undefined,
+      sellerIBAN: freshProfile.iban || undefined,
+      sellerSignatureUrl: freshProfile.signature_url || undefined,
+      location: freshProfile.mesto || 'Slovakia',
+      saleDate: contractDateISO,
+    });
+
+    const storageFileId = freshSale.external_id || sale.id;
+    const url = await uploadContractToStorage(storageFileId, pdfBlob);
+
+    const { error: updateError } = await supabase
+      .from('user_sales')
+      .update({ contract_url: url, updated_at: new Date().toISOString() })
+      .eq('id', sale.id);
+
+    if (updateError) throw updateError;
+    return url;
+  };
+
+  const handleBulkGenerateContracts = async () => {
+    const missing = contractSales.filter((s) => !s.contract_url);
+    if (!missing.length) {
+      showToast('Všetky zmluvy sú už vygenerované', 'info');
+      return;
+    }
+
+    try {
+      setBulkGeneratingContracts(true);
+      const { data: adminSettings } = await supabase
+        .from('admin_settings')
+        .select('buyer_signature_url')
+        .single();
+
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (let i = 0; i < missing.length; i++) {
+        setBulkContractProgress({ current: i + 1, total: missing.length });
+        try {
+          await generateSingleContractInternal(missing[i], adminSettings);
+          successCount++;
+        } catch {
+          errorCount++;
+        }
+      }
+
+      showToast(`Vygenerovaných ${successCount} zmlúv (${errorCount > 0 ? `${errorCount} chýb` : 'všetky v poriadku'})`, 'success');
+      await loadPage();
+    } catch (err: any) {
+      showToast(err.message || 'Hromadné generovanie zlyhalo', 'error');
+    } finally {
+      setBulkGeneratingContracts(false);
+      setBulkContractProgress(null);
+    }
+  };
+
+  const handleDownloadContractsZip = async () => {
+    const withContracts = contractSales.filter((s) => Boolean(s.contract_url));
+    if (!withContracts.length) {
+      showToast('Žiadne vygenerované zmluvy na stiahnutie', 'info');
+      return;
+    }
+
+    try {
+      setZipping('contracts');
+      const items = withContracts.map((s) => ({
+        url: s.contract_url as string,
+        filename: `zmluva-${s.external_id || s.id}.pdf`,
+      }));
+
+      await downloadFilesAsZip(items, `kupne-zmluvy-${exportDateStamp()}.zip`, (current, total) => {
+        setZipProgress({ current, total });
+      });
+
+      showToast(`Stiahnutých ${items.length} zmlúv v ZIP archíve`, 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Chyba pri sťahovaní ZIP', 'error');
+    } finally {
+      setZipping(null);
+      setZipProgress(null);
+    }
+  };
+
+  const handleDownloadInvoicesZip = async () => {
+    const withInvoices = files.filter((f) => Boolean(f.publicUrl));
+    if (!withInvoices.length) {
+      showToast('Žiadne faktúry na stiahnutie', 'info');
+      return;
+    }
+
+    try {
+      setZipping('invoices');
+      const items = withInvoices.map((f) => ({
+        url: f.publicUrl,
+        filename: f.name || `faktura-${f.orderNumber || f.id}.pdf`,
+      }));
+
+      await downloadFilesAsZip(items, `faktury-${exportDateStamp()}.zip`, (current, total) => {
+        setZipProgress({ current, total });
+      });
+
+      showToast(`Stiahnutých ${items.length} faktúr v ZIP archíve`, 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Chyba pri sťahovaní ZIP', 'error');
+    } finally {
+      setZipping(null);
+      setZipProgress(null);
+    }
+  };
+
+  const handleConfirmSmartMatch = async (file: ImportedInvoice, sale: InvoiceSale) => {
+    try {
+      const stableInvoiceReference = invoiceStorageReference(file.path);
+      const isEshop = sale.source === 'eshop_sales';
+
+      const { error: updateError } = await supabase
+        .from(isEshop ? 'eshop_sales' : 'user_sales')
+        .update({ fa_url: stableInvoiceReference, updated_at: new Date().toISOString() })
+        .eq('id', sale.id);
+
+      if (updateError) throw updateError;
+
+      const now = new Date().toISOString();
+      const { error: documentError } = await supabase
+        .from('invoice_documents')
+        .upsert({
+          document_type: 'fa',
+          status: 'matched',
+          bucket: 'invoices',
+          storage_path: file.path,
+          public_url: stableInvoiceReference,
+          file_name: file.name,
+          order_number: sale.external_id || file.orderNumber,
+          matched_target: isEshop ? 'eshop_sales' : 'user_sales',
+          user_sale_id: isEshop ? null : sale.id,
+          eshop_sale_id: isEshop ? sale.id : null,
+          source: 'smart_match',
+          updated_at: now,
+        }, { onConflict: 'storage_path' });
+
+      if (documentError) throw documentError;
+
+      showToast(`Faktúra spárovaná so sale ${sale.name}`, 'success');
+      await loadPage();
+    } catch (err: any) {
+      showToast(err.message || 'Párovanie zlyhalo', 'error');
+    }
+  };
+
   const q = query.toLowerCase().trim();
 
   const salesWithFa = useMemo(() => {
@@ -726,6 +921,53 @@ export default function InvoicesPage() {
   const generatedContractCount = useMemo(() => {
     return contractSales.filter((sale) => sale.contract_url).length;
   }, [contractSales]);
+
+  const smartMatchSuggestions = useMemo(() => {
+    const map = new Map<string, { sale: InvoiceSale; reason: string }>();
+
+    files.forEach((file) => {
+      if (file.linkedSale) return;
+      const extractedTotal = file.extractedTotal;
+      const orderNum = file.orderNumber;
+      const product = file.extractedProduct?.toLowerCase();
+
+      let bestCandidate: { sale: InvoiceSale; reason: string; score: number } | null = null;
+
+      for (const sale of sales) {
+        const saleAmount = expectedInvoiceAmount(sale, sales);
+        const amountMatches = extractedTotal !== null && extractedTotal !== undefined && Math.abs(saleAmount - extractedTotal) <= 0.05;
+        const orderMatches = orderNum ? saleMatchesOrder(sale, orderNum) : false;
+        const nameMatches = Boolean(product && sale.name && (sale.name.toLowerCase().includes(product) || product.includes(sale.name.toLowerCase())));
+
+        let score = 0;
+        let reason = '';
+
+        if (orderMatches && amountMatches) {
+          score = 100;
+          reason = `Zhoda čísla #${orderNum} aj sumy (${formatCurrency(saleAmount)})`;
+        } else if (orderMatches) {
+          score = 70;
+          reason = `Zhoda čísla objednávky #${orderNum}`;
+        } else if (amountMatches && nameMatches) {
+          score = 80;
+          reason = `Zhoda produktu a presná suma (${formatCurrency(saleAmount)})`;
+        } else if (amountMatches) {
+          score = 50;
+          reason = `Presná zhoda sumy (${formatCurrency(saleAmount)})`;
+        }
+
+        if (score > 0 && (!bestCandidate || score > bestCandidate.score)) {
+          bestCandidate = { sale, reason, score };
+        }
+      }
+
+      if (bestCandidate && bestCandidate.score >= 50) {
+        map.set(file.id, { sale: bestCandidate.sale, reason: bestCandidate.reason });
+      }
+    });
+
+    return map;
+  }, [files, sales]);
 
   const visibleFiles = useMemo(() => {
     return files.filter((file) => {
@@ -1128,6 +1370,22 @@ export default function InvoicesPage() {
                 <FaDownload className={`text-xs ${exporting ? 'animate-pulse text-emerald-600' : 'text-gray-600'}`} />
                 <span>{exporting ? 'Exportujem...' : 'Účtovný XLSX'}</span>
               </button>
+
+              <button
+                onClick={handleDownloadInvoicesZip}
+                disabled={zipping === 'invoices' || !files.some(f => Boolean(f.publicUrl))}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-gray-800 shadow-xs hover:bg-gray-50 transition-all disabled:opacity-50"
+                title="Zbaliť a stiahnuť všetky PDF faktúry do ZIP archívu"
+              >
+                <FaFileArchive className={`text-xs ${zipping === 'invoices' ? 'animate-bounce text-pink-600' : 'text-pink-600'}`} />
+                <span>
+                  {zipping === 'invoices'
+                    ? zipProgress
+                      ? `Zbalujem (${zipProgress.current}/${zipProgress.total})...`
+                      : 'Pripravujem ZIP...'
+                    : 'Faktúry v ZIP'}
+                </span>
+              </button>
             </div>
           </div>
         </section>
@@ -1249,6 +1507,24 @@ export default function InvoicesPage() {
                           <p className="mt-1 truncate text-[11px] text-gray-500">
                             {linkedSale ? `${linkedSale.user_email} · ${linkedSale.source === 'eshop_sales' ? 'E-shop' : 'Consign'}` : 'Faktúra ešte nie je pripojená k predaju'}
                           </p>
+                          {!linkedSale && smartMatchSuggestions.get(file.id) && (() => {
+                            const match = smartMatchSuggestions.get(file.id)!;
+                            return (
+                              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                                <span className="inline-flex items-center gap-1 rounded-md bg-indigo-50 border border-indigo-200/80 px-2 py-0.5 text-[11px] font-medium text-indigo-900">
+                                  <FaMagic className="text-[10px] text-indigo-600" />
+                                  <span className="truncate max-w-[280px]">Návrh: #{match.sale.external_id || match.sale.id.slice(0, 8)} ({match.reason})</span>
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleConfirmSmartMatch(file, match.sale)}
+                                  className="rounded-md bg-indigo-600 px-2 py-0.5 text-[10px] font-bold text-white hover:bg-indigo-700 transition-colors shadow-xs"
+                                >
+                                  Spárovať
+                                </button>
+                              </div>
+                            );
+                          })()}
                         </div>
 
                         {/* Financial extraction */}
@@ -1465,8 +1741,48 @@ export default function InvoicesPage() {
         {viewMode === 'contracts' && (
           <section className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm">
             <div className="border-b border-gray-200 bg-white px-4 py-4 sm:px-6">
-              <h2 className="text-lg font-bold text-gray-900">Kúpne zmluvy ({visibleContractSales.length})</h2>
-              <p className="mt-0.5 text-xs text-gray-500">Všetky consign predaje. Vygenerované zmluvy otvoríš, chýbajúce vygeneruješ 1 klikom.</p>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">Kúpne zmluvy ({visibleContractSales.length})</h2>
+                  <p className="mt-0.5 text-xs text-gray-500">Všetky consign predaje. Vygenerované zmluvy otvoríš, chýbajúce vygeneruješ 1 klikom.</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {contractSales.length - generatedContractCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleBulkGenerateContracts}
+                      disabled={bulkGeneratingContracts}
+                      className="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-indigo-700 transition-all disabled:opacity-50"
+                    >
+                      <FaFileContract className={`mr-1.5 text-xs ${bulkGeneratingContracts ? 'animate-spin' : ''}`} />
+                      <span>
+                        {bulkGeneratingContracts
+                          ? bulkContractProgress
+                            ? `Generujem (${bulkContractProgress.current}/${bulkContractProgress.total})...`
+                            : 'Generujem...'
+                          : `Vygenerovať chýbajúce (${contractSales.length - generatedContractCount})`}
+                      </span>
+                    </button>
+                  )}
+                  {generatedContractCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleDownloadContractsZip}
+                      disabled={zipping === 'contracts'}
+                      className="inline-flex items-center justify-center rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-gray-800 shadow-xs hover:bg-gray-50 transition-all disabled:opacity-50"
+                    >
+                      <FaFileArchive className={`mr-1.5 text-xs ${zipping === 'contracts' ? 'animate-bounce text-indigo-600' : 'text-indigo-600'}`} />
+                      <span>
+                        {zipping === 'contracts'
+                          ? zipProgress
+                            ? `Zbalujem (${zipProgress.current}/${zipProgress.total})...`
+                            : 'Pripravujem ZIP...'
+                          : `Zmluvy v ZIP (${generatedContractCount})`}
+                      </span>
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
 
             {visibleContractSales.length === 0 ? (
