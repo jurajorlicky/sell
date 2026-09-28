@@ -90,19 +90,33 @@ type InvoiceFilter = 'all' | 'unmatched' | 'mismatch' | 'error';
 
 const normalizeOrderNumber = (value?: string | null) => {
   if (!value) return null;
-  const str = value.trim().replace(/\.pdf$/i, '');
-  const matchWithSuffix = str.match(/^(.{6,})[_-]\d+$/);
-  return matchWithSuffix ? matchWithSuffix[1].trim() : str;
+  let str = value.trim().replace(/\.[a-z0-9]{2,4}$/i, '');
+
+  const prefixMatch = str.match(/^(?:fakt[uú]ra|invoice|doklad|fa|obj|objedn[aá]vka|order)[-_ ]+([a-zA-Z0-9_-]{4,24})$/i);
+  if (prefixMatch) {
+    str = prefixMatch[1].trim();
+  }
+
+  const copyMatch = str.match(/^(.{4,})[-_ ](?:copy|\(?\d{1,2}\)?)$/i);
+  if (copyMatch) {
+    str = copyMatch[1].trim();
+  }
+
+  return str || null;
 };
 
 const extractOrderNumber = (value: string) => {
   if (!value) return null;
 
+  const direct = normalizeOrderNumber(value);
+  if (direct && (/^\d{6,14}$/.test(direct) || /^[a-zA-Z]{2,4}[-_]\d{4,14}$/.test(direct))) {
+    return direct;
+  }
+
   // 1. High confidence: Labeled order numbers
   const labeled = [
-    /(?:objedn[aá]vk[ay]|obj\.?\s*č\.?|order\s*(?:no\.?|id|#)?|číslo\s*objedn[aá]vky|č\.\s*obj\.?)\s*[:#-]?\s*([a-z0-9][a-z0-9_-]{3,24})/i,
-    /(?:variabiln[yý]\s*symbol|v\.?\s*s\.?|var\.?\s*sym\.?)\s*[:#-]?\s*(\d{6,14})/i,
-    /(?:fakt[uú]ra\s*č\.?|daňový\s*doklad\s*č\.?|invoice\s*(?:no\.?|#)?|fa)[^a-z0-9]{0,10}([a-z0-9][a-z0-9_-]{3,24})/i,
+    /(?:objedn[aá]vk[ay]|obj\.?\s*č\.?|order\s*(?:no\.?|id|#)?|číslo\s*objedn[aá]vky|č\.\s*obj\.?|bestellung(?:snr)?)\s*[:#-]?\s*([a-z0-9][a-z0-9_-]{3,24})/i,
+    /(?:variabiln[yý]\s*symbol|v\.?\s*s\.?|var\.?\s*sym\.?|v-symbol)\s*[:#-]?\s*(\d{6,14})/i,
   ];
   for (const pattern of labeled) {
     const match = value.match(pattern);
@@ -110,24 +124,23 @@ const extractOrderNumber = (value: string) => {
   }
 
   // 2. Prefixed patterns
-  const prefixed = value.match(/\b((?:AIR|OBJ|ORD|INV|FA)[-_]?\d{4,14})\b/i);
+  const prefixed = value.match(/\b((?:AIR|OBJ|ORD)[-_]?\d{4,14})\b/i);
   if (prefixed?.[1]) return normalizeOrderNumber(prefixed[1]);
 
-  // 3. Year long patterns: 202x / 201x (8-12 digits)
-  const yearLong = value.match(/(?:^|[^0-9])(20[1-3]\d{5,9})(?:[_-]\d+)?(?=$|[^0-9])/);
-  if (yearLong?.[1]) return normalizeOrderNumber(yearLong[1]);
+  // 3. Shoptet Year patterns: 202x (8-12 digits) or 24-27 (8 digits)
+  const shoptetLong = value.match(/(?:^|[^0-9])(20[2-3]\d{6,8})(?=$|[^0-9])/);
+  if (shoptetLong?.[1]) return normalizeOrderNumber(shoptetLong[1]);
 
-  // 4. Short year patterns (e.g. 24001234)
-  const yearShort = value.match(/(?:^|[^0-9])((?:2[3-7])\d{6,8})(?=$|[^0-9])/);
-  if (yearShort?.[1]) return normalizeOrderNumber(yearShort[1]);
+  const shoptetShort = value.match(/(?:^|[^0-9])((?:2[3-7])\d{6})(?=$|[^0-9])/);
+  if (shoptetShort?.[1]) return normalizeOrderNumber(shoptetShort[1]);
 
-  // 5. General standalone 8-12 digit numbers
-  const general = value.match(/(?:^|[^0-9])(\d{8,12})(?=$|[^0-9])/);
+  // 4. General standalone 7-12 digit numbers
+  const general = value.match(/(?:^|[^0-9])(\d{7,12})(?=$|[^0-9])/);
   if (general?.[1]) return normalizeOrderNumber(general[1]);
 
-  // 6. Fallback to 6-7 digit numbers
-  const fallback = value.match(/(?:^|[^0-9])(\d{6,7})(?=$|[^0-9])/);
-  if (fallback?.[1]) return normalizeOrderNumber(fallback[1]);
+  // 5. Fallback to invoice number only if nothing else matches
+  const invoiceMatch = value.match(/(?:fakt[uú]ra\s*č\.?|daňový\s*doklad\s*č\.?|invoice\s*(?:no\.?|#)?|fa)[^a-z0-9]{0,10}([a-z0-9][a-z0-9_-]{3,24})/i);
+  if (invoiceMatch?.[1]) return normalizeOrderNumber(invoiceMatch[1]);
 
   return null;
 };
@@ -196,6 +209,7 @@ export default function InvoicesPage() {
   const [savingPayout, setSavingPayout] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [expandedInvoiceGroup, setExpandedInvoiceGroup] = useState<string | null>(null);
+  const [reparsingPath, setReparsingPath] = useState<string | null>(null);
 
   const linkFilesToSales = useCallback((nextFiles: ImportedInvoice[], nextSales: InvoiceSale[]) => {
     return nextFiles.map((file) => {
@@ -504,6 +518,39 @@ export default function InvoicesPage() {
       showToast(err.message || 'Attach failed', 'error');
     } finally {
       setAttachingPath(null);
+    }
+  };
+
+  const handleReparseFile = async (file: ImportedInvoice) => {
+    try {
+      setReparsingPath(file.path);
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) throw new Error('Chýba prihlásenie');
+
+      const response = await fetch('/.netlify/functions/import-email-invoices', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          action: 'reprocess',
+          storagePath: file.path,
+        }),
+      });
+
+      const res = await response.json();
+      if (!response.ok || res.error) {
+        throw new Error(res.error || 'Pre-parsovanie zlyhalo');
+      }
+
+      showToast(`Faktúra bola úspešne pre-parsovaná (${res.summary?.matched ? 'Spárovaná' : 'Nespárovaná'})`, 'success');
+      await loadPage();
+    } catch (err: any) {
+      showToast(err.message || 'Chyba pri pre-parsovaní', 'error');
+    } finally {
+      setReparsingPath(null);
     }
   };
 
@@ -1226,6 +1273,16 @@ export default function InvoicesPage() {
 
                         {/* Actions */}
                         <div className="flex flex-wrap gap-1.5 lg:justify-end">
+                          <button
+                            type="button"
+                            onClick={() => handleReparseFile(file)}
+                            disabled={reparsingPath === file.path}
+                            title="Znova spustiť inteligentný parser na tomto PDF"
+                            className="inline-flex h-8 items-center justify-center rounded-lg border border-gray-200 bg-white px-2.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors shadow-xs disabled:opacity-50"
+                          >
+                            <FaSync className={`mr-1.5 text-[10px] ${reparsingPath === file.path ? 'animate-spin text-pink-600' : ''}`} />
+                            <span>{reparsingPath === file.path ? 'Parsujem...' : 'Pre-parsovať'}</span>
+                          </button>
                           <a
                             href={file.publicUrl}
                             target="_blank"
@@ -1250,27 +1307,46 @@ export default function InvoicesPage() {
                       {expanded && (
                         <div className="border-t border-gray-100 bg-gray-50/60 px-4 py-4 sm:px-6">
                           <div className="grid gap-4 lg:grid-cols-2">
-                            <div>
-                              <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-gray-500">Párovanie so sale</p>
-                              {linkedSale ? (
-                                <div className="rounded-xl border border-gray-200 bg-white p-3.5 text-xs shadow-xs space-y-1">
-                                  <p className="font-bold text-gray-900">{linkedSale.name}</p>
-                                  <div className="flex flex-wrap gap-1 text-[11px] text-gray-600">
-                                    <span className="rounded bg-gray-100 px-1.5 py-0.2">Veľkosť {linkedSale.size || '-'}</span>
-                                    <span className="rounded bg-gray-100 px-1.5 py-0.2 font-mono">SKU {linkedSale.sku || '-'}</span>
-                                    <span className="rounded bg-gray-100 px-1.5 py-0.2">Ext #{linkedSale.external_id || '-'}</span>
+                            <div className="space-y-3">
+                              <div>
+                                <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-gray-500">Párovanie so sale</p>
+                                {linkedSale ? (
+                                  <div className="rounded-xl border border-gray-200 bg-white p-3.5 text-xs shadow-xs space-y-1">
+                                    <p className="font-bold text-gray-900">{linkedSale.name}</p>
+                                    <div className="flex flex-wrap gap-1 text-[11px] text-gray-600">
+                                      <span className="rounded bg-gray-100 px-1.5 py-0.2">Veľkosť {linkedSale.size || '-'}</span>
+                                      <span className="rounded bg-gray-100 px-1.5 py-0.2 font-mono">SKU {linkedSale.sku || '-'}</span>
+                                      <span className="rounded bg-gray-100 px-1.5 py-0.2">Ext #{linkedSale.external_id || '-'}</span>
+                                    </div>
+                                    <div className="pt-1 flex items-center justify-between text-xs">
+                                      <span className="text-gray-500">Predajná cena: <span className="font-bold text-gray-900">{formatCurrency(linkedSale.price)}</span></span>
+                                      <span className="text-gray-500">Výplata: <span className="font-bold text-blue-700">{formatCurrency(linkedSale.payout)}</span></span>
+                                    </div>
                                   </div>
-                                  <div className="pt-1 flex items-center justify-between text-xs">
-                                    <span className="text-gray-500">Predajná cena: <span className="font-bold text-gray-900">{formatCurrency(linkedSale.price)}</span></span>
-                                    <span className="text-gray-500">Výplata: <span className="font-bold text-blue-700">{formatCurrency(linkedSale.payout)}</span></span>
+                                ) : (
+                                  <p className="text-xs text-gray-500 bg-white border border-gray-200/80 rounded-xl p-3">
+                                    K tejto faktúre nie je automaticky priradený žiaden predaj. Použi tlačidlo <strong className="text-gray-900">Pripnúť</strong>.
+                                  </p>
+                                )}
+                              </div>
+
+                              {Array.isArray(file.extractedItems) && file.extractedItems.length > 0 && (
+                                <div>
+                                  <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-gray-500">Rozpoznané položky z PDF</p>
+                                  <div className="rounded-xl border border-gray-200 bg-white p-3 space-y-1.5 text-xs shadow-xs">
+                                    {file.extractedItems.map((itm, itmIdx) => (
+                                      <div key={itmIdx} className="flex items-center justify-between gap-2 border-b border-gray-100 last:border-0 pb-1.5 last:pb-0">
+                                        <span className="truncate font-medium text-gray-800">{itm.product}</span>
+                                        {itm.total !== null && itm.total !== undefined && (
+                                          <span className="font-bold text-gray-900 whitespace-nowrap">{formatCurrency(itm.total)}</span>
+                                        )}
+                                      </div>
+                                    ))}
                                   </div>
                                 </div>
-                              ) : (
-                                <p className="text-xs text-gray-500 bg-white border border-gray-200/80 rounded-xl p-3">
-                                  K tejto faktúre nie je automaticky priradený žiaden predaj. Použi tlačidlo <strong className="text-gray-900">Pripnúť</strong>.
-                                </p>
                               )}
                             </div>
+
                             <div>
                               <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-gray-500">Súbory v objednávke</p>
                               <div className="space-y-1.5">
