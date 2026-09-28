@@ -631,9 +631,20 @@ export default function InvoicesPage() {
     try {
       setSavingPayout(true);
       const now = new Date().toISOString();
+      const updatePayload: any = { payout, updated_at: now };
+      if (
+        payoutModalSale.source === 'user_sales' &&
+        Array.isArray(payoutModalSale.manual_sale_items) &&
+        payoutModalSale.manual_sale_items.length > 0
+      ) {
+        updatePayload.manual_sale_items = payoutModalSale.manual_sale_items.map((item, idx) =>
+          idx === 0 || payoutModalSale.manual_sale_items!.length === 1 ? { ...item, payout } : item
+        );
+      }
+
       const { error: updateError } = await supabase
         .from(payoutModalSale.source === 'eshop_sales' ? 'eshop_sales' : 'user_sales')
-        .update({ payout, updated_at: now })
+        .update(updatePayload)
         .eq('id', payoutModalSale.id);
 
       if (updateError) throw updateError;

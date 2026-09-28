@@ -506,33 +506,29 @@ export default function AdminSalesStatusManager({
       setError(null);
       logger.info('Deleting contract', { saleId, contractUrl });
 
-      // Extract path from URL - file is stored as contracts/{saleId}.pdf
-      let filePath = `contracts/${saleId}.pdf`;
-      if (contractUrl.includes('/storage/v1/object/public/contracts/')) {
-        // Full public URL - extract the filename
-        const urlParts = contractUrl.split('/contracts/');
-        if (urlParts.length > 1) {
-          filePath = `contracts/${urlParts[1].split('?')[0]}`; // Remove query params if any
-        }
-      } else if (contractUrl.includes('/contracts/')) {
-        // Partial URL
-        const urlParts = contractUrl.split('/contracts/');
-        if (urlParts.length > 1) {
-          filePath = `contracts/${urlParts[1].split('?')[0]}`; // Remove query params if any
-        }
-      }
+      // Extract path from URL - file is stored in 'contracts' bucket as contracts/{fileId}.pdf
+      const cleanUrl = contractUrl.split('?')[0];
+      const match = cleanUrl.match(/\/contracts\/(.+)$/);
+      const extractedPath = match?.[1] ? (match[1].startsWith('contracts/') ? match[1] : `contracts/${match[1]}`) : `contracts/${saleId}.pdf`;
+
+      const filePathsToDelete = Array.from(new Set([
+        extractedPath,
+        extractedPath.replace(/^contracts\//, ''),
+        `contracts/${saleId}.pdf`,
+        saleData?.external_id ? `contracts/${saleData.external_id}.pdf` : null,
+      ].filter(Boolean) as string[]));
 
       // Delete from storage bucket
-      logger.info('Deleting contract from storage', { filePath, bucket: 'contracts' });
+      logger.info('Deleting contract from storage', { filePathsToDelete, bucket: 'contracts' });
       const { error: deleteError } = await supabase.storage
         .from('contracts')
-        .remove([filePath]);
+        .remove(filePathsToDelete);
 
       if (deleteError) {
         logger.error('Failed to delete contract from storage', deleteError);
         throw new Error(`Error deleting file from storage: ${deleteError.message}`);
       } else {
-        logger.info('Contract deleted from storage successfully', { filePath });
+        logger.info('Contract deleted from storage successfully', { filePathsToDelete });
       }
 
       // Update database
@@ -644,6 +640,25 @@ export default function AdminSalesStatusManager({
     try {
       setGeneratingContract(true);
       setError(null);
+
+      // If user typed a new payout in the input, persist it first so the generated contract uses the fresh payout!
+      const parsedPayout = parseMoneyInput(payoutInput);
+      const payoutChanged = originalPayout !== null && (
+        (parsedPayout === null && originalPayout !== null) ||
+        (parsedPayout !== null && Math.abs(parsedPayout - originalPayout) > 0.001)
+      );
+
+      if (payoutChanged && parsedPayout !== null) {
+        const updatePayload: any = { payout: parsedPayout, updated_at: new Date().toISOString() };
+        if (Array.isArray(saleData?.manual_sale_items) && saleData.manual_sale_items.length > 0) {
+          updatePayload.manual_sale_items = saleData.manual_sale_items.map((item, idx) =>
+            idx === 0 || saleData.manual_sale_items!.length === 1 ? { ...item, payout: parsedPayout } : item
+          );
+        }
+        await supabase.from('user_sales').update(updatePayload).eq('id', saleId);
+        setOriginalPayout(parsedPayout);
+        setSaleData(prev => prev ? { ...prev, payout: parsedPayout, manual_sale_items: updatePayload.manual_sale_items || prev.manual_sale_items } : prev);
+      }
 
       // Always load latest sale + profile data from DB so contract uses fresh values
       const { data: freshSale, error: freshSaleError } = await supabase
@@ -825,6 +840,11 @@ export default function AdminSalesStatusManager({
       }
       if (payoutChanged) {
         updateData.payout = effectivePayout;
+        if (Array.isArray(saleData?.manual_sale_items) && saleData.manual_sale_items.length > 0) {
+          updateData.manual_sale_items = saleData.manual_sale_items.map((item, idx) =>
+            idx === 0 || saleData.manual_sale_items!.length === 1 ? { ...item, payout: effectivePayout } : item
+          );
+        }
       }
       // Handle saleDate (created_at) - if manually changed
       const currentSaleDateStr = currentCreatedAt ? isoToLocalDateString(currentCreatedAt) : '';

@@ -234,7 +234,10 @@ export async function generatePurchaseAgreement(data: PurchaseAgreementData): Pr
       // Table data: support one or more products in the same manual sale
       doc.setFont('helvetica', 'normal');
       const agreementItems = data.items && data.items.length > 0
-        ? data.items
+        ? data.items.map((item) => ({
+            ...item,
+            payout: (data.items!.length === 1 && data.payout !== undefined && data.payout !== null) ? data.payout : item.payout
+          }))
         : [{
             productName: data.productName,
             size: data.size,
@@ -377,10 +380,10 @@ export async function uploadContractToStorage(fileId: string, pdfBlob: Blob): Pr
     throw new Error(`Chyba pri nahrávaní PDF: ${error.message}`);
   }
 
-  // Get public URL
+  // Get public URL with timestamp cache buster so browser never loads stale cached PDF
   const { data: urlData } = supabase.storage
     .from('contracts')
     .getPublicUrl(fileName);
 
-  return urlData.publicUrl;
+  return `${urlData.publicUrl}?t=${Date.now()}`;
 }
