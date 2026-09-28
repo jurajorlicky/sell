@@ -97,8 +97,12 @@ export default function SystemStatusPage() {
       const { data: settings, error: settingsError } = await supabase
         .from('admin_settings')
         .select('fee_percent, fee_fixed')
-        .single();
+        .limit(1)
+        .maybeSingle();
       if (settingsError) throw settingsError;
+      if (!settings) {
+        return { count: 0, message: 'Settings not configured.', samples: [] };
+      }
 
       const { data, error } = await supabase
         .from('user_products')
@@ -116,10 +120,10 @@ export default function SystemStatusPage() {
       return {
         count: mismatches.length,
         message: 'Active offers where stored payout differs from current formula.',
-        samples: mismatches.slice(0, 4).map((offer: any) => {
+        samples: mismatches.slice(0, 4).map((offer: any, idx: number) => {
           const scheme = offer.vat_scheme === 'VAT0' || offer.is_vat0 ? 'VAT0' : offer.vat_scheme === 'MARGIN' ? 'MARGIN' : null;
           const expected = calculatePayout(Number(offer.price) || 0, settings.fee_percent, settings.fee_fixed, scheme);
-          return `${offer.name || 'Offer'} EU ${offer.size || '-'}: ${offer.payout} -> ${expected}`;
+          return `${offer.name || 'Offer'} EU ${offer.size || '-'}: ${offer.payout} -> ${expected} (#${idx + 1})`;
         }),
       };
     });
@@ -134,7 +138,10 @@ export default function SystemStatusPage() {
       return {
         count: data?.length || 0,
         message: 'Expired offers that still exist in user_products.',
-        samples: (data || []).slice(0, 4).map((offer: any) => `${offer.name || 'Offer'} EU ${offer.size || '-'} expired ${new Date(offer.expires_at).toLocaleDateString('sk-SK')}`),
+        samples: (data || []).slice(0, 4).map((offer: any, idx: number) => {
+          const expDate = offer.expires_at ? new Date(offer.expires_at).toLocaleDateString('sk-SK') : 'unknown';
+          return `${offer.name || 'Offer'} EU ${offer.size || '-'} expired ${expDate} (#${idx + 1})`;
+        }),
       };
     });
 
@@ -356,8 +363,8 @@ export default function SystemStatusPage() {
                 </div>
                 {check.samples && check.samples.length > 0 && (
                   <div className="mt-3 space-y-1 border-t border-black/5 pt-2">
-                    {check.samples.map(sample => (
-                      <p key={sample} className="truncate text-xs text-gray-700" title={sample}>
+                    {check.samples.map((sample, idx) => (
+                      <p key={`${sample}-${idx}`} className="truncate text-xs text-gray-700" title={sample}>
                         {sample}
                       </p>
                     ))}
