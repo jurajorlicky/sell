@@ -11,7 +11,7 @@ import {
   FaSave, FaStickyNote, FaTruck, FaBox, FaLink, FaTimes, FaPlus, FaEdit, 
   FaFilePdf, FaUpload, FaTrash, FaClock, FaFileContract, FaFileInvoice,
   FaChevronDown, FaChevronUp, FaArrowRight, FaExternalLinkAlt, FaCheckCircle, 
-  FaEnvelope, FaCheck
+  FaEnvelope, FaCheck, FaDownload
 } from 'react-icons/fa';
 
 interface ManualSaleItem {
@@ -547,6 +547,29 @@ export default function AdminSalesStatusManager({
       setError('Error deleting contract PDF: ' + (err.message || 'Unknown error'));
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleDownloadFile = async (url: string, filename: string) => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      window.URL.revokeObjectURL(blobUrl);
+      document.body.removeChild(link);
+    } catch {
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
   };
 
@@ -1398,14 +1421,23 @@ export default function AdminSalesStatusManager({
                   </div>
                   <div>
                     <p className="text-xs font-bold text-gray-900">Purchase Agreement Generated</p>
-                    <a
-                      href={contractUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs font-semibold text-blue-600 hover:underline inline-flex items-center mt-0.5"
-                    >
-                      <FaExternalLinkAlt className="mr-1 text-[9px]" /> Open PDF
-                    </a>
+                    <div className="flex items-center gap-3 mt-0.5">
+                      <a
+                        href={contractUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs font-semibold text-blue-600 hover:underline inline-flex items-center"
+                      >
+                        <FaExternalLinkAlt className="mr-1 text-[9px]" /> Open PDF
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadFile(contractUrl, `zmluva-${saleData?.external_id || saleId}.pdf`)}
+                        className="text-xs font-semibold text-blue-600 hover:underline inline-flex items-center"
+                      >
+                        <FaDownload className="mr-1 text-[9px]" /> Download
+                      </button>
+                    </div>
                   </div>
                 </div>
                 <button
@@ -1455,14 +1487,23 @@ export default function AdminSalesStatusManager({
                   </div>
                   <div>
                     <p className="text-xs font-bold text-gray-900">FA Invoice Uploaded</p>
-                    <a
-                      href={faUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs font-semibold text-emerald-700 hover:underline inline-flex items-center mt-0.5"
-                    >
-                      <FaExternalLinkAlt className="mr-1 text-[9px]" /> Open PDF
-                    </a>
+                    <div className="flex items-center gap-3 mt-0.5">
+                      <a
+                        href={faUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs font-semibold text-emerald-700 hover:underline inline-flex items-center"
+                      >
+                        <FaExternalLinkAlt className="mr-1 text-[9px]" /> Open PDF
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadFile(faUrl, `faktura-${saleData?.external_id || saleId}.pdf`)}
+                        className="text-xs font-semibold text-emerald-700 hover:underline inline-flex items-center"
+                      >
+                        <FaDownload className="mr-1 text-[9px]" /> Download
+                      </button>
+                    </div>
                   </div>
                 </div>
                 <button
@@ -1507,14 +1548,23 @@ export default function AdminSalesStatusManager({
                   </div>
                   <div>
                     <p className="text-xs font-bold text-gray-900">Shipping Label Uploaded</p>
-                    <a
-                      href={labelUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs font-semibold text-red-700 hover:underline inline-flex items-center mt-0.5"
-                    >
-                      <FaExternalLinkAlt className="mr-1 text-[9px]" /> Open PDF
-                    </a>
+                    <div className="flex items-center gap-3 mt-0.5">
+                      <a
+                        href={labelUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs font-semibold text-red-700 hover:underline inline-flex items-center"
+                      >
+                        <FaExternalLinkAlt className="mr-1 text-[9px]" /> Open PDF
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadFile(labelUrl, `label-${saleData?.external_id || saleId}.pdf`)}
+                        className="text-xs font-semibold text-red-700 hover:underline inline-flex items-center"
+                      >
+                        <FaDownload className="mr-1 text-[9px]" /> Download
+                      </button>
+                    </div>
                   </div>
                 </div>
                 <button
